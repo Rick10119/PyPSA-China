@@ -10,6 +10,7 @@ from shapely.geometry import Point
 import atlite
 import xarray as xr
 from functions import pro_names
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,13 @@ def build_population_map():
 
     pro_poly = gpd.read_file(snakemake.input.province_shape)[['NAME_1', 'geometry']]
 
+    # 检查是否有重复的省份名称
+    print("重复的省份名称：")
+    print(pro_poly['NAME_1'].value_counts()[pro_poly['NAME_1'].value_counts() > 1])
+
+    # 移除重复项（保留第一个出现的）
+    pro_poly = pro_poly.drop_duplicates(subset='NAME_1', keep='first')
+
     pro_poly.replace(to_replace={'Nei Mongol': 'InnerMongolia',
                                  'Xinjiang Uygur': 'Xinjiang',
                                  'Ningxia Hui': 'Ningxia',
@@ -46,18 +54,21 @@ def build_population_map():
 
     pro_poly.set_index('NAME_1', inplace=True)
 
+    # 检查索引是否唯一
+    print("\n索引是否唯一：", pro_poly.index.is_unique)
+
+    # 确保没有重复后再进行 reindex
     pro_poly = pro_poly.reindex(pro_names)
 
     pro_poly.reset_index(inplace=True)
 
     cutout = atlite.Cutout(snakemake.input.cutout)
 
-    c_grid_points = cutout.grid_coordinates()
-
+    # 使用 grid 属性直接获取坐标
     df = pd.DataFrame()
-
-    df['Coordinates'] = tuple(map(tuple, c_grid_points))
-
+    df['x'] = cutout.coords['x'].values.repeat(len(cutout.coords['y']))
+    df['y'] = np.tile(cutout.coords['y'].values, len(cutout.coords['x']))
+    df['Coordinates'] = list(zip(df.x, df.y))
     df['Coordinates'] = df['Coordinates'].apply(Point)
 
     grid_points = gpd.GeoDataFrame(df, geometry='Coordinates',crs=4326)
