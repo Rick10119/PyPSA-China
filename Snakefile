@@ -140,7 +140,7 @@ rule build_solar_thermal_profiles:
         cutout="cutouts/China-2020.nc",
         population_map="data/population/population_gridcell_map.h5"
     output:
-        profile_solar_thermal = f"data/heating/solar_thermal-{config['solar_thermal_angle']}.h5"
+        profile_solar_thermal="data/heating/solar_thermal-{}.h5".format(str(config['solar_thermal_angle']).replace(' ', ''))
     threads: 8
     resources: mem_mb=30000
     script: "scripts/build_solar_thermal_profiles.py"
@@ -169,19 +169,19 @@ rule build_cop_profiles:
 if config['enable'].get('retrieve_raster', True):
     rule retrieve_build_up_raster:
         input: HTTP.remote("zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_BuiltUp-CoverFraction-layer_EPSG-4326.tif", keep_local=True, static=True)
-        output: "data/resources/Build_up.tif"
+        output: "data/landuse_availability/Build_up.tif"
         run: move(input[0], output[0])
     rule retrieve_Grass_raster:
         input: HTTP.remote("zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_Grass-CoverFraction-layer_EPSG-4326.tif", keep_local=True, static=True)
-        output: "data/resources/Grass.tif"
+        output: "data/landuse_availability/Grass.tif"
         run: move(input[0], output[0])
     rule retrieve_Bare_raster:
         input: HTTP.remote("zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_Bare-CoverFraction-layer_EPSG-4326.tif", keep_local=True, static=True)
-        output: "data/resources/Bare.tif"
+        output: "data/landuse_availability/Bare.tif"
         run: move(input[0], output[0])
     rule retrieve_Shrubland_raster:
         input: HTTP.remote("zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_Shrub-CoverFraction-layer_EPSG-4326.tif", keep_local=True, static=True)
-        output: "data/resources/Shrubland.tif"
+        output: "data/landuse_availability/Shrubland.tif"
         run: move(input[0], output[0])
 
 rule build_renewable_potential:
@@ -190,9 +190,9 @@ rule build_renewable_potential:
         Grass_raster="data/landuse_availability/Grass.tif",
         Bare_raster="data/landuse_availability/Bare.tif",
         Shrubland_raster="data/landuse_availability/Shrubland.tif",
-        natura1='data/landuse_availability/WDPA_WDOECM_Mar2022_Public_CHN_shp/WDPA_WDOECM_Mar2022_Public_CHN_shp_0/WDPA_WDOECM_Mar2022_Public_CHN_shp-polygons.shp',
-        natura2='data/landuse_availability/WDPA_WDOECM_Mar2022_Public_CHN_shp/WDPA_WDOECM_Mar2022_Public_CHN_shp_1/WDPA_WDOECM_Mar2022_Public_CHN_shp-polygons.shp',
-        natura3='data/landuse_availability/WDPA_WDOECM_Mar2022_Public_CHN_shp/WDPA_WDOECM_Mar2022_Public_CHN_shp_2/WDPA_WDOECM_Mar2022_Public_CHN_shp-polygons.shp',
+        natura1='data/landuse_availability/WDPA_WDOECM_Nov2024_Public_CHN_shp/WDPA_WDOECM_Nov2024_Public_CHN_shp_0/WDPA_WDOECM_Nov2024_Public_CHN_shp-polygons.shp',
+        natura2='data/landuse_availability/WDPA_WDOECM_Nov2024_Public_CHN_shp/WDPA_WDOECM_Nov2024_Public_CHN_shp_1/WDPA_WDOECM_Nov2024_Public_CHN_shp-polygons.shp',
+        natura3='data/landuse_availability/WDPA_WDOECM_Nov2024_Public_CHN_shp/WDPA_WDOECM_Nov2024_Public_CHN_shp_2/WDPA_WDOECM_Nov2024_Public_CHN_shp-polygons.shp',
         gebco="data/landuse_availability/GEBCO_tiff/gebco_2021.tif",
         provinces_shp="data/province_shapes/CHN_adm1.shp",
         offshore_province_shapes="data/resources/regions_offshore_province.geojson",
