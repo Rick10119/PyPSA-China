@@ -30,13 +30,31 @@ if __name__ == "__main__":
     noprogress = not snakemake.config['atlite'].get('show_progress', True)
 
     cutout = atlite.Cutout(snakemake.input.cutout)
+
     cutout.prepare()
+    # 读取省份数据
     provinces_shp = gpd.read_file(snakemake.input.provinces_shp)[['NAME_1', 'geometry']]
+
+    # 替换名称
     provinces_shp.replace(to_replace={'Nei Mongol': 'InnerMongolia',
-                                      'Xinjiang Uygur': 'Xinjiang',
-                                      'Ningxia Hui': 'Ningxia',
-                                      'Xizang': 'Tibet'}, inplace=True)
+                                  'Xinjiang Uygur': 'Xinjiang',
+                                  'Ningxia Hui': 'Ningxia',
+                                  'Xizang': 'Tibet'}, inplace=True)
+
+    # 设置索引
     provinces_shp.set_index('NAME_1', inplace=True)
+
+    # 检查重复项
+    duplicates = provinces_shp.index.duplicated()
+    if duplicates.any():
+        print("重复的省份名称：", provinces_shp.index[duplicates])
+        # 选择保留第一个出现的重复项
+        provinces_shp = provinces_shp[~duplicates]
+
+    # 确保 pro_names 唯一
+    pro_names = list(set(pro_names))
+
+    # 重新索引
     provinces_shp = provinces_shp.reindex(pro_names).rename_axis('bus')
 
     buses = provinces_shp.index

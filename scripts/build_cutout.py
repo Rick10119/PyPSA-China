@@ -23,11 +23,14 @@ if __name__ == "__main__":
     cutout_params['time'] = slice(*cutout_params.get('time', time))
     
     if {'x', 'y', 'bounds'}.isdisjoint(cutout_params):
-        # Determine the bounds from bus regions with a buffer of two grid cells
+        # 从 bus 区域确定边界，并加上两个网格单元的缓冲
         onshore = gpd.read_file(snakemake.input.regions_onshore)
         offshore = gpd.read_file(snakemake.input.regions_offshore)
-        regions =  onshore.append(offshore)
-        d = max(cutout_params.get('dx', 0.25), cutout_params.get('dy', 0.25))*2
+        
+        # 使用 pd.concat 替代 append
+        regions = pd.concat([onshore, offshore], ignore_index=True)
+        
+        d = max(cutout_params.get('dx', 0.25), cutout_params.get('dy', 0.25)) * 2
         cutout_params['bounds'] = regions.total_bounds + [-d, -d, d, d]
     elif {'x', 'y'}.issubset(cutout_params):
         cutout_params['x'] = slice(*cutout_params['x'])
