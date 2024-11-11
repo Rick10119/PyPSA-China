@@ -13,3 +13,5 @@ __pycache__
 /data
 /benchmarks
 ./vscode
+scripts/test.py
+PyPSA-China.code-workspace
