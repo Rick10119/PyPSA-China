@@ -1,19 +1,9 @@
 import xarray as xr
-import os
+import pandas as pd
 
-# 定义文件路径
-file1 = "../cutouts/63c61eaf523ec098207308f4544fdc5d.nc"  # 替换为实际文件名
-file2 = "../cutouts/China-2020-1.nc"  # 替换为实际文件名
-output_file = "../cutouts/China-2020.nc"
+# 读取 NetCDF 文件
+file_path = r'C:\Users\dell\Documents\GitHub\PyPSA-China\resources\profile_onwind.nc'
+data = xr.open_dataset(file_path)
 
-# 打开两个文件
-ds1 = xr.open_dataset(file1)
-ds2 = xr.open_dataset(file2)
-
-# 合并数据集
-combined_ds = xr.merge([ds1, ds2])
-
-# 保存合并后的数据集
-combined_ds.to_netcdf(output_file)
-
-print(f"合并完成，输出文件为: {output_file}")
+# 打印数据集的变量
+print(data.variables)
