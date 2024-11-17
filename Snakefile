@@ -202,7 +202,7 @@ rule build_renewable_potential:
         natura1='data/landuse_availability/WDPA_WDOECM_Nov2024_Public_CHN_shp/WDPA_WDOECM_Nov2024_Public_CHN_shp_0/WDPA_WDOECM_Nov2024_Public_CHN_shp-polygons.shp',
         natura2='data/landuse_availability/WDPA_WDOECM_Nov2024_Public_CHN_shp/WDPA_WDOECM_Nov2024_Public_CHN_shp_1/WDPA_WDOECM_Nov2024_Public_CHN_shp-polygons.shp',
         natura3='data/landuse_availability/WDPA_WDOECM_Nov2024_Public_CHN_shp/WDPA_WDOECM_Nov2024_Public_CHN_shp_2/WDPA_WDOECM_Nov2024_Public_CHN_shp-polygons.shp',
-        gebco="data/landuse_availability/GEBCO_2021/gebco_2021.tif",
+        gebco="data/landuse_availability/GEBCO_2024/gebco_2024.tif",
         provinces_shp="data/province_shapes/CHN_adm1.shp",
         offshore_province_shapes="data/resources/regions_offshore_province.geojson",
         offshore_shapes="data/resources/regions_offshore.geojson",
@@ -212,8 +212,8 @@ rule build_renewable_potential:
         onwind_profile="resources/profile_onwind.nc",
         offwind_profile="resources/profile_offwind.nc"
     log: "logs/build_renewable_potential.log"
-    threads: ATLITE_NPROCESSES
-    resources: mem_mb=ATLITE_NPROCESSES * 5000
+    threads: 5
+    resources: mem_mb=50000
     script: "scripts/build_renewable_potential.py"
 
 rule build_load_profiles:
@@ -268,36 +268,6 @@ if config["foresight"] == "non-pathway":
         threads: 4
         resources: mem_mb=35000
         script: "scripts/solve_network.py"
-    #
-    # rule plot_network:
-    #     input:
-    #         network=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-    #         tech_costs="data/costs_{planning_horizons}.csv"
-    #     output:
-    #         only_map=config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.pdf',
-    #         cost_map=config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}-cost.pdf',
-    #         ext=config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}_ext.pdf'
-    #     log: "logs/plot_network/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log"
-    #     script: "scripts/plot_network.py"
-
-    # rule make_summary:
-    #     input:
-    #         network=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-    #         tech_costs="data/costs_{planning_horizons}.csv",
-    #     output:
-    #         directory(config['results_dir'] + 'version-' + str(config['version']) + '/summary/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}'),
-    #     log: "logs/make_summary/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log"
-    #     resources: mem_mb=5000
-    #     script: "scripts/make_summary.py"
-    #
-    # rule plot_summary:
-    #     input:
-    #         config['results_dir'] + 'version-' + str(config['version']) + '/summary/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}'
-    #     output:
-    #         energy = config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}_energy.png',
-    #         cost = config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}_costs.png'
-    #     log: "logs/plot/summary/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log"
-    #     script: "scripts/plot_summary.py"
 
 if config["foresight"] == "myopic":
     rule prepare_base_networks_2020:
@@ -397,6 +367,7 @@ if config["foresight"] == "myopic":
         threads: 4
         resources: mem_mb = 80000
         script: "scripts/solve_network_myopic.py"
+
     
 if config["plot"]:
 

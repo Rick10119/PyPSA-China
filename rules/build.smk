@@ -1,12 +1,4 @@
 # added rules
-rule build_tif_with_nc:
-    input:
-        nc_file="{data_dir}/{file}.nc"
-    output:
-        tif_file="{data_dir}/{file}.tif"
-    threads: 2
-    resources: mem_mb=50000
-    script: "scripts/build_tif_with_nc.py"
 
 rule build_offshore_province:
     input:
@@ -16,3 +8,4 @@ rule build_offshore_province:
     threads: 1
     resources: mem_mb=1000
     script: "scripts/build_offshore_province.py"
+

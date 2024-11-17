@@ -15,9 +15,18 @@ import numpy as np
 import time
 import pandas as pd
 
-from functions import pro_names
+from scripts.functions import pro_names
 
 logger = logging.getLogger(__name__)
+
+# 首先定义 offwind_pro_names
+offwind_pro_names = np.array(['Fujian', 'Guangdong', 'Guangxi', 'Hainan', 'Hebei',
+                           'Jiangsu', 'Liaoning', 'Shandong', 'Shanghai', 'Tianjin', 'Zhejiang'],
+                           dtype=str)
+
+def close_all_rasters():
+    import gc
+    gc.collect()  # 触发垃圾回收
 
 if __name__ == "__main__":
     if 'snakemake' not in globals():
@@ -31,7 +40,7 @@ if __name__ == "__main__":
 
     cutout = atlite.Cutout(snakemake.input.cutout)
 
-    cutout.prepare()
+    cutout.prepare(tmpdir="cutouts/tmp/")
     # 读取省份数据
     provinces_shp = gpd.read_file(snakemake.input.provinces_shp)[['NAME_1', 'geometry']]
 
@@ -41,15 +50,23 @@ if __name__ == "__main__":
                                   'Ningxia Hui': 'Ningxia',
                                   'Xizang': 'Tibet'}, inplace=True)
 
-    # 设置索引
-    provinces_shp.set_index('NAME_1', inplace=True)
+    # 移除香港和澳门
+    provinces_shp = provinces_shp[~provinces_shp['NAME_1'].isin(['Hong Kong', 'Macau'])]
 
-    # 检查重复项
-    duplicates = provinces_shp.index.duplicated()
-    if duplicates.any():
-        print("重复的省份名称：", provinces_shp.index[duplicates])
-        # 选择保留第一个出现的重复项
-        provinces_shp = provinces_shp[~duplicates]
+    # 处理重复项
+    provinces_shp = provinces_shp.dissolve(by='NAME_1').reset_index()
+
+    # 设置索引
+    provinces_shp = provinces_shp.set_index('NAME_1')
+
+    # 确保所有需要的省份都存在
+    required_provinces = set(offwind_pro_names)
+    missing_provinces = required_provinces - set(provinces_shp.index)
+    if missing_provinces:
+        print(f"警告: 缺少以下省份: {missing_provinces}")
+
+    # 验证数据
+    print("最终省份列表:", sorted(provinces_shp.index.tolist()))
 
     # 确保 pro_names 唯一
     pro_names = list(set(pro_names))
@@ -188,18 +205,19 @@ if __name__ == "__main__":
         if offwind_correction_factor != 1.:
             logger.info(f'offwind_correction_factor is set as {offwind_correction_factor}')
 
-        offwind_pro_names = np.array(['Fujian', 'Guangdong', 'Guangxi', 'Hainan', 'Hebei',
-                                      'Jiangsu', 'Liaoning', 'Shandong', 'Shanghai', 'Tianjin', 'Zhejiang'],
-                                     dtype=str)
-
         EEZ_shp = gpd.read_file(snakemake.input['offshore_shapes'])
-        EEZ_province_shp = gpd.read_file(snakemake.input['offshore_province_shapes']).set_index('index')
-        EEZ_province_shp = EEZ_province_shp.reindex(offwind_pro_names).rename_axis('bus')
+        EEZ_province_shp = gpd.read_file(snakemake.input['offshore_province_shapes'])
+        EEZ_province_shp = EEZ_province_shp.set_index('bus')
+        
+        # 在创建 excluder 之前关闭所有栅格
+        close_all_rasters()
+        
         excluder_offwind = ExclusionContainer(crs=3035, res=500)
 
         if "max_depth" in offwind_config:
             func = functools.partial(np.greater, -offwind_config['max_depth'])
             excluder_offwind.add_raster(snakemake.input.gebco, codes=func, crs=4236, nodata=-1000)
+            close_all_rasters()  # 添加完一个栅格后关闭
 
         if offwind_config['natura']:
             Protected_shp = gpd.read_file(snakemake.input['natura1'])
@@ -211,15 +229,18 @@ if __name__ == "__main__":
             Protected_shp = gpd.GeoDataFrame(Protected_shp)
             Protected_Marine_shp = gpd.tools.overlay(Protected_shp, EEZ_shp, how='intersection')
             excluder_offwind.add_geometry(Protected_Marine_shp.geometry)
+            close_all_rasters()  # 添加完几何数据后关闭
 
         kwargs = dict(nprocesses=nprocesses, disable_progressbar=noprogress)
         if noprogress:
             logger.info('Calculate offwind landuse availabilities...')
             start = time.time()
+            close_all_rasters()  # 计算前最后一次关闭
             offwind_matrix = cutout.availabilitymatrix(EEZ_province_shp, excluder_offwind, **kwargs)
             duration = time.time() - start
             logger.info(f'Completed offwind availability calculation ({duration:2.2f}s)')
         else:
+            close_all_rasters()  # 计算前最后一次关闭
             offwind_matrix = cutout.availabilitymatrix(EEZ_province_shp, excluder_offwind, **kwargs)
 
         offwind_potential = offwind_capacity_per_sqkm * offwind_matrix.sum('bus') * area
