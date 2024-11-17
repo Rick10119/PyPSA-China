@@ -1,17 +1,14 @@
-# SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors
+# -*- snakemake -*-
+# # SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors
 #
 # SPDX-License-Identifier: MIT
 
 from os.path import normpath
 from shutil import move
 
-from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
-HTTP = HTTPRemoteProvider()
-
 configfile: "config.yaml"
 
 ATLITE_NPROCESSES = config['atlite'].get('nprocesses', 4)
-
 
 if config["foresight"] == "non-pathway":
     rule prepare_all_networks:
@@ -106,10 +103,11 @@ rule build_population:
 
 if config['enable'].get('retrieve_cutout', True):
     rule retrieve_cutout:
-        input: HTTP.remote("zenodo.org/record/8343761/files/China-2020.nc", keep_local=True, static=True)
         output: "cutouts/{cutout}.nc"
-        run: move(input[0], output[0])
-
+        params:
+            url="https://zenodo.org/record/8343761/files/China-2020.nc"
+        shell:
+            "wget {params.url} -O {output}"
 
 if config['enable'].get('build_cutout', False):
     rule build_cutout:
@@ -168,21 +166,32 @@ rule build_cop_profiles:
 
 if config['enable'].get('retrieve_raster', True):
     rule retrieve_build_up_raster:
-        input: HTTP.remote("zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_BuiltUp-CoverFraction-layer_EPSG-4326.tif", keep_local=True, static=True)
         output: "data/landuse_availability/Build_up.tif"
-        run: move(input[0], output[0])
+        params:
+            url="https://zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_BuiltUp-CoverFraction-layer_EPSG-4326.tif"
+        shell:
+            "wget {params.url} -O {output}"
+
     rule retrieve_Grass_raster:
-        input: HTTP.remote("zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_Grass-CoverFraction-layer_EPSG-4326.tif", keep_local=True, static=True)
         output: "data/landuse_availability/Grass.tif"
-        run: move(input[0], output[0])
+        params:
+            url="https://zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_Grass-CoverFraction-layer_EPSG-4326.tif"
+        shell:
+            "wget {params.url} -O {output}"
+
     rule retrieve_Bare_raster:
-        input: HTTP.remote("zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_Bare-CoverFraction-layer_EPSG-4326.tif", keep_local=True, static=True)
         output: "data/landuse_availability/Bare.tif"
-        run: move(input[0], output[0])
+        params:
+            url="https://zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_Bare-CoverFraction-layer_EPSG-4326.tif"
+        shell:
+            "wget {params.url} -O {output}"
+
     rule retrieve_Shrubland_raster:
-        input: HTTP.remote("zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_Shrub-CoverFraction-layer_EPSG-4326.tif", keep_local=True, static=True)
         output: "data/landuse_availability/Shrubland.tif"
-        run: move(input[0], output[0])
+        params:
+            url="https://zenodo.org/record/3939050/files/PROBAV_LC100_global_v3.0.1_2019-nrt_Shrub-CoverFraction-layer_EPSG-4326.tif"
+        shell:
+            "wget {params.url} -O {output}"
 
 rule build_renewable_potential:
     input:
@@ -193,7 +202,7 @@ rule build_renewable_potential:
         natura1='data/landuse_availability/WDPA_WDOECM_Nov2024_Public_CHN_shp/WDPA_WDOECM_Nov2024_Public_CHN_shp_0/WDPA_WDOECM_Nov2024_Public_CHN_shp-polygons.shp',
         natura2='data/landuse_availability/WDPA_WDOECM_Nov2024_Public_CHN_shp/WDPA_WDOECM_Nov2024_Public_CHN_shp_1/WDPA_WDOECM_Nov2024_Public_CHN_shp-polygons.shp',
         natura3='data/landuse_availability/WDPA_WDOECM_Nov2024_Public_CHN_shp/WDPA_WDOECM_Nov2024_Public_CHN_shp_2/WDPA_WDOECM_Nov2024_Public_CHN_shp-polygons.shp',
-        gebco="data/landuse_availability/GEBCO_tiff/gebco_2021.tif",
+        gebco="data/landuse_availability/GEBCO_2021/gebco_2021.tif",
         provinces_shp="data/province_shapes/CHN_adm1.shp",
         offshore_province_shapes="data/resources/regions_offshore_province.geojson",
         offshore_shapes="data/resources/regions_offshore.geojson",
@@ -388,6 +397,15 @@ if config["foresight"] == "myopic":
         threads: 4
         resources: mem_mb = 80000
         script: "scripts/solve_network_myopic.py"
+
+rule build_tif_with_nc:
+    input:
+        nc_file="{data_dir}/{file}.nc"
+    output:
+        tif_file="{data_dir}/{file}.tif"
+    threads: 2
+    resources: mem_mb=50000
+    script: "scripts/build_tif_with_nc.py"
 
 if config["plot"]:
 
