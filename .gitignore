@@ -5,13 +5,13 @@
 __pycache__
 .DS_Store
 .idea/
-
+/data
+/envs
+/LICENSES
 /resources
 /results
 /cutouts
 /logs
-/data
 /benchmarks
 ./vscode
-scripts/test.py
 PyPSA-China.code-workspace

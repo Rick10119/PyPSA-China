@@ -7,7 +7,7 @@ from os.path import normpath
 from shutil import move
 
 configfile: "config.yaml"
-
+include: "rules/build.smk"
 ATLITE_NPROCESSES = config['atlite'].get('nprocesses', 4)
 
 if config["foresight"] == "non-pathway":
@@ -397,16 +397,7 @@ if config["foresight"] == "myopic":
         threads: 4
         resources: mem_mb = 80000
         script: "scripts/solve_network_myopic.py"
-
-rule build_tif_with_nc:
-    input:
-        nc_file="{data_dir}/{file}.nc"
-    output:
-        tif_file="{data_dir}/{file}.tif"
-    threads: 2
-    resources: mem_mb=50000
-    script: "scripts/build_tif_with_nc.py"
-
+    
 if config["plot"]:
 
     include: "rules/plot.smk"
