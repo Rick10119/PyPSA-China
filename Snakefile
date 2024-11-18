@@ -8,6 +8,7 @@ from shutil import move
 
 configfile: "config.yaml"
 include: "rules/build.smk"
+include: "rules/plot.smk"
 ATLITE_NPROCESSES = config['atlite'].get('nprocesses', 4)
 
 if config["foresight"] == "non-pathway":
@@ -311,7 +312,7 @@ if config["foresight"] == "myopic":
             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
             cop_name="data/heating/cop.h5",
             province_shape="data/province_shapes/CHN_adm1.shp",
-            elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            elec_load="data/load/load_{planning_horizons}_weatheryears_2020_2060_TWh.h5",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_fraction_2020.h5",
             tech_costs= "data/costs/costs_{planning_horizons}.csv",
@@ -332,7 +333,7 @@ if config["foresight"] == "myopic":
             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
             cop_name="data/heating/cop.h5",
             province_shape="data/province_shapes/CHN_adm1.shp",
-            elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            elec_load="data/load/load_{planning_horizons}_weatheryears_2020_2060_TWh.h5",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_fraction_2020.h5",
             tech_costs= "data/costs/costs_{planning_horizons}.csv",
@@ -402,9 +403,8 @@ if config["foresight"] == "myopic":
         script: "scripts/solve_network_myopic.py"
 
     
-if config["plot"]:
 
-    include: "rules/plot.smk"
+    
 
 
 
