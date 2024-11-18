@@ -97,9 +97,15 @@ rule build_population:
         population="data/population/population_from_National_Data_2020.csv"
     output:
         population="data/population/population.h5"
+    log:
+        "logs/build_population.log"
+    benchmark:
+        "benchmarks/build_population"
     threads: 1
-    resources: mem_mb=1000
-    script: "scripts/build_population.py"
+    resources: 
+        mem_mb=1000
+    script: 
+        "scripts/build_population.py"
 
 if config['enable'].get('retrieve_cutout', True):
     rule retrieve_cutout:
@@ -245,9 +251,9 @@ rule build_energy_totals:
         heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
         population = "data/population/population_from_National_Data_2020.csv"
     output:
-        energy_totals = "data/energy_totals_{planning_horizons}.h5"
+        energy_totals = "data/energy_totals_{heating_demand}_{planning_horizons}.h5"
     log:
-        "logs/build_energy_totals/energy_totals_{planning_horizons}.log"
+        "logs/build_energy_totals/energy_totals_{heating_demand}_{planning_horizons}.log"
     threads: 4
     resources: 
         mem_mb = 10000
@@ -273,7 +279,7 @@ if config["foresight"] == "non-pathway":
             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
             heat_demand_name="data/heating/daily_heat_demand.h5",
             cop_name="data/heating/cop.h5",
-            energy_totals_name="data/energy_totals_{planning_horizons}.h5",
+            energy_totals_name="data/energy_totals_{heating_demand}_{planning_horizons}.h5",
             co2_totals_name="data/co2_totals.h5",
             temp="data/heating/temp.h5",
             tech_costs = "data/costs_{planning_horizons}.csv",

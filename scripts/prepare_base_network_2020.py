@@ -5,7 +5,7 @@
 # for pathway network
 
 from vresutils.costdata import annuity
-from _helpers import configure_logging,override_component_attrs
+from scripts._helpers import configure_logging,override_component_attrs
 import pypsa
 from shapely.geometry import Point
 import geopandas as gpd
@@ -13,8 +13,8 @@ import pandas as pd
 import numpy as np
 from math import radians, cos, sin, asin, sqrt
 import xarray as xr
-from functions import pro_names, HVAC_cost_curve
-from add_electricity import load_costs
+from scripts.functions import pro_names, HVAC_cost_curve
+from scripts.add_electricity import load_costs
 
 def haversine(p1,p2):
     """Calculate the great circle distance in km between two points on

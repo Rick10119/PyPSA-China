@@ -12,8 +12,8 @@ import numpy as np
 
 import pypsa
 
-from add_electricity import load_costs
-from _helpers import override_component_attrs
+from scripts.add_electricity import load_costs
+from scripts._helpers import override_component_attrs
 
 from types import SimpleNamespace
 spatial = SimpleNamespace()
