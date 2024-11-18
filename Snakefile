@@ -280,7 +280,7 @@ if config["foresight"] == "myopic":
             province_shape="data/province_shapes/CHN_adm1.shp",
             elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
-            central_fraction="data/heating/DH_percent2020.h5",
+            central_fraction="data/heating/DH_fraction_2020.h5",
             tech_costs= "data/costs/costs_{planning_horizons}.csv",
             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
                for tech in config['renewable']}
@@ -301,7 +301,7 @@ if config["foresight"] == "myopic":
             province_shape="data/province_shapes/CHN_adm1.shp",
             elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
-            central_fraction="data/heating/DH_percent2020.h5",
+            central_fraction="data/heating/DH_fraction_2020.h5",
             tech_costs= "data/costs/costs_{planning_horizons}.csv",
             biomass_potental = "data/p_nom/biomass_potential.h5",
             **{f"profile_{tech}": f"resources/profile_{tech}.nc"

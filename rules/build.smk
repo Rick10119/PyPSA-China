@@ -23,8 +23,8 @@ rule build_DH_fraction:
         population="data/population/population.h5",
         sph_demand="data/heating/SPH_2020.csv"
     output:
-        dh_fraction="data/heating/DH_percent2020.h5"
+        dh_fraction="data/heating/DH_fraction_2020.h5"
     threads: 1
     resources: mem_mb=1000
-    script: "scripts/DH_percent2020.py"
+    script: "scripts/DH_fraction_2020.py"
 

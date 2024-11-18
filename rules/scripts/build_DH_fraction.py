@@ -40,11 +40,11 @@ def calculate_dh_fraction():
 dh_fraction = calculate_dh_fraction()
 
 # 保存为h5文件
-with pd.HDFStore('data/heating/DH_percent2020.h5', mode='w') as store:
+with pd.HDFStore('data/heating/DH_fraction_2020.h5', mode='w') as store:
     store['central_fraction'] = dh_fraction
 
 # 打印结果和验证
-print("已生成 DH_percent2020.h5 文件")
+print("已生成 DH_fraction_2020.h5 文件")
 print("\n各省份集中供暖比例:")
 for province in dh_fraction.index:
     if dh_fraction[province] > 0:
