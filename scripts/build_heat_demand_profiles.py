@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 import logging
-from _helpers import configure_logging
+from scripts._helpers import configure_logging
 
 import atlite
 

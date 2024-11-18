@@ -28,3 +28,11 @@ rule build_DH_fraction:
     resources: mem_mb=1000
     script: "scripts/DH_fraction_2020.py"
 
+rule build_co2_totals:
+    output:
+        "data/co2_totals.h5"
+    script:
+        "scripts/build_co2_totals.py"
+
+
+

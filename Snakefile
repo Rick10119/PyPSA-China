@@ -129,8 +129,8 @@ rule build_population_gridcell_map:
         province_shape="data/province_shapes/CHN_adm1.shp"
     output:
         population_map="data/population/population_gridcell_map.h5"
-    threads: 1
-    resources: mem_mb=35000
+    threads: 5
+    resources: mem_mb=50000
     script: "scripts/build_population_gridcell_map.py"
 
 rule build_solar_thermal_profiles:
@@ -228,6 +228,26 @@ rule build_load_profiles:
     threads: ATLITE_NPROCESSES
     resources: mem_mb = ATLITE_NPROCESSES * 5000
     script: "scripts/build_load_profiles.py"
+
+rule build_heat_demand_profiles:
+    input:
+        population_map="data/population/population_gridcell_map.h5",
+        cutout="cutouts/China-2020.nc"
+    output:
+        daily_heat_demand="data/heating/daily_heat_demand.h5"  # 没有通配符
+    threads: 5
+    resources: mem_mb=5 * 5000
+    script: "scripts/build_heat_demand_profiles.py"
+
+rule build_energy_totals:
+    input:
+        daily_heat_demand="data/heating/daily_heat_demand.h5",  # 使用基础热需求数据
+        population="data/population/population_from_National_Data_2020.csv"
+    output:
+        energy_totals="data/energy_totals_{planning_horizons}.h5"  # 有通配符
+    threads: 5
+    resources: mem_mb=50000
+    script: "scripts/build_energy_totals.py"
 
 rule build_biomass_potential:
     input:
@@ -372,5 +392,7 @@ if config["foresight"] == "myopic":
 if config["plot"]:
 
     include: "rules/plot.smk"
+
+
 
 

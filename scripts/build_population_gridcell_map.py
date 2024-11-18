@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 import logging
-from _helpers import configure_logging
+from scripts._helpers import configure_logging
 
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
 import atlite
 import xarray as xr
-from functions import pro_names
+from scripts.functions import pro_names
 import numpy as np
 
 logger = logging.getLogger(__name__)
