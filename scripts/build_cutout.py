@@ -38,4 +38,4 @@ if __name__ == "__main__":
         
     logging.info(f"Preparing cutout with parameters {cutout_params}.")
     cutout = atlite.Cutout(snakemake.output[0], **cutout_params)
-    cutout.prepare(tmpdir=snakemake.output[0].replace('.nc', '.tmp'))
+    cutout.prepare(tmpdir=snakemake.output[0].replace('.nc', ''))

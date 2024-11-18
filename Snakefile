@@ -116,8 +116,8 @@ if config['enable'].get('build_cutout', False):
         output: "cutouts/{cutout}.nc"
         log: "logs/build_cutout/{cutout}.log"
         benchmark: "benchmarks/build_cutout_{cutout}"
-        threads: ATLITE_NPROCESSES
-        resources: mem_mb=ATLITE_NPROCESSES * 1000
+        threads: 10
+        resources: mem_mb=50000
         script: "scripts/build_cutout.py"
 
 rule build_population_gridcell_map:

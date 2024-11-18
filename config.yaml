@@ -11,28 +11,30 @@ summary_dir: 'summary/'
 
 scenario:
   line_limits: [ 'opt' ]
-  pathway: ['exponential175','beta25175']
+  pathway: ['power_pathway']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   co2_reduction:
-    exponential175:
-      '2023': 0.0
-      '2030': 0.41175086
-      '2040': 0.688626
-      '2050': 0.87480618
-      '2060': 1.0
-    beta25175:
-      '2023': 0.0
-      '2030': 0.23251132
-      '2040': 0.76748868
-      '2050': 0.97687314
-      '2060': 1.0
+    power_pathway:
+      '2023': 0.0 #0.
+      '2025': 0.05 #0.06949544
+      '2030': 0.1 #0.27330722
+      '2035': 0.3 #0.52741596
+      '2040': 0.5 #0.75163934
+      '2045': 0.7 #0.90276156
+      '2050': 0.8 #0.97687314
+      '2055': 0.9 #0.99829624
+      '2060': 1.0 #1.0
   opts: ['ll']
   attr: 'p_nom'
   planning_horizons:
     - 2023
+    - 2025
     - 2030
+    - 2035
     - 2040
+    - 2045
     - 2050
+    - 2055
     - 2060
   heating_demand: ['positive']
 
