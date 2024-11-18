@@ -95,7 +95,7 @@ if config["foresight"] == "myopic":
 
 rule build_population:
     input:
-        population="data/population/population_from_National_Data_2023.csv"
+        population="data/population/population_from_National_Data_2020.csv"
     output:
         population="data/population/population.h5"
     log:
@@ -242,7 +242,7 @@ rule build_load_profiles:
 rule build_energy_totals:
     input:
         heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
-        population = "data/population/population_from_National_Data_2023.csv"
+        population = "data/population/population_from_National_Data_2020.csv"
     output:
         energy_totals = "data/energy_totals_{heating_demand}_{planning_horizons}.h5"
     log:

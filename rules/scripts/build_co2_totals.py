@@ -4,7 +4,7 @@ import pandas as pd
 def build_co2_totals():
     """
     Create CO2 totals reference data for China's electricity and heating sectors.
-    Values are based on 2023 emissions data.
+    Values are based on 2020 emissions data.
     """
     
     # Create DataFrame with CO2 emissions data
