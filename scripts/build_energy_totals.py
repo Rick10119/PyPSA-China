@@ -9,40 +9,28 @@ def build_energy_totals():
     planning_horizons = int(snakemake.wildcards.planning_horizons)
     
     # 读取省级人口数据
-    pop = pd.read_csv("data/population/population_from_National_Data_2020.csv", index_col=0)
+    pop = pd.read_csv(snakemake.input.population, index_col=0)
     
     # 读取省级供暖需求数据
-    sph = pd.read_hdf(snakemake.input.daily_heat_demand)
-    print("Available columns:", sph.columns.tolist())
-    
-    try:
-        # 尝试读取数据，如果列名不同则使用替代方案
-        space_heating_per_hdd = sph['space_heating_demand']
-    except KeyError:
-        # 可能的替代列名
-        alternative_names = ['heating_demand', 'heat_demand', 'space_heating']
-        for name in alternative_names:
-            if name in sph.columns:
-                space_heating_per_hdd = sph[name]
-                print(f"Using alternative column name: {name}")
-                break
-        else:
-            raise KeyError(f"Could not find space heating demand column. Available columns: {sph.columns.tolist()}")
+    with pd.HDFStore(snakemake.input.heat_demand_profile, mode='r') as store:
+        # 从heat_demand_profiles读取数据
+        heat_demand = store['heat_demand_profiles']
+        print("数据形状:", heat_demand.shape)
+        print("可用列:", heat_demand.columns.tolist())
     
     # 计算每天的生活热水需求 (MWh/day)
-    # 假设每人每天热水需求为X kWh
     daily_hw_per_person = 1.5  # kWh/person/day
     hot_water_per_day = pop['population'] * daily_hw_per_person / 1000  # 转换为MWh
     
     # 保存到HDF5文件
     with pd.HDFStore(snakemake.output.energy_totals, mode='w') as store:
-        store['space_heating_per_hdd'] = space_heating_per_hdd
+        store['space_heating_per_hdd'] = heat_demand
         store['hot_water_per_day'] = hot_water_per_day
         
         # 保存元数据
         store['metadata'] = pd.Series({
             'year': planning_horizons,
-            'unit_space_heating': 'MWh/HDD',
+            'unit_space_heating': 'normalized heat demand per province',
             'unit_hot_water': 'MWh/day'
         })
 

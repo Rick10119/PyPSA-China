@@ -216,48 +216,55 @@ rule build_renewable_potential:
     resources: mem_mb=50000
     script: "scripts/build_renewable_potential.py"
 
-rule build_load_profiles:
-    input:
-        population = "data/population/population.h5",
-        population_map = "data/population/population_gridcell_map.h5",
-        cutout = "cutouts/China-2020.nc",
-        intraday_profiles="data/heating/heat_load_profile_DK_AdamJensen.csv",
-        space_heat_demand="data/heating/SPH_2020.csv"
-    output:
-        heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5"
-    threads: ATLITE_NPROCESSES
-    resources: mem_mb = ATLITE_NPROCESSES * 5000
-    script: "scripts/build_load_profiles.py"
-
 rule build_heat_demand_profiles:
     input:
         population_map="data/population/population_gridcell_map.h5",
         cutout="cutouts/China-2020.nc"
     output:
-        daily_heat_demand="data/heating/daily_heat_demand.h5"  # 没有通配符
-    threads: 5
-    resources: mem_mb=5 * 5000
+        daily_heat_demand="data/heating/daily_heat_demand.h5"
     script: "scripts/build_heat_demand_profiles.py"
+
+rule build_load_profiles:
+    input:
+        population = "data/population/population.h5",
+        population_map = "data/population/population_gridcell_map.h5",
+        cutout = "cutouts/China-2020.nc",
+        intraday_profiles = "data/heating/heat_load_profile_DK_AdamJensen.csv",
+        space_heat_demand = "data/heating/SPH_2020.csv",
+        daily_heat_demand = "data/heating/daily_heat_demand.h5"
+    output:
+        heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5"
+    threads: 5
+    resources: 
+        mem_mb = 50000
+    script: 
+        "scripts/build_load_profiles.py"
 
 rule build_energy_totals:
     input:
-        daily_heat_demand="data/heating/daily_heat_demand.h5",  # 使用基础热需求数据
-        population="data/population/population_from_National_Data_2020.csv"
+        heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
+        population = "data/population/population_from_National_Data_2020.csv"
     output:
-        energy_totals="data/energy_totals_{planning_horizons}.h5"  # 有通配符
-    threads: 5
-    resources: mem_mb=50000
-    script: "scripts/build_energy_totals.py"
+        energy_totals = "data/energy_totals_{planning_horizons}.h5"
+    log:
+        "logs/build_energy_totals/energy_totals_{planning_horizons}.log"
+    threads: 4
+    resources: 
+        mem_mb = 10000
+    script: 
+        "scripts/build_energy_totals.py"
+
 
 rule build_biomass_potential:
     input:
         biomass_feedstocks = "data/p_nom/41467_2021_23282_MOESM4_ESM.xlsx"
     output:
         biomass_potential = "data/p_nom/biomass_potential.h5"
-    threads: ATLITE_NPROCESSES
-    resources: mem_mb = ATLITE_NPROCESSES * 5000
-    script: "scripts/build_biomass_potential.py"
-
+    threads: 5
+    resources: 
+        mem_mb = 50000
+    script: 
+        "scripts/build_biomass_potential.py"
 
 if config["foresight"] == "non-pathway":
     rule prepare_networks:
