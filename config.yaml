@@ -15,72 +15,30 @@ scenario:
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   co2_reduction:
     exponential175:
-      '2020': 0.0
-      '2025': 0.22623418
+      '2023': 0.0
       '2030': 0.41175086
-      '2035': 0.56387834
       '2040': 0.688626
-      '2045': 0.79092165
       '2050': 0.87480618
-      '2055': 0.94359322
-      '2060': 1.0
-    linear175:
-      '2020': 0.
-      '2025': 0.16666667
-      '2030': 0.33333333
-      '2035': 0.5
-      '2040': 0.66666667
-      '2045': 0.83333333
-      '2050': 1.0
-      '2055': 1.0
-      '2060': 1.0
-    beta05175:
-      '2020': 0.
-      '2025': 0.41489656
-      '2030': 0.5139467
-      '2035': 0.58764476
-      '2040': 0.65150003
-      '2045': 0.71196579
-      '2050': 0.77403968
-      '2055': 0.84573191
       '2060': 1.0
     beta25175:
-      '2020': 0.0 #0.
-      '2025': 0.05096974 #0.06949544
-      '2030': 0.23251132 #0.27330722
-      '2035': 0.5 #0.52741596
-      '2040': 0.76748868 #0.75163934
-      '2045': 0.94903026 #0.90276156
-      '2050': 1.0 #0.97687314
-      '2055': 1.0 #0.99829624
-      '2060': 1.0 #1.0
-    mean175:
-      '2020': 0.
-      '2025': 0.12193339
-      '2030': 0.29252381
-      '2035': 0.53193917
-      '2040': 0.75766462
-      '2045': 0.88664452
-      '2050': 0.93740309
-      '2055': 0.97179661
+      '2023': 0.0
+      '2030': 0.23251132
+      '2040': 0.76748868
+      '2050': 0.97687314
       '2060': 1.0
   opts: ['ll']
   attr: 'p_nom'
   planning_horizons:
-    - 2020
-    - 2025
+    - 2023
     - 2030
-    - 2035
     - 2040
-    - 2045
     - 2050
-    - 2055
     - 2060
   heating_demand: ['positive']
 
 snapshots:
-  start: "2020-01-01"
-  end: "2021-01-01"
+  start: "2023-01-01"
+  end: "2024-01-01"
   inclusive: 'left'
 
 tmin: '-01-01 00:00'
@@ -93,7 +51,7 @@ logging:
   format: '%(levelname)s:%(name)s:%(message)s'
   
 enable:
-  build_cutout: false
+  build_cutout: true
   retrieve_cutout: false
   retrieve_raster: false
   
@@ -101,7 +59,7 @@ atlite:
   nprocesses: 4
   show_progress: true
   cutouts:
-   China-2020:
+   China-2023:
      module: era5
      dx: 0.25
      dy: 0.25
@@ -162,7 +120,7 @@ tes_tau: 3.
 
 renewable:
   onwind:
-    cutout: China-2020
+    cutout: China-2023
     resource:
       method: wind
       turbine: Vestas_V112_3MW
@@ -172,7 +130,7 @@ renewable:
     clip_p_max_pu: 1.e-2
     min_p_nom_max: 1.e-2
   offwind:
-    cutout: China-2020
+    cutout: China-2023
     resource:
       method: wind
       turbine: NREL_ReferenceTurbine_5MW_offshore
@@ -184,7 +142,7 @@ renewable:
     clip_p_max_pu: 1.e-2
     min_p_nom_max: 1.e-2
   solar:
-    cutout: China-2020
+    cutout: China-2023
     resource:
       method: pv
       panel: CSi

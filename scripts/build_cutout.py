@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
-        snakemake = mock_snakemake('build_cutout', cutout='China-2020')
+        snakemake = mock_snakemake('build_cutout', cutout='China-2023')
     configure_logging(snakemake)
 
     cutout_params = snakemake.config['atlite']['cutouts'][snakemake.wildcards.cutout]
@@ -38,4 +38,4 @@ if __name__ == "__main__":
         
     logging.info(f"Preparing cutout with parameters {cutout_params}.")
     cutout = atlite.Cutout(snakemake.output[0], **cutout_params)
-    cutout.prepare()
+    cutout.prepare(tmpdir=snakemake.output[0].replace('.nc', '.tmp'))
