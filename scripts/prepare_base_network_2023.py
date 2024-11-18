@@ -73,7 +73,7 @@ def prepare_network(config):
     costs = load_costs(tech_costs,config['costs'],config['electricity'],cost_year, Nyears)
 
     date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
-    date_range = date_range.map(lambda t: t.replace(year=2020))
+    date_range = date_range.map(lambda t: t.replace(year=2023))
 
     ds_solar = xr.open_dataset(snakemake.input.profile_solar)
     ds_onwind = xr.open_dataset(snakemake.input.profile_onwind)
@@ -320,7 +320,7 @@ def prepare_network(config):
         hydro_p_max_pu = pd.read_hdf("data/p_nom/hydro_p_max_pu.h5", key="hydro_p_max_pu")
 
         date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
-        date_range = date_range.map(lambda t: t.replace(year=2020))
+        date_range = date_range.map(lambda t: t.replace(year=2023))
         hydro_p_max_pu = hydro_p_max_pu.loc[date_range]
         hydro_p_max_pu.index = network.snapshots
 
@@ -394,7 +394,7 @@ def prepare_network(config):
             solar_thermal = config['solar_cf_correction'] * store['solar_thermal_profiles']/1e3
 
         date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
-        date_range = date_range.map(lambda t: t.replace(year=2020))
+        date_range = date_range.map(lambda t: t.replace(year=2023))
 
         solar_thermal.index = solar_thermal.index.tz_localize('Asia/shanghai')
         solar_thermal = solar_thermal.loc[date_range].set_index(network.snapshots)
@@ -541,7 +541,7 @@ def prepare_network(config):
                      p_min_pu=0,
                      efficiency=config["transmission_efficiency"]["DC"]["efficiency_static"]* config["transmission_efficiency"]["DC"]["efficiency_per_1000km"]**(lengths/1000),
                      length=lengths,
-                     build_year=2020,
+                     build_year=2023,
                      lifetime=70,
                      capital_cost=cc)
 
@@ -557,7 +557,7 @@ def prepare_network(config):
                      efficiency=config["transmission_efficiency"]["DC"]["efficiency_static"]* config["transmission_efficiency"]["DC"]["efficiency_per_1000km"]**(lengths/1000),
                      length=lengths,
                      lifetime=70,
-                     build_year=2020,
+                     build_year=2023,
                      capital_cost=0)
 
         edges = pd.read_csv(snakemake.input.edges, header=None)
@@ -597,11 +597,11 @@ if __name__ == '__main__':
     # Detect running outside of snakemake and mock snakemake for testing
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
-        snakemake = mock_snakemake('prepare_base_networks_2020',
+        snakemake = mock_snakemake('prepare_base_networks_2023',
                                    opts='ll',
                                    topology='current+Neighbor',
                                    pathway='exponential175',
-                                   planning_horizons="2020")
+                                   planning_horizons="2023")
     configure_logging(snakemake)
 
     network = prepare_network(snakemake.config)

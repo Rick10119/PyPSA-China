@@ -48,4 +48,9 @@ def interpolate_load_data(year_before=2040, year_after=2055, target_years=[2045,
     print(f"{year_after}: {os.path.getsize(file_after)/1024:.2f}")
 
 if __name__ == "__main__":
-    interpolate_load_data()
+    # 使用2020和2025的数据来插值生成2023年的负荷数据
+    interpolate_load_data(
+        year_before=2020,
+        year_after=2025,
+        target_years=[2023]
+    )

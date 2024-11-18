@@ -95,7 +95,7 @@ if config["foresight"] == "myopic":
 
 rule build_population:
     input:
-        population="data/population/population_from_National_Data_2020.csv"
+        population="data/population/population_from_National_Data_2023.csv"
     output:
         population="data/population/population.h5"
     log:
@@ -242,7 +242,7 @@ rule build_load_profiles:
 rule build_energy_totals:
     input:
         heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
-        population = "data/population/population_from_National_Data_2020.csv"
+        population = "data/population/population_from_National_Data_2023.csv"
     output:
         energy_totals = "data/energy_totals_{heating_demand}_{planning_horizons}.h5"
     log:
@@ -296,7 +296,7 @@ if config["foresight"] == "non-pathway":
         script: "scripts/solve_network.py"
 
 if config["foresight"] == "myopic":
-    rule prepare_base_networks_2020:
+    rule prepare_base_networks_2023:
         input:
             overrides = "data/override_component_attrs",
             edges= "data/grids/edges.txt",
@@ -313,10 +313,10 @@ if config["foresight"] == "myopic":
         output:
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
         wildcard_constraints:
-            planning_horizons=2020 #only applies to baseyear
+            planning_horizons=2023 #only applies to baseyear
         threads: 1
         resources: mem_mb=10000
-        script: "scripts/prepare_base_network_2020.py"
+        script: "scripts/prepare_base_network_2023.py"
 
     rule prepare_base_networks:
         input:
@@ -338,7 +338,7 @@ if config["foresight"] == "myopic":
         resources: mem_mb=10000
         script: "scripts/prepare_base_network.py"
 
-    ruleorder: prepare_base_networks_2020 > prepare_base_networks
+    ruleorder: prepare_base_networks_2023 > prepare_base_networks
 
     rule add_existing_baseyear:
         input:
