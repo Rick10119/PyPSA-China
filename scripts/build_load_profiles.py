@@ -21,7 +21,7 @@ nodes = pd.Index(pro_names)
 
 def generate_periodic_profiles(dt_index=None,col_tzs=pd.Series(index=pro_names, data=len(pro_names)*['Shanghai']),weekly_profile=range(24*7)):
     """Give a 24*7 long list of weekly hourly profiles, generate this
-    for each country for the period dt_index, taking account of time
+    for each province for the period dt_index, taking account of time
     zones and Summer Time."""
 
 
@@ -61,8 +61,9 @@ def build_hot_water_per_day(planning_horizons):
         population_count = store['population']
 
     # In 2008 China 228.4 Twh for urban residential DHW
-    # MWh/capita/year = 228.4 * 1e6 / 62403/1e4 = 0.366008
-    unit_hot_water_2020 = 0.366008
+    # In 2020 China 516 Twh for urban residential DHW
+    # MWh/capita/year = 516 * 1e6 / 62403/1e4 = 0.8269
+    unit_hot_water_2020 = 0.8269
 
     # We can consider that, on average,
     # the 52 M in developed countries is around 1000 kWh per person
