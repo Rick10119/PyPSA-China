@@ -2,7 +2,17 @@
 #
 # SPDX-License-Identifier: MIT
 
-# for pathway network
+"""
+此文件的主要功能是构建基础网络模型，包括：
+1. 添加各类发电设施（常规电源、可再生能源）
+2. 添加储能和转换设施（电池、热泵等）
+3. 添加输电网络
+4. 设置各类约束条件
+
+与prepare_base_network_2023.py的区别：
+- 这个文件用于构建一般性的基础网络
+- 而2023版本专门用于构建2023基准年的网络
+"""
 
 from vresutils.costdata import annuity
 from _helpers import configure_logging,override_component_attrs
@@ -17,8 +27,12 @@ from functions import pro_names, HVAC_cost_curve
 from add_electricity import load_costs
 
 def haversine(p1,p2):
-    """Calculate the great circle distance in km between two points on
-    the earth (specified in decimal degrees)
+    """Calculate the great circle distance in km between two points 
+    on the earth (specified in decimal degrees)
+    
+    用于：
+    1. 计算输电线路的实际距离
+    2. 用于后续的成本计算
     """
 
     # convert decimal degrees to radians
@@ -44,7 +58,16 @@ def add_buses(network,nodes,suffix,carrier,pro_centroid_x,pro_centroid_y):
 
 
 def prepare_network(config):
+    """构建基础网络模型
+    
+    主要步骤：
+    1. 初始化网络
+    2. 添加各类节点和载能体
+    3. 添加发电和储能设施
+    4. 设置输电网络
+    """
 
+    # 1. 初始化网络
     if "overrides" in snakemake.input.keys():
         overrides = override_component_attrs(snakemake.input.overrides)
         network = pypsa.Network(override_component_attrs=overrides)

@@ -2,6 +2,15 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""
+此文件的主要功能是构建2023年基准年的基础网络，包括：
+1. 设置时间序列和快照
+2. 添加各类节点（省份）和载能体
+3. 添加发电和储能设施
+4. 设置输电网络
+5. 添加约束条件（如CO2排放限制）
+"""
+
 # for pathway network
 
 from vresutils.costdata import annuity
@@ -19,6 +28,10 @@ from scripts.add_electricity import load_costs
 def haversine(p1,p2):
     """Calculate the great circle distance in km between two points on
     the earth (specified in decimal degrees)
+    
+    用于计算两点间的大圆距离，主要用于：
+    1. 计算输电线路的实际长度
+    2. 估算输电成本
     """
 
     # convert decimal degrees to radians
@@ -33,6 +46,15 @@ def haversine(p1,p2):
     return c * r
 
 def add_buses(network,nodes,suffix,carrier,pro_centroid_x,pro_centroid_y):
+    """向网络添加节点（通常是省份）
+    
+    Parameters:
+    network: 网络对象
+    nodes: 节点列表（省份）
+    suffix: 节点后缀（用于区分不同类型的节点）
+    carrier: 能源载体类型
+    pro_centroid_x/y: 省份中心点坐标
+    """
 
     network.madd('Bus',
                  nodes,
@@ -44,14 +66,28 @@ def add_buses(network,nodes,suffix,carrier,pro_centroid_x,pro_centroid_y):
 
 
 def prepare_network(config):
+    """构建基础网络模型
+    
+    主要步骤：
+    1. 初始化网络并设置时间序列（8760小时）
+    2. 读取成本数据和可再生能源出力数据
+    3. 添加各类发电设施：
+       - 常规电源（煤电、气电）
+       - 可再生能源（光伏、风电）
+       - 水电系统
+       - 储能系统
+    4. 设置输电网络
+    5. 添加CO2排放约束
+    """
 
+    # 1. 初始化网络
     if "overrides" in snakemake.input.keys():
         overrides = override_component_attrs(snakemake.input.overrides)
         network = pypsa.Network(override_component_attrs=overrides)
     else:
         network = pypsa.Network()
 
-    # set times
+    # 2. 设置时间序列
     planning_horizons = snakemake.wildcards['planning_horizons']
     if int(planning_horizons) % 4 != 0:
         snapshots = pd.date_range(str(planning_horizons)+'-01-01 00:00', str(planning_horizons)+'-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
@@ -64,7 +100,7 @@ def prepare_network(config):
     represented_hours = network.snapshot_weightings.sum()[0]
     Nyears= represented_hours/8760.
 
-    #load graph
+    # 3. 读取和处理可再生能源出力数据
     nodes = pd.Index(pro_names)
     pathway = snakemake.wildcards['pathway']
 

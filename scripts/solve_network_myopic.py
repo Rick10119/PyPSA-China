@@ -2,6 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""
+此文件的主要功能是求解多时期（近视）优化问题，包括：
+1. 准备网络（prepare_network）
+2. 添加各类约束（如电池、CHP、输电等）
+3. 求解优化问题（solve_network）
+
+近视优化的特点：
+- 按时间顺序逐步求解（如,2023->2025->2030）
+- 每个时期只考虑当前最优，不考虑远期影响
+- 更符合实际决策过程
+"""
+
 import logging
 
 import numpy as np
@@ -19,6 +31,14 @@ def prepare_network(
         n,
         solve_opts=None,
 ):
+    """准备网络用于优化求解
+    
+    主要功能：
+    1. 处理可再生能源出力
+    2. 添加负荷切除选项
+    3. 设置随机扰动（如果需要）
+    4. 调整时间分辨率
+    """
 
     if "clip_p_max_pu" in solve_opts:
         for df in (
@@ -72,9 +92,11 @@ def prepare_network(
     return n
 
 def add_battery_constraints(n):
-    """
-    Add constraint ensuring that charger = discharger, i.e.
-    1 * charger_size - efficiency * discharger_size = 0
+    """添加电池储能约束
+    
+    主要约束：
+    1. 充放电功率相等
+    2. 考虑充放电效率
     """
     if not n.links.p_nom_extendable.any():
         return
@@ -94,6 +116,13 @@ def add_battery_constraints(n):
     n.model.add_constraints(lhs == 0, name="Link-charger_ratio")
 
 def add_chp_constraints(n):
+    """添加热电联产（CHP）约束
+    
+    主要约束：
+    1. 电热比例
+    2. 燃料利用上限
+    3. 背压特性
+    """
     electric = (
         n.links.index.str.contains("CHP")
         & n.links.index.str.contains("generator")
@@ -145,9 +174,12 @@ def add_chp_constraints(n):
         n.model.add_constraints(lhs <= 0, name="chplink-backpressure")
 
 def add_transimission_constraints(n):
-    """
+    """添加输电约束
     Add constraint ensuring that transmission lines p_nom are the same for both directions, i.e.
     p_nom positive = p_nom negative
+    主要约束：
+    1. 正反向容量相等
+    2. 考虑线路损耗
     """
     if not n.links.p_nom_extendable.any():
         return
@@ -166,6 +198,13 @@ def add_transimission_constraints(n):
     n.model.add_constraints(lhs == 0, name="Link-transimission")
 
 def add_retrofit_constraints(n):
+    """添加改造约束
+    
+    主要功能：
+    1. 限制改造容量
+    2. 确保改造前后的平衡
+    3. 考虑时间进程
+    """
     p_nom_max = pd.read_csv("data/p_nom/p_nom_max_cc.csv",index_col=0)
     planning_horizon = snakemake.wildcards.planning_horizons
     for year in range(int(planning_horizon) - 40, 2021, 5):
@@ -184,21 +223,32 @@ def add_retrofit_constraints(n):
         n.model.add_constraints(lhs == 0, name="Generator-coal-retrofit-" + str(year))
 
 def extra_functionality(n, snapshots):
-    """
-    Collects supplementary constraints which will be passed to ``pypsa.linopf.network_lopf``.
-    If you want to enforce additional custom constraints, this is a good location to add them.
-    The arguments ``opts`` and ``snakemake.config`` are expected to be attached to the network.
+    """添加额外的约束条件
+    
+    集中添加所有补充约束：
+    1. CHP约束
+    2. 电池约束
+    3. 输电约束
+    4. 改造约束（非,2023年）
     """
     opts = n.opts
     config = n.config
     add_chp_constraints(n)
     add_battery_constraints(n)
     add_transimission_constraints(n)
-    if snakemake.wildcards.planning_horizons != "2020":
+    if snakemake.wildcards.planning_horizons != ",2023":
         add_retrofit_constraints(n)
 
 
 def solve_network(n, config, solving, opts="", **kwargs):
+    """求解网络优化问题
+    
+    主要步骤：
+    1. 设置求解器参数
+    2. 添加额外约束
+    3. 执行迭代求解
+    4. 检查求解状态
+    """
     set_of_options = solving["solver"]["options"]
     solver_options = solving["solver_options"][set_of_options] if set_of_options else {}
     solver_name = solving["solver"]["name"]
