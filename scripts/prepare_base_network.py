@@ -434,7 +434,7 @@ def prepare_network(config):
 
             # p_nom*p_pu = XXX m^3 then use turbines efficiency to convert to power
 
-        ## add otehr existing hydro power
+        ## add other existing hydro power
         hydro_p_nom = pd.read_hdf("data/p_nom/hydro_p_nom.h5")
         hydro_p_max_pu = pd.read_hdf("data/p_nom/hydro_p_max_pu.h5", key="hydro_p_max_pu")
 

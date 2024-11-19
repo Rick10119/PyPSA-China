@@ -109,7 +109,7 @@ def prepare_network(config):
     costs = load_costs(tech_costs,config['costs'],config['electricity'],cost_year, Nyears)
 
     date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
-    date_range = date_range.map(lambda t: t.replace(year=2023))
+    date_range = date_range.map(lambda t: t.replace(year=2020))
 
     ds_solar = xr.open_dataset(snakemake.input.profile_solar)
     ds_onwind = xr.open_dataset(snakemake.input.profile_onwind)
@@ -351,12 +351,12 @@ def prepare_network(config):
 
             # p_nom*p_pu = XXX m^3 then use turbines efficiency to convert to power
 
-        ## add otehr existing hydro power
+        ## add other existing hydro power
         hydro_p_nom = pd.read_hdf("data/p_nom/hydro_p_nom.h5")
         hydro_p_max_pu = pd.read_hdf("data/p_nom/hydro_p_max_pu.h5", key="hydro_p_max_pu")
 
         date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
-        date_range = date_range.map(lambda t: t.replace(year=2023))
+        date_range = date_range.map(lambda t: t.replace(year=2020))
         hydro_p_max_pu = hydro_p_max_pu.loc[date_range]
         hydro_p_max_pu.index = network.snapshots
 
@@ -430,7 +430,7 @@ def prepare_network(config):
             solar_thermal = config['solar_cf_correction'] * store['solar_thermal_profiles']/1e3
 
         date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
-        date_range = date_range.map(lambda t: t.replace(year=2023))
+        date_range = date_range.map(lambda t: t.replace(year=2020))
 
         solar_thermal.index = solar_thermal.index.tz_localize('Asia/shanghai')
         solar_thermal = solar_thermal.loc[date_range].set_index(network.snapshots)

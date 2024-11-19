@@ -239,21 +239,6 @@ rule build_load_profiles:
     script: 
         "scripts/build_load_profiles.py"
 
-rule build_energy_totals:
-    input:
-        heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
-        population = "data/population/population_from_National_Data_2020.csv"
-    output:
-        energy_totals = "data/energy_totals_{heating_demand}_{planning_horizons}.h5"
-    log:
-        "logs/build_energy_totals/energy_totals_{heating_demand}_{planning_horizons}.log"
-    threads: 4
-    resources: 
-        mem_mb = 10000
-    script: 
-        "scripts/build_energy_totals.py"
-
-
 rule build_biomass_potential:
     input:
         biomass_feedstocks = "data/p_nom/41467_2021_23282_MOESM4_ESM.xlsx"
