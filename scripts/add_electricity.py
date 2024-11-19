@@ -2,6 +2,13 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""
+此文件主要提供三个核心功能：
+1. calculate_annuity: 计算年金系数
+2. load_costs: 加载和处理成本数据（被多个其他脚本调用）
+3. update_transmission_costs: 更新输电成本
+"""
+
 import logging
 import pandas as pd
 
@@ -12,6 +19,10 @@ logger = logging.getLogger(__name__)
 def calculate_annuity(n, r):
     """Calculate the annuity factor for an asset with lifetime n years and
     discount rate of r, e.g. annuity(20, 0.05) * 20 = 1.6"""
+    """计算年金系数，用于将投资成本转换为年化成本
+    n: 资产寿命（年）
+    r: 贴现率
+    """
 
     if isinstance(r, pd.Series):
         return pd.Series(1/n, index=r.index).where(r == 0, r/(1. - 1./(1.+r)**n))
@@ -20,7 +31,13 @@ def calculate_annuity(n, r):
     else:
         return 1 / n
 
-def load_costs(tech_costs, config, elec_config,cost_year, Nyears):
+def load_costs(tech_costs, config, elec_config, cost_year, Nyears):
+    """加载和处理技术成本数据
+    1. 读取成本数据文件
+    2. 单位转换（kW到MW，USD到EUR）
+    3. 计算年化成本
+    4. 设置默认参数
+    """
 
     # set all asset costs and other parameters
     costs = pd.read_csv(tech_costs, index_col=list(range(3))).sort_index()
@@ -85,6 +102,10 @@ def load_costs(tech_costs, config, elec_config,cost_year, Nyears):
     return costs
 
 def update_transmission_costs(n, costs, length_factor=1.0):
+    """更新输电线路成本
+    1. 计算交流线路成本
+    2. 计算直流线路成本（考虑海底电缆）
+    """
     # TODO: line length factor of lines is applied to lines and links.
     # Separate the function to distinguish.
 
@@ -106,3 +127,23 @@ def update_transmission_costs(n, costs, length_factor=1.0):
             costs.at['HVDC submarine', 'capital_cost']) +
             costs.at['HVDC inverter pair', 'capital_cost'])
     n.links.loc[dc_b, 'capital_cost'] = costs
+
+def add_build_year_to_new_assets(n, year):
+    """
+    为网络中的新增资产添加建设年份属性
+    
+    参数:
+        n: pypsa.Network - 需要处理的网络对象
+        year: int - 建设年份
+        
+    功能:
+        1. 遍历网络中的Link、Generator、Store组件
+        2. 检查是否已有build_year属性
+        3. 如果没有，则添加并设置为指定年份
+    """
+    # 遍历需要处理的组件类型
+    for c in n.iterate_components(["Link", "Generator", "Store"]):
+        # 如果组件没有build_year属性
+        if "build_year" not in c.df:
+            # 添加build_year列并设置为指定年份
+            c.df["build_year"] = year

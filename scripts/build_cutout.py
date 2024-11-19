@@ -22,6 +22,17 @@ if __name__ == "__main__":
     time = [snapshots[0], snapshots[-1]]
     cutout_params['time'] = slice(*cutout_params.get('time', time))
     
+    if 'chunks' in cutout_params:
+        dims = ['time', 'lat', 'lon']  # atlite使用的维度
+        chunks = cutout_params['chunks']
+        if isinstance(chunks, (list, tuple)):
+            # 确保chunks长度与dims相同
+            if len(chunks) > len(dims):
+                chunks = chunks[:len(dims)]
+            elif len(chunks) < len(dims):
+                chunks = list(chunks) + [None] * (len(dims) - len(chunks))
+        cutout_params['chunks'] = dict(zip(dims, chunks))
+    
     if {'x', 'y', 'bounds'}.isdisjoint(cutout_params):
         # 从 bus 区域确定边界，并加上两个网格单元的缓冲
         onshore = gpd.read_file(snakemake.input.regions_onshore)

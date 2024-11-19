@@ -17836,3 +17836,8 @@ Gurobi 11.0.0 (win64, gurobi_cl) logging started Tue Nov 19 09:32:40 2024
 
 Set parameter LogFile to value "gurobi.log"
 Using license file C:\Users\dell\gurobi\gurobi.lic
+
+Gurobi 11.0.0 (win64, gurobi_cl) logging started Tue Nov 19 13:42:21 2024
+
+Set parameter LogFile to value "gurobi.log"
+Using license file C:\Users\dell\gurobi\gurobi.lic

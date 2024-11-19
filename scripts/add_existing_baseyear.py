@@ -2,6 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""
+此文件的主要功能是将基准年(2023)已有的发电和供热设施添加到网络模型中。
+主要处理：
+1. 读取各类技术的现有容量数据
+2. 将这些容量添加到网络中
+3. 设置相应的技术参数(效率、成本等)
+"""
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -19,12 +27,13 @@ from types import SimpleNamespace
 spatial = SimpleNamespace()
 
 def add_build_year_to_new_assets(n, baseyear):
-    """
+    """为新增资产添加建设年份属性
+    
     Parameters
     ----------
     n : pypsa.Network
     baseyear : int
-        year in which optimized assets are built
+        基准年, 通常是2023
     """
 
     # Give assets with lifetimes and no build year the build year baseyear
@@ -51,6 +60,20 @@ def add_build_year_to_new_assets(n, baseyear):
 
 
 def add_existing_capacities(df_agg):
+    """读取和汇总各类技术的现有容量数据
+    
+    Parameters
+    ----------
+    df_agg : pd.DataFrame
+        用于存储汇总数据的数据框
+        
+    处理的技术类型包括：
+    - 煤电
+    - 热电联产(煤、气)
+    - 燃气轮机
+    - 可再生能源(光伏、风电)
+    - 核电等
+    """
 
     carrier = {
         "coal": "coal power plant",
@@ -85,15 +108,25 @@ def add_existing_capacities(df_agg):
 
 
 def add_power_capacities_installed_before_baseyear(n, grouping_years, costs, baseyear, config):
-    """
+    """将基准年前安装的电力设施添加到网络中
+    
     Parameters
     ----------
     n : pypsa.Network
-    grouping_years :
-        intervals to group existing capacities
-    costs :
-        to read lifetime to estimate YearDecomissioning
+    grouping_years : list
+        用于分组的年份列表
+    costs : pd.DataFrame
+        成本数据
     baseyear : int
+        基准年(2023)
+    config : dict
+        配置参数
+        
+    主要步骤：
+    1. 读取现有容量数据
+    2. 按年份分组处理
+    3. 为不同类型的设施设置参数
+    4. 添加到网络中
     """
     print("adding power capacities installed before baseyear")
 
@@ -314,7 +347,7 @@ def add_power_capacities_installed_before_baseyear(n, grouping_years, costs, bas
 
         if generator == "ground heat pump":
             date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
-            date_range = date_range.map(lambda t: t.replace(year=2020))
+            date_range = date_range.map(lambda t: t.replace(year=2023)) # 基准年
 
             with pd.HDFStore(snakemake.input.cop_name, mode='r') as store:
                 gshp_cop = store['gshp_cop_profiles']
@@ -346,8 +379,8 @@ if __name__ == "__main__":
         snakemake = mock_snakemake('add_existing_baseyear',
                                    opts='ll',
                                    topology ='current+Neighbor',
-                                   pathway ='exponential175',
-                                   planning_horizons="2020")
+                                   pathway ='power_pathway',
+                                   planning_horizons="2023")
 
     logging.basicConfig(level=snakemake.config['logging']['level'])
 
