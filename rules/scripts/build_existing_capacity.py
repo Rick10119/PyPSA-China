@@ -7,11 +7,11 @@ os.makedirs('data/existing_infrastructure', exist_ok=True)
 
 # 省份列表
 provinces = [
-    "Beijing", "Tianjin", "Hebei", "Shanxi", "Inner Mongolia",
+    "Beijing", "Tianjin", "Hebei", "Shanxi", "InnerMongolia",
     "Liaoning", "Jilin", "Heilongjiang", "Shanghai", "Jiangsu",
     "Zhejiang", "Anhui", "Fujian", "Jiangxi", "Shandong",
     "Henan", "Hubei", "Hunan", "Guangdong", "Guangxi",
-    "Hainan", "Chongqing", "Sichuan", "Guizhou", "Yunnan",
+    "Hainan", "Chongqing", "Sichuan", "Guizhou", "Yunnan", "Tibet",
     "Shaanxi", "Gansu", "Qinghai", "Ningxia", "Xinjiang"
 ]
 

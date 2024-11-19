@@ -637,6 +637,6 @@ line_volume_limit_max: 5.e+15   #line_volume_limit is set = factor * max
 line_cost_factor: 1
 
 existing_capacities:
-  grouping_years: [1980, 1985, 1990, 1995, 2000, 2005, 2010, 2015, 2019, 2020, 2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060]
+  grouping_years: [2000, 2005, 2010, 2015, 2020, 2023, 2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060]
   threshold_capacity: 1
 
