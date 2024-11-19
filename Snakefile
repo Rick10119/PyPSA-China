@@ -265,35 +265,35 @@ rule build_biomass_potential:
     script: 
         "scripts/build_biomass_potential.py"
 
-if config["foresight"] == "non-pathway":
-    rule prepare_networks:
-        input:
-            population_name="data/population/population.h5",
-            solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
-            heat_demand_name="data/heating/daily_heat_demand.h5",
-            cop_name="data/heating/cop.h5",
-            energy_totals_name="data/energy_totals_{heating_demand}_{planning_horizons}.h5",
-            co2_totals_name="data/co2_totals.h5",
-            temp="data/heating/temp.h5",
-            tech_costs = "data/costs_{planning_horizons}.csv",
-            **{f"profile_{tech}": f"resources/profile_{tech}.nc"
-               for tech in config['renewable']}
-        output:
-            network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-        threads: 1
-        resources: mem_mb=10000
-        script: "scripts/prepare_network.py"
+# if config["foresight"] == "non-pathway":
+#     rule prepare_networks:
+#         input:
+#             population_name="data/population/population.h5",
+#             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
+#             heat_demand_name="data/heating/daily_heat_demand.h5",
+#             cop_name="data/heating/cop.h5",
+#             energy_totals_name="data/energy_totals_{heating_demand}_{planning_horizons}.h5",
+#             co2_totals_name="data/co2_totals.h5",
+#             temp="data/heating/temp.h5",
+#             tech_costs = "data/costs_{planning_horizons}.csv",
+#             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
+#                for tech in config['renewable']}
+#         output:
+#             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
+#         threads: 1
+#         resources: mem_mb=10000
+#         script: "scripts/prepare_network.py"
 
-    rule solve_networks:
-        input:
-            network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-        output:
-            network_name=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc'
-        log:
-            solver=normpath("logs/solve_operations_network/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log")
-        threads: 4
-        resources: mem_mb=35000
-        script: "scripts/solve_network.py"
+    # rule solve_networks:
+    #     input:
+    #         network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
+    #     output:
+    #         network_name=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc'
+    #     log:
+    #         solver=normpath("logs/solve_operations_network/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log")
+    #     threads: 4
+    #     resources: mem_mb=35000
+    #     script: "scripts/solve_network.py"
 
 if config["foresight"] == "myopic":
     rule prepare_base_networks_2023:
@@ -307,6 +307,9 @@ if config["foresight"] == "myopic":
             elec_load="data/load/load_{planning_horizons}_weatheryears_2020_2060_TWh.h5",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_fraction_2020.h5",
+            # 储能数据
+            battery_p_nom="data/battery/battery_p_nom.csv",  # 新增: 电池储能装机数据
+            phs_p_nom="data/hydro/PHS_p_nom.csv",  # 已有: 抽水蓄能装机数据
             tech_costs= "data/costs/costs_{planning_horizons}.csv",
             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
                for tech in config['renewable']}
@@ -332,6 +335,9 @@ if config["foresight"] == "myopic":
             biomass_potental = "data/p_nom/biomass_potential.h5",
             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
                for tech in config['renewable']}
+            # 储能数据
+            battery_p_nom="data/battery/battery_p_nom.csv",  # 新增: 电池储能装机数据
+            phs_p_nom="data/hydro/PHS_p_nom.csv",  # 已有: 抽水蓄能装机数据
         output:
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
         threads: 1

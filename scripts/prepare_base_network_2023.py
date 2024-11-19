@@ -495,6 +495,11 @@ def prepare_network(config):
                          lifetime=costs.at[cat.lstrip()+'water tank storage','lifetime'])
 
     if "battery" in config["Techs"]["store_techs"]:
+        # 读取电池储能装机数据
+        battery_cap_df = pd.read_csv('data/battery/battery_p_nom.csv', index_col=0)  # 需要创建这个文件
+        battery_nodes = battery_cap_df.index[battery_cap_df['MW'] > 0].intersection(nodes)
+        
+        # 添加电池节点
         network.madd("Bus",
                      nodes,
                      suffix=" battery",
@@ -502,14 +507,18 @@ def prepare_network(config):
                      y=pro_centroid_y,
                      carrier="battery")
 
+        # 添加储能设备
         network.madd("Store",
-                     nodes + " battery",
+                     nodes + " battery",  # 或者用 battery_nodes
                      bus=nodes + " battery",
                      e_cyclic=True,
                      e_nom_extendable=True,
+                     e_nom=battery_cap_df.loc[battery_nodes]['MW'] * config['battery']['max_hours'],  # 设置已有容量
+                     e_nom_min=battery_cap_df.loc[battery_nodes]['MW'] * config['battery']['max_hours'],  # 设置最小容量
                      capital_cost=costs.at['battery storage','capital_cost'],
                      lifetime=costs.at['battery storage','lifetime'])
 
+        # 添加充电设备
         network.madd("Link",
                      nodes + " battery charger",
                      bus0=nodes,
@@ -517,17 +526,22 @@ def prepare_network(config):
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
                      capital_cost=costs.at['battery inverter','capital_cost'],
                      p_nom_extendable=True,
+                     p_nom=battery_cap_df.loc[battery_nodes]['MW'],  # 设置已有功率
+                     p_nom_min=battery_cap_df.loc[battery_nodes]['MW'],  # 设置最小功率
                      carrier="battery",
-                     lifetime=costs.at['battery inverter','lifetime'] )
+                     lifetime=costs.at['battery inverter','lifetime'])
 
+        # 添加放电设备
         network.madd("Link",
-                     nodes + " battery discharger",
+                     nodes + " battery discharger",  # 或者用 battery_nodes
                      bus0=nodes + " battery",
                      bus1=nodes,
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
                      marginal_cost=0.,
                      carrier="battery discharger",
-                     p_nom_extendable=True)
+                     p_nom_extendable=True,
+                     p_nom=battery_cap_df.loc[battery_nodes]['MW'],  # 设置已有功率
+                     p_nom_min=battery_cap_df.loc[battery_nodes]['MW'])  # 设置最小功率
 
     if "PHS" in config["Techs"]["store_techs"]:
         # pure pumped hydro storage, fixed, 6h energy by default, no inflow
