@@ -39,8 +39,8 @@ scenario:
   heating_demand: ['positive']
 
 snapshots:
-  start: "2023-01-01"
-  end: "2024-01-01"
+  start: "2020-01-01"
+  end: "2021-01-01"
   inclusive: 'left'
 
 tmin: '-01-01 00:00'
@@ -61,7 +61,7 @@ atlite:
   nprocesses: 4
   show_progress: true
   cutouts:
-   China-2023:
+   China-2020:
      module: era5
      dx: 0.25
      dy: 0.25
@@ -122,7 +122,7 @@ tes_tau: 3.
 
 renewable:
   onwind:
-    cutout: China-2023
+    cutout: China-2020
     resource:
       method: wind
       turbine: Vestas_V112_3MW
@@ -132,7 +132,7 @@ renewable:
     clip_p_max_pu: 1.e-2
     min_p_nom_max: 1.e-2
   offwind:
-    cutout: China-2023
+    cutout: China-2020
     resource:
       method: wind
       turbine: NREL_ReferenceTurbine_5MW_offshore
@@ -144,7 +144,7 @@ renewable:
     clip_p_max_pu: 1.e-2
     min_p_nom_max: 1.e-2
   solar:
-    cutout: China-2023
+    cutout: China-2020
     resource:
       method: pv
       panel: CSi

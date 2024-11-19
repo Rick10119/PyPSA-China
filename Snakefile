@@ -122,7 +122,7 @@ if config['enable'].get('build_cutout', False):
 
 rule build_population_gridcell_map:
     input:
-        cutout="cutouts/China-2023.nc",
+        cutout="cutouts/China-2020.nc",
         population="data/population/population.h5",
         population_density_grid="data/population/CFSR_grid.nc",
         province_shape="data/province_shapes/CHN_adm1.shp"
@@ -134,7 +134,7 @@ rule build_population_gridcell_map:
 
 rule build_solar_thermal_profiles:
     input:
-        cutout="cutouts/China-2023.nc",
+        cutout="cutouts/China-2020.nc",
         population_map="data/population/population_gridcell_map.h5"
     output:
         profile_solar_thermal="data/heating/solar_thermal-{}.h5".format(str(config['solar_thermal_angle']).replace(' ', ''))
@@ -145,7 +145,7 @@ rule build_solar_thermal_profiles:
 rule build_temp_profiles:
     input:
         population_map="data/population/population_gridcell_map.h5",
-        cutout="cutouts/China-2023.nc"
+        cutout="cutouts/China-2020.nc"
     output:
         temp="data/heating/temp.h5"
     threads: 8
@@ -155,7 +155,7 @@ rule build_temp_profiles:
 rule build_cop_profiles:
     input:
         population_map="data/population/population_gridcell_map.h5",
-        cutout="cutouts/China-2023.nc",
+        cutout="cutouts/China-2020.nc",
         temp="data/heating/temp.h5"
     output:
         cop="data/heating/cop.h5"
@@ -205,7 +205,7 @@ rule build_renewable_potential:
         provinces_shp="data/province_shapes/CHN_adm1.shp",
         offshore_province_shapes="data/resources/regions_offshore_province.geojson",
         offshore_shapes="data/resources/regions_offshore.geojson",
-        cutout= "cutouts/China-2023.nc"
+        cutout= "cutouts/China-2020.nc"
     output:
         solar_profile="resources/profile_solar.nc",
         onwind_profile="resources/profile_onwind.nc",
@@ -218,7 +218,7 @@ rule build_renewable_potential:
 rule build_heat_demand_profiles:
     input:
         population_map="data/population/population_gridcell_map.h5",
-        cutout="cutouts/China-2023.nc"
+        cutout="cutouts/China-2020.nc"
     output:
         daily_heat_demand="data/heating/daily_heat_demand.h5"
     script: "scripts/build_heat_demand_profiles.py"
@@ -227,7 +227,7 @@ rule build_load_profiles:
     input:
         population = "data/population/population.h5",
         population_map = "data/population/population_gridcell_map.h5",
-        cutout = "cutouts/China-2023.nc",
+        cutout = "cutouts/China-2020.nc",
         intraday_profiles = "data/heating/heat_load_profile_DK_AdamJensen.csv",
         space_heat_demand = "data/heating/SPH_2020.csv",
         daily_heat_demand = "data/heating/daily_heat_demand.h5"
@@ -264,36 +264,6 @@ rule build_biomass_potential:
         mem_mb = 50000
     script: 
         "scripts/build_biomass_potential.py"
-
-# if config["foresight"] == "non-pathway":
-#     rule prepare_networks:
-#         input:
-#             population_name="data/population/population.h5",
-#             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
-#             heat_demand_name="data/heating/daily_heat_demand.h5",
-#             cop_name="data/heating/cop.h5",
-#             energy_totals_name="data/energy_totals_{heating_demand}_{planning_horizons}.h5",
-#             co2_totals_name="data/co2_totals.h5",
-#             temp="data/heating/temp.h5",
-#             tech_costs = "data/costs_{planning_horizons}.csv",
-#             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
-#                for tech in config['renewable']}
-#         output:
-#             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-#         threads: 1
-#         resources: mem_mb=10000
-#         script: "scripts/prepare_network.py"
-
-    # rule solve_networks:
-    #     input:
-    #         network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-    #     output:
-    #         network_name=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc'
-    #     log:
-    #         solver=normpath("logs/solve_operations_network/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log")
-    #     threads: 4
-    #     resources: mem_mb=35000
-    #     script: "scripts/solve_network.py"
 
 if config["foresight"] == "myopic":
     rule prepare_base_networks_2023:
@@ -332,12 +302,12 @@ if config["foresight"] == "myopic":
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_fraction_2020.h5",
             tech_costs= "data/costs/costs_{planning_horizons}.csv",
-            biomass_potental = "data/p_nom/biomass_potential.h5",
-            **{f"profile_{tech}": f"resources/profile_{tech}.nc"
-               for tech in config['renewable']}
             # 储能数据
             battery_p_nom="data/battery/battery_p_nom.csv",  # 新增: 电池储能装机数据
             phs_p_nom="data/hydro/PHS_p_nom.csv",  # 已有: 抽水蓄能装机数据
+            biomass_potental = "data/p_nom/biomass_potential.h5",
+            **{f"profile_{tech}": f"resources/profile_{tech}.nc"
+               for tech in config['renewable']}
         output:
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
         threads: 1
