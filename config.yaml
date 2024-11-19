@@ -186,7 +186,7 @@ electricity:
 
 hydro:
   hydro_capital_cost: True
-  PHS_max_hours: 24.
+  PHS_max_hours: 8.
 
 costs:
   year: 2030
