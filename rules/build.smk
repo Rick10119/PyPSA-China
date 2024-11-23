@@ -28,12 +28,6 @@ rule build_DH_fraction:
     resources: mem_mb=1000
     script: "scripts/DH_fraction_2020.py"
 
-rule build_co2_totals:
-    output:
-        "data/co2_totals.h5"
-    script:
-        "scripts/build_co2_totals.py"
-
 # 添加水电出力特性生成规则
 
 rule build_hydro_profiles:
@@ -52,6 +46,43 @@ rule build_hydro_profiles:
         mem_mb=2000  # 资源限制
     script:
         "rules/scripts/build_hydro.py"  # 执行的脚本
+
+# 添加省份形状生成规则
+
+rule build_province_shape:
+    input:
+        gadm_data="https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_CHN.gpkg"  # GADM 数据 URL
+    output:
+        province_shapes="data/province_shapes/CHN_adm1.shp"  # 生成的省份形状文件
+    log:
+        "logs/build_province_shape.log"  # 日志文件
+    benchmark:
+        "benchmarks/build_province_shape"  # 性能基准
+    threads: 1
+    resources:
+        mem_mb=2000  # 资源限制
+    script:
+        "rules/scripts/build_provence_shape.py"  # 执行的脚本
+
+# 添加负荷天气年生成规则
+
+rule build_load_weatheryears:
+    input:
+        load_before="data/load/load_2040_weatheryears_2020_2060_TWh.h5",  # 参考文件（2040年）
+        load_after="data/load/load_2055_weatheryears_2020_2060_TWh.h5"  # 参考文件（2055年）
+    output:
+        load_target="data/load/load_{target_year}_weatheryears_2020_2060_TWh.h5"  # 生成的目标年份负荷文件
+    params:
+        target_years=[2045, 2050]  # 目标年份列表
+    log:
+        "logs/build_load_weatheryears.log"  # 日志文件
+    benchmark:
+        "benchmarks/build_load_weatheryears"  # 性能基准
+    threads: 1
+    resources:
+        mem_mb=2000  # 资源限制
+    script:
+        "rules/scripts/build_load_weatheryaers.py"  # 执行的脚本
 
 
 
