@@ -8,7 +8,6 @@ Beijing,Tianjin
 Chongqing,Sichuan
 Chongqing,Shaanxi
 Chongqing,Hubei
-Chongqing,Hunan
 Fujian,Jiangxi
 Fujian,Zhejiang
 Gansu,Qinghai
@@ -17,7 +16,6 @@ Gansu,Ningxia
 Guangdong,Guangxi
 Guangdong,Hainan
 Guangdong,Jiangxi
-Guangdong,Hunan
 Guangxi,Yunnan
 Guizhou,Yunnan
 Guizhou,Guangxi
