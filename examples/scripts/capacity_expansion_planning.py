@@ -212,7 +212,7 @@ def print_results_table(results):
         h2_cap = result['storage_capacities']['hydrogen storage underground']
         
         # 格式化输出
-        print(f"{rate:^12.1f} | {result['al_capacity']:^12.2f} | {result['system_cost']:^12.2f} | "
+        print(f"{rate * 10:^12.1f} | {result['al_capacity']:^12.2f} | {result['system_cost']:^12.2f} | "
               f"{wind_cap:^10.2f} | {solar_cap:^10.2f} | {battery_cap:^10.2f} | {h2_cap:^10.2f}")
 
 def plot_results(n, excess_rate):
@@ -243,7 +243,7 @@ def plot_results(n, excess_rate):
     
     plt.tight_layout()
     # 先保存图像
-    plt.savefig(f"examples/results/aluminum_smelter_usage_{excess_rate}.png")
+    # plt.savefig(f"examples/results/aluminum_smelter_usage_{excess_rate}.png")
     # 然后显示
     # plt.show()
     # 关闭图形，释放内存
