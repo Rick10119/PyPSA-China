@@ -6,21 +6,15 @@ import pypsa
 
 plt.style.use("bmh")
 
-# 处理不同年份的技术数据和成本
-years = [2025, 2030, 2035, 2040]
-# years = [2025]
-results = {}
-
-for year in years:
-    print(f"\nCalculating for year {year}")
-    
-    # 读取该年份的成本数据
-    costs = pd.read_csv(f"data/costs/costs_{year}.csv", index_col=[0, 1])
-    
-    costs.loc[costs.unit.str.contains("/kW"), "value"] *= 1e3
-    costs.unit = costs.unit.str.replace("/kW", "/MW")
-    
-    defaults = {
+# 配置参数
+CONFIG = {
+    "years": [2025],
+    "resolution": 4,
+    "al_p_nom": 10 * 1e3,
+    # 铝存储成本, 计算方式：1/13.4 是每MWh生产的铝，单位转换为百万欧元/吨，0.74 是一吨铝需要的空间（立方米），0.8 是存储价格（0.8元/平方米/天），1e-6 是转换为百万，7.55 是欧元兑人民币汇率，24 是换算成小时
+    "al_marginal_cost_storage": 1/13.4 * 0.74 * 0.8 * 1e-6 / 7.55 / 24,
+    # 默认成本
+    "default_costs": {
         "FOM": 0,
         "VOM": 0,
         "efficiency": 1,
@@ -30,58 +24,80 @@ for year in years:
         "CO2 intensity": 0,
         "discount rate": 0.07,
     }
-    costs = costs.value.unstack().fillna(defaults)
+}
+
+def process_cost_data(year):
+    """处理成本数据"""
+    costs = pd.read_csv(f"data/costs/costs_{year}.csv", index_col=[0, 1])
     
+    # 单位转换
+    costs.loc[costs.unit.str.contains("/kW"), "value"] *= 1e3
+    costs.unit = costs.unit.str.replace("/kW", "/MW")
+    
+    costs = costs.value.unstack().fillna(CONFIG["default_costs"])
+    
+    # 设置燃气相关参数
     costs.at["OCGT", "fuel"] = costs.at["gas", "fuel"]
     costs.at["CCGT", "fuel"] = costs.at["gas", "fuel"]
     costs.at["OCGT", "CO2 intensity"] = costs.at["gas", "CO2 intensity"]
     costs.at["CCGT", "CO2 intensity"] = costs.at["gas", "CO2 intensity"]
-
+    
+    # 计算成本
     def annuity(r, n):
         return r / (1.0 - 1.0 / (1.0 + r) ** n)
-
+    
     costs["marginal_cost"] = costs["VOM"] + costs["fuel"] / costs["efficiency"]
-    annuity = costs.apply(lambda x: annuity(x["discount rate"], x["lifetime"]), axis=1)
-    costs["capital_cost"] = (annuity + costs["FOM"] / 100) * costs["investment"]
+    annuity_values = costs.apply(lambda x: annuity(x["discount rate"], x["lifetime"]), axis=1)
+    costs["capital_cost"] = (annuity_values + costs["FOM"] / 100) * costs["investment"]
+    
+    return costs
 
-    # 加载时间序列数据
-    file_path = "examples/data/time-series-lecture-2.csv"
-    ts = pd.read_csv(file_path, index_col=0, parse_dates=True)  # 直接读取本地文件
+def process_time_series():
+    """处理时间序列数据"""
+    ts = pd.read_csv("examples/data/time-series-lecture-2.csv", index_col=0, parse_dates=True)
+    ts.load -= 5.5 # 负荷需求
+    ts['aluminum'] = 5.5 # 铝需求，10%负荷
+    ts.load *= 1e3 # 负荷需求单位转换为G瓦
+    ts.aluminum *= 1e3 # 铝需求单位转换为G瓦
+    return ts.resample(f"{CONFIG['resolution']}h").first()
 
-    ts.load -= 5.5
-    ts['aluminum'] = 5.5
-    ts.load *= 1e3
-    ts.aluminum *= 1e3
-    resolution = 4
-    ts = ts.resample(f"{resolution}h").first()
-
-    # 模型初始化
+def create_network(costs, ts):
+    """创建和配置网络"""
     n = pypsa.Network()
+    
+    # 添加基础节点
     n.add("Bus", "electricity")
     n.add("Bus", "aluminum", carrier="AL")
     n.set_snapshots(ts.index)
-    n.snapshot_weightings.loc[:, :] = resolution
-
-    # 添加技术
-    carriers = [
-        "onwind",
-        "offwind",
-        "solar",
-        "OCGT",
-        "hydrogen storage underground",
-        "battery storage",
-    ]
-
+    n.snapshot_weightings.loc[:, :] = CONFIG["resolution"]
+    
+    # 添加carriers
+    carriers = ["onwind", "offwind", "solar", "OCGT", "hydrogen storage underground", "battery storage"]
     n.add(
         "Carrier",
         carriers,
         color=["dodgerblue", "aquamarine", "gold", "indianred", "magenta", "yellowgreen"],
         co2_emissions=[costs.at[c, "CO2 intensity"] for c in carriers],
     )
-
+    
+    # 添加负载
     n.add("Load", "demand", bus="electricity", p_set=ts.load)
     n.add("Load", "al demand", bus="aluminum", p_set=ts.aluminum)
+    
+    # 添加发电机组
+    add_generators(n, costs, ts)
+    
+    # 添加存储设施
+    add_storage(n, costs)
+    
+    # 添加其他组件
+    add_other_components(n)
+    
+    return n
 
+def add_generators(n, costs, ts):
+    """添加发电设备"""
+    # 添加OCGT
     n.add(
         "Generator",
         "OCGT",
@@ -92,25 +108,8 @@ for year in years:
         efficiency=costs.at["OCGT", "efficiency"],
         p_nom_extendable=True,
     )
-
-    n.add(
-        "Link", 
-        "smelter", 
-        bus0="electricity", 
-        bus1="aluminum", 
-        p_nom=10 * 1e3, 
-        efficiency=1, 
-    )
-
-    n.add(
-        "Store", 
-        "aluminum storage", 
-        bus="aluminum", 
-        e_nom=float('inf'),  
-        e_cyclic=True, 
-        marginal_cost_storage=1/13.4 * 0.74 * 0.8 * 1e-6 / 7.55 / 24  # 1/13.4 是每MWh生产的铝，单位转换为百万欧元/吨，0.74 是一吨铝需要的空间（立方米），0.8 是存储价格（0.8元/平方米/天），1e-6 是转换为百万，7.55 是欧元兑人民币汇率，24 是换算成小时
-    )
-
+    
+    # 添加可再生能源发电机
     for tech in ["onwind", "offwind", "solar"]:
         n.add(
             "Generator",
@@ -124,28 +123,30 @@ for year in years:
             p_nom_extendable=True,
         )
 
-    # 添加存储单元
+def add_storage(n, costs):
+    """添加存储设施"""
+    # 添加电池存储
     n.add(
         "StorageUnit",
         "battery storage",
         bus="electricity",
         carrier="battery storage",
         max_hours=2,
-        capital_cost=costs.at["battery inverter", "capital_cost"]
-        + 2 * costs.at["battery storage", "capital_cost"],
+        capital_cost=costs.at["battery inverter", "capital_cost"] + 2 * costs.at["battery storage", "capital_cost"],
         marginal_cost=costs.at["battery inverter", "marginal_cost"],
         efficiency_store=costs.at["battery inverter", "efficiency"],
         efficiency_dispatch=costs.at["battery inverter", "efficiency"],
         p_nom_extendable=True,
         cyclic_state_of_charge=True,
     )
-
+    
+    # 添加氢能存储
     capital_costs = (
         costs.at["electrolysis", "capital_cost"]
         + costs.at["fuel cell", "capital_cost"]
         + 168 * costs.at["hydrogen storage underground", "capital_cost"]
     )
-
+    
     n.add(
         "StorageUnit",
         "hydrogen storage underground",
@@ -160,6 +161,29 @@ for year in years:
         cyclic_state_of_charge=True,
     )
 
+def add_other_components(n):
+    """添加其他组件"""
+    # 添加铝冶炼设备
+    n.add(
+        "Link", 
+        "smelter", 
+        bus0="electricity", 
+        bus1="aluminum", 
+        p_nom=CONFIG["al_p_nom"], 
+        efficiency=1, 
+    )
+    
+    # 添加铝存储
+    n.add(
+        "Store", 
+        "aluminum storage", 
+        bus="aluminum", 
+        e_nom=float('inf'),  
+        e_cyclic=True, 
+        marginal_cost_storage=CONFIG["al_marginal_cost_storage"]
+    )
+    
+    # 添加CO2约束
     n.add(
         "GlobalConstraint",
         "CO2Limit",
@@ -168,37 +192,48 @@ for year in years:
         constant=0,
     )
 
-    # 优化网络
-    n.optimize(solver_name="gurobi")
+def calculate_system_cost(n):
+    """计算系统总成本"""
+    tsc = n.statistics.capex()
+    costs_by_carrier = (
+        tsc.groupby(level=1)
+        .sum()
+        .div(1e6)
+    )
+    return costs_by_carrier.sum()
+
+def main():
+    """主运行函数"""
+    results = {}
     
-    # 计算系统总成本
-    def system_cost(n):
-        # 获取所有组件的资本支出
-        tsc = n.statistics.capex()
+    for year in CONFIG["years"]:
+        print(f"\nCalculating for year {year}")
         
-        # 确保包含所有carrier的成本
-        costs_by_carrier = (
-            tsc.groupby(level=1)  # 按carrier分组
-            .sum()  # 合计每个carrier的成本
-            .div(1e6)  # 转换为百万欧元
-        )
+        # 数据处理
+        costs = process_cost_data(year)
+        ts = process_time_series()
         
-        return costs_by_carrier.sum()
+        # 创建并优化网络
+        n = create_network(costs, ts)
+        n.optimize(solver_name="gurobi")
+        
+        # 保存结果
+        results[year] = {
+            'system_cost': calculate_system_cost(n),
+            'generator_capacities': n.generators.p_nom_opt * 1e-3,
+            'storage_capacities': n.storage_units.p_nom_opt * 1e-3
+        }
+    
+    # 输出结果
+    for year in CONFIG["years"]:
+        print(f"\nResults for {year}:")
+        print(f"System costs (million €/a):")
+        print(results[year]['system_cost'])
+        print(f"\nGenerator capacities (GW):")
+        print(results[year]['generator_capacities'])
+        print(f"\nStorage capacities (GW):")
+        print(results[year]['storage_capacities'])
 
-    # 存储结果
-    results[year] = {
-        'system_cost': system_cost(n),
-        'generator_capacities': n.generators.p_nom_opt * 1e-3,  # 转换为GW
-        'storage_capacities': n.storage_units.p_nom_opt * 1e-3  # 转换为GW
-    }
-
-# 输出各年份的结果
-for year in years:
-    print(f"\nResults for {year}:")
-    print(f"System costs (million €/a):")
-    print(results[year]['system_cost'])
-    print(f"\nGenerator capacities (GW):")
-    print(results[year]['generator_capacities'])
-    print(f"\nStorage capacities (GW):")
-    print(results[year]['storage_capacities'])
+if __name__ == "__main__":
+    main()
 
