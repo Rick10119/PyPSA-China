@@ -3,28 +3,10 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import pypsa
+from config import CONFIG  # 导入配置
+import os
 
 plt.style.use("bmh")
-
-# 配置参数
-CONFIG = {
-    "years": [2025],
-    "resolution": 4,
-    "al_p_nom": 10 * 1e3,
-    # 铝存储成本, 计算方式：1/13.4 是每MWh生产的铝，单位转换为百万欧元/吨，0.74 是一吨铝需要的空间（立方米），0.8 是存储价格（0.8元/平方米/天），1e-6 是转换为百万，7.55 是欧元兑人民币汇率，24 是换算成小时
-    "al_marginal_cost_storage": 1/13.4 * 0.74 * 0.8 * 1e-6 / 7.55 / 24,
-    # 默认成本
-    "default_costs": {
-        "FOM": 0,
-        "VOM": 0,
-        "efficiency": 1,
-        "fuel": 0,
-        "investment": 0,
-        "lifetime": 25,
-        "CO2 intensity": 0,
-        "discount rate": 0.07,
-    }
-}
 
 def process_cost_data(year):
     """处理成本数据"""
@@ -55,15 +37,18 @@ def process_cost_data(year):
 def process_time_series():
     """处理时间序列数据"""
     ts = pd.read_csv("examples/data/time-series-lecture-2.csv", index_col=0, parse_dates=True)
-    ts.load -= 5.5 # 负荷需求
-    ts['aluminum'] = 5.5 # 铝需求，10%负荷
+    ts.load -= CONFIG["al_demand"] # 负荷需求
+    ts['aluminum'] = CONFIG["al_demand"] # 铝需求，10%负荷
     ts.load *= 1e3 # 负荷需求单位转换为G瓦
     ts.aluminum *= 1e3 # 铝需求单位转换为G瓦
     return ts.resample(f"{CONFIG['resolution']}h").first()
 
-def create_network(costs, ts):
+def create_network(costs, ts, excess_rate):
     """创建和配置网络"""
     n = pypsa.Network()
+    
+    # 计算电解槽容量
+    al_p_nom = CONFIG["al_demand"] * (1 + excess_rate) * 1e3  # 转换为MW
     
     # 添加基础节点
     n.add("Bus", "electricity")
@@ -91,7 +76,7 @@ def create_network(costs, ts):
     add_storage(n, costs)
     
     # 添加其他组件
-    add_other_components(n)
+    add_other_components(n, al_p_nom)  # 传入计算得到的电解槽容量
     
     return n
 
@@ -161,7 +146,7 @@ def add_storage(n, costs):
         cyclic_state_of_charge=True,
     )
 
-def add_other_components(n):
+def add_other_components(n, al_p_nom):
     """添加其他组件"""
     # 添加铝冶炼设备
     n.add(
@@ -169,8 +154,9 @@ def add_other_components(n):
         "smelter", 
         bus0="electricity", 
         bus1="aluminum", 
-        p_nom=CONFIG["al_p_nom"], 
+        p_nom=al_p_nom,  # 使用计算得到的容量
         efficiency=1, 
+        # capital_cost=CONFIG["al_capital_cost"],
     )
     
     # 添加铝存储
@@ -202,37 +188,102 @@ def calculate_system_cost(n):
     )
     return costs_by_carrier.sum()
 
+def print_results_table(results):
+    """将结果整理成表格形式输出"""
+    # 创建表头
+    print("\n=== System Results Summary ===")
+    print(f"{'Excess Rate':^12} | {'Al Capacity':^12} | {'System Cost':^12} | {'Wind':^10} | {'Solar':^10} | {'Battery':^10} | {'H2 Store':^10}")
+    print("-" * 82)
+    
+    # 获取第一年的结果（因为只有一年）
+    year_results = results[CONFIG["years"][0]]
+    
+    # 按excess_rate排序输出结果
+    for rate in sorted(year_results.keys()):
+        result = year_results[rate]
+        
+        # 获取发电机容量
+        wind_cap = (result['generator_capacities']['onwind'] + 
+                   result['generator_capacities']['offwind'])
+        solar_cap = result['generator_capacities']['solar']
+        
+        # 获取储能容量
+        battery_cap = result['storage_capacities']['battery storage']
+        h2_cap = result['storage_capacities']['hydrogen storage underground']
+        
+        # 格式化输出
+        print(f"{rate:^12.1f} | {result['al_capacity']:^12.2f} | {result['system_cost']:^12.2f} | "
+              f"{wind_cap:^10.2f} | {solar_cap:^10.2f} | {battery_cap:^10.2f} | {h2_cap:^10.2f}")
+
+def plot_results(n, excess_rate):
+    """绘制结果"""
+    # 获取电解槽用电数据
+    smelter_p = n.links_t.p0['smelter']  # 电解槽每小时用电量
+    
+    # 创建图形
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+    
+    # 绘制小时级数据
+    ax1.plot(smelter_p, label='Hourly Usage')
+    ax1.set_title('Aluminum Smelter Hourly Electricity Usage')
+    ax1.set_xlabel('Time')
+    ax1.set_ylabel('Power (MW)')
+    ax1.legend()
+    
+    # 计算并绘制月度数据
+    monthly_usage = smelter_p.resample('M').mean()
+    ax2.bar(range(len(monthly_usage)), monthly_usage, label='Monthly Average')
+    ax2.set_title('Aluminum Smelter Monthly Average Electricity Usage')
+    ax2.set_xlabel('Month')
+    ax2.set_ylabel('Power (MW)')
+    ax2.set_xticks(range(len(monthly_usage)))
+    ax2.set_xticklabels([d.strftime('%Y-%m') for d in monthly_usage.index])
+    ax2.tick_params(axis='x', rotation=45)
+    ax2.legend()
+    
+    plt.tight_layout()
+    # 先保存图像
+    plt.savefig(f"examples/results/aluminum_smelter_usage_{excess_rate}.png")
+    # 然后显示
+    # plt.show()
+    # 关闭图形，释放内存
+    plt.close()
+
 def main():
     """主运行函数"""
+    # 创建结果保存目录
+    os.makedirs("examples/results", exist_ok=True)
+    
     results = {}
     
     for year in CONFIG["years"]:
-        print(f"\nCalculating for year {year}")
+        year_results = {}
         
         # 数据处理
         costs = process_cost_data(year)
         ts = process_time_series()
         
-        # 创建并优化网络
-        n = create_network(costs, ts)
-        n.optimize(solver_name="gurobi")
+        # 对每个过剩率进行计算
+        for excess_rate in CONFIG["al_excess_rate"]:
+            # 创建并优化网络
+            n = create_network(costs, ts, excess_rate)
+            n.optimize(solver_name="gurobi", solver_options={"OutputFlag": 0})
+            
+            # 保存结果
+            year_results[excess_rate] = {
+                'system_cost': calculate_system_cost(n),
+                'generator_capacities': n.generators.p_nom_opt * 1e-3,
+                'storage_capacities': n.storage_units.p_nom_opt * 1e-3,
+                'al_capacity': CONFIG["al_demand"] * (1 + excess_rate)
+            }
+            
+            # 绘制该过剩率下的用电情况
+            plot_results(n, excess_rate)
         
-        # 保存结果
-        results[year] = {
-            'system_cost': calculate_system_cost(n),
-            'generator_capacities': n.generators.p_nom_opt * 1e-3,
-            'storage_capacities': n.storage_units.p_nom_opt * 1e-3
-        }
+        results[year] = year_results
     
-    # 输出结果
-    for year in CONFIG["years"]:
-        print(f"\nResults for {year}:")
-        print(f"System costs (million €/a):")
-        print(results[year]['system_cost'])
-        print(f"\nGenerator capacities (GW):")
-        print(results[year]['generator_capacities'])
-        print(f"\nStorage capacities (GW):")
-        print(results[year]['storage_capacities'])
+    # 输出结果表格
+    print_results_table(results)
 
 if __name__ == "__main__":
     main()
