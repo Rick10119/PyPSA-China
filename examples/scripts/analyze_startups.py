@@ -52,9 +52,9 @@ def plot_link_startups(startup_data, link_name='smelter'):
     ax2.set_xticklabels([d.strftime('%Y-%m') for d in monthly.index])
     ax2.tick_params(axis='x', rotation=45)
     
-    plt.tight_layout()
-    plt.savefig(f'examples/results/{link_name}_startups.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.tight_layout()
+    # plt.savefig(f'examples/results/{link_name}_startups.png', dpi=300, bbox_inches='tight')
+    # plt.show()
     
     # 打印总启动次数
     print(f"\n{link_name} Total Startups: {startup_data['total_startups']}")

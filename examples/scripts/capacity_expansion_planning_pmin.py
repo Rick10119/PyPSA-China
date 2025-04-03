@@ -167,7 +167,7 @@ def add_other_components(n, al_p_nom, p_min_pu):
         "Store", 
         "aluminum storage", 
         bus="aluminum", 
-        e_nom=float('inf'),  
+        e_nom=CONFIG["al_storage_limit"] * al_p_nom,  
         e_cyclic=True, 
         marginal_cost_storage=CONFIG["al_marginal_cost_storage"]
     )
@@ -315,14 +315,14 @@ def main():
             # 保存结果
             year_results[p_min_pu] = {
                 'p_min_pu': p_min_pu,
-                'system_cost': n.objective * 1e-9, # Billion
+                'system_cost': 91.1 - n.objective * 1e-9, # Billion
                 'generator_capacities': n.generators.p_nom_opt * 1e-3, # GW
                 'storage_capacities': n.storage_units.p_nom_opt * 1e-3, # GW
                 'al_capacity': CONFIG["al_demand"] * (1 + CONFIG["al_excess_rate"])
             }
             
             # 绘制该过剩率下的用电情况
-            plot_results(n, p_min_pu)
+            # plot_results(n, p_min_pu)
         
         results[year] = year_results
     

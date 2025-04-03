@@ -18,12 +18,14 @@ CONFIG = {
     # 1e-6 是转换为百万
     # 7.55 是欧元兑人民币汇率
     # 24 是换算成小时
-    "al_marginal_cost_storage": 1/13.4 * 0.74 * 0.8 / 7.55 / 24,
+    "al_marginal_cost_storage": 3.91479E-05 * 7.3 / 7.55,
+    # storage limit
+    "al_storage_limit": 24 * 30, # hours
     
     # 电解槽启动成本, 计算方式：
     # $65M ~ 450,000 mt per year
-    "al_start_up_cost": 9266 * 1e5, # euro/MW
-    "al_p_min_pu": [0.1, 0.5, 0.9],
+    "al_start_up_cost": 9266, # euro/MW
+    "al_p_min_pu": [0.1, 0.5, 0.88],
     # 启动时间
     # "al_start_up_time": 24, # 小时
     
