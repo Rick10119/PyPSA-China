@@ -1,3 +1,4 @@
+# 画出基础的结果（不考虑启停成本）
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np

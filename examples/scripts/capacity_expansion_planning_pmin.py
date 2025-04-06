@@ -5,7 +5,7 @@ import pandas as pd
 import pypsa
 from config import CONFIG  # 导入配置
 import os
-
+from analyze_startups import analyze_startups
 plt.style.use("bmh")
 
 def process_cost_data(year):
@@ -39,16 +39,16 @@ def process_time_series():
     ts = pd.read_csv("examples/data/time-series-lecture-2.csv", index_col=0, parse_dates=True)
     ts.load -= CONFIG["al_demand"] # 负荷需求
     ts['aluminum'] = CONFIG["al_demand"] # 铝需求，10%负荷
-    ts.load *= 1e3 # 负荷需求单位转换为G瓦
-    ts.aluminum *= 1e3 # 铝需求单位转换为G瓦
+    ts.load *= 1e3 # 负荷需求单位GW, 转换为MW
+    ts.aluminum *= 1e3 # 铝需求单位转换为MW
     return ts.resample(f"{CONFIG['resolution']}h").first()
 
-def create_network(costs, ts, excess_rate):
+def create_network(costs, ts, p_min_pu, excess_rate):
     """创建和配置网络"""
     n = pypsa.Network()
     
     # 计算电解槽容量
-    al_p_nom = CONFIG["al_demand"] * (1 + excess_rate) * 1e3  # 转换为MW
+    al_p_nom = CONFIG["al_demand"] * (1 + excess_rate) * 1e3  # MW
     
     # 添加基础节点
     n.add("Bus", "electricity")
@@ -76,7 +76,7 @@ def create_network(costs, ts, excess_rate):
     add_storage(n, costs)
     
     # 添加其他组件
-    add_other_components(n, al_p_nom)  # 传入计算得到的电解槽容量
+    add_other_components(n, al_p_nom, p_min_pu)  # 传入计算得到的电解槽容量
     
     return n
 
@@ -146,7 +146,7 @@ def add_storage(n, costs):
         cyclic_state_of_charge=True,
     )
 
-def add_other_components(n, al_p_nom):
+def add_other_components(n, al_p_nom, p_min_pu):
     """添加其他组件"""
     # 添加铝冶炼设备
     n.add(
@@ -154,9 +154,12 @@ def add_other_components(n, al_p_nom):
         "smelter", 
         bus0="electricity", 
         bus1="aluminum", 
-        p_nom=al_p_nom,  # 使用计算得到的容量
+        p_nom=al_p_nom,  # 使用计算得到的容量, MW
         efficiency=1, 
-        # capital_cost=CONFIG["al_capital_cost"],
+        # capital_cost=CONFIG["al_capital_cost"] * al_p_nom, # $  
+        start_up_cost=CONFIG["al_start_up_cost"] * al_p_nom, # $
+        committable=True,
+        p_min_pu=p_min_pu,
     )
     
     # 添加铝存储
@@ -164,7 +167,7 @@ def add_other_components(n, al_p_nom):
         "Store", 
         "aluminum storage", 
         bus="aluminum", 
-        e_nom=float('inf'),  
+        e_nom=CONFIG["al_storage_limit"] * al_p_nom,  
         e_cyclic=True, 
         marginal_cost_storage=CONFIG["al_marginal_cost_storage"]
     )
@@ -177,16 +180,6 @@ def add_other_components(n, al_p_nom):
         sense="<=",
         constant=0,
     )
-
-def calculate_system_cost(n):
-    """计算系统总成本"""
-    tsc = n.statistics.capex()
-    costs_by_carrier = (
-        tsc.groupby(level=1)
-        .sum()
-        .div(1e6)
-    )
-    return costs_by_carrier.sum()
 
 def print_results_table(results):
     """将结果整理成表格形式输出"""
@@ -215,7 +208,7 @@ def print_results_table(results):
         print(f"{rate * 10:^12.1f} | {result['al_capacity']:^12.2f} | {result['system_cost']:^12.2f} | "
               f"{wind_cap:^10.2f} | {solar_cap:^10.2f} | {battery_cap:^10.2f} | {h2_cap:^10.2f}")
 
-def plot_results(n, excess_rate):
+def plot_results(n, p_min_pu):
     """绘制结果"""
     # 获取电解槽用电数据
     smelter_p = n.links_t.p0['smelter']  # 电解槽每小时用电量
@@ -243,10 +236,51 @@ def plot_results(n, excess_rate):
     
     plt.tight_layout()
     # 先保存图像
-    # plt.savefig(f"examples/results/aluminum_smelter_usage_{excess_rate}.png")
+    plt.savefig(f"examples/results/aluminum_smelter_usage_{p_min_pu}.png")
     # 然后显示
-    # plt.show()
+    plt.show()
     # 关闭图形，释放内存
+    plt.close()
+
+def analyze_ramp_constraints(n):
+    """分析爬坡约束对电解槽运行的影响"""
+    
+    if 'p0' not in n.links_t:
+        print("警告: 找不到链接的时间序列结果")
+        return
+    
+    # 获取电解槽输入功率时间序列
+    p = n.links_t.p0['smelter']
+    
+    # 计算每个时间步的功率变化
+    p_diff = p.diff()
+    
+    # 计算最大爬坡率（上升和下降）
+    max_ramp_up = p_diff[p_diff > 0].max()
+    max_ramp_down = abs(p_diff[p_diff < 0].min())
+    
+    # 计算相对于额定功率的百分比
+    p_nom = n.links.at['smelter', 'p_nom']
+    max_ramp_up_pu = max_ramp_up / p_nom
+    max_ramp_down_pu = max_ramp_down / p_nom
+    
+    print(f"\n爬坡约束分析:")
+    print(f"最大上升爬坡率: {max_ramp_up:.2f} MW ({max_ramp_up_pu:.3f} p.u.)")
+    print(f"最大下降爬坡率: {max_ramp_down:.2f} MW ({max_ramp_down_pu:.3f} p.u.)")
+    print(f"设定的爬坡限制: {1/CONFIG['al_start_up_time']:.3f} p.u.")
+    
+    # 绘制功率变化图
+    plt.figure(figsize=(12, 6))
+    plt.plot(p_diff, 'b-', label='Power Change')
+    plt.axhline(y=p_nom / CONFIG['al_start_up_time'], color='r', linestyle='--', label='Ramp Up Limit')
+    plt.axhline(y=-p_nom / CONFIG['al_start_up_time'], color='r', linestyle='--', label='Ramp Down Limit')
+    plt.title('Aluminum Smelter Power Changes')
+    plt.xlabel('Time')
+    plt.ylabel('Power Change (MW)')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('examples/results/smelter_ramp_analysis.png', dpi=300)
+    plt.show()
     plt.close()
 
 def main():
@@ -263,27 +297,42 @@ def main():
         costs = process_cost_data(year)
         ts = process_time_series()
         
-        # 对每个过剩率进行计算
-        for excess_rate in CONFIG["al_excess_rate"]:
+        # 对每个p_min_pu进行计算
+        for p_min_pu in CONFIG["al_p_min_pu"]:
             # 创建并优化网络
-            n = create_network(costs, ts, excess_rate)
-            n.optimize(solver_name="gurobi", solver_options={"OutputFlag": 0})
-            
+            n = create_network(costs, ts, p_min_pu, CONFIG["al_excess_rate"])
+            # 最大求解时间2分钟
+            # 设置求解器, 不显示求解信息,但显示求解时间
+            n.optimize(solver_name="gurobi", solver_options={
+                "OutputFlag": 0,  # 显示求解过程
+                "IntFeasTol": 1e-5  # 整数可行性容差
+            })
+            # runtime = n.Runtime
+            # print("The run time is %f" % runtime)
+            # 在优化后调用
+            analyze_startups(n)
+                        
             # 保存结果
-            year_results[excess_rate] = {
-                'system_cost': calculate_system_cost(n),
-                'generator_capacities': n.generators.p_nom_opt * 1e-3,
-                'storage_capacities': n.storage_units.p_nom_opt * 1e-3,
-                'al_capacity': CONFIG["al_demand"] * (1 + excess_rate)
+            year_results[p_min_pu] = {
+                'p_min_pu': p_min_pu,
+                'system_cost': 91.1 - n.objective * 1e-9, # Billion
+                'generator_capacities': n.generators.p_nom_opt * 1e-3, # GW
+                'storage_capacities': n.storage_units.p_nom_opt * 1e-3, # GW
+                'al_capacity': CONFIG["al_demand"] * (1 + CONFIG["al_excess_rate"])
             }
             
             # 绘制该过剩率下的用电情况
-            plot_results(n, excess_rate)
+            # plot_results(n, p_min_pu)
         
         results[year] = year_results
     
-    # 输出结果表格
+    # 输出结果表格到excel
+    df = pd.DataFrame(results)
+    df.to_excel("examples/results/capacity_expansion_planning.xlsx")
     print_results_table(results)
+
+    # 分析爬坡约束
+    # analyze_ramp_constraints(n)
 
 if __name__ == "__main__":
     main()
