@@ -6,6 +6,8 @@ import pypsa
 from config import CONFIG  # 导入配置
 import os
 from analyze_startups import analyze_startups
+# 导入排放分析模块
+from analyze_emissions import analyze_emissions, plot_emissions, compare_scenarios
 plt.style.use("bmh")
 
 def process_cost_data(year):
@@ -178,15 +180,15 @@ def add_other_components(n, al_p_nom, p_min_pu):
         "CO2Limit",
         carrier_attribute="co2_emissions",
         sense="<=",
-        constant=0,
+        constant=CONFIG["al_co2_limit"], # kgCO2/MW/year -> kgCO2/MW/hour
     )
 
 def print_results_table(results):
     """将结果整理成表格形式输出"""
     # 创建表头
     print("\n=== System Results Summary ===")
-    print(f"{'Excess Rate':^12} | {'Al Capacity':^12} | {'System Cost':^12} | {'Wind':^10} | {'Solar':^10} | {'Battery':^10} | {'H2 Store':^10}")
-    print("-" * 82)
+    print(f"{'Excess Rate':^12} | {'Al Capacity':^12} | {'Saved Cost':^12} | {'CO2 Emissions':^12} | {'OCGT':^10} | {'Wind':^10} | {'Solar':^10} | {'Battery':^10} | {'H2 Store':^10}")
+    print("-" * 120)
     
     # 获取第一年的结果（因为只有一年）
     year_results = results[CONFIG["years"][0]]
@@ -196,9 +198,13 @@ def print_results_table(results):
         result = year_results[rate]
         
         # 获取发电机容量
+        ocgt_cap = result['generator_capacities']['OCGT']
         wind_cap = (result['generator_capacities']['onwind'] + 
                    result['generator_capacities']['offwind'])
         solar_cap = result['generator_capacities']['solar']
+        
+        # 获取CO2排放
+        co2_emissions = result.get('co2_emissions', 0)  # Get CO2 emissions from results
         
         # 获取储能容量
         battery_cap = result['storage_capacities']['battery storage']
@@ -206,7 +212,7 @@ def print_results_table(results):
         
         # 格式化输出
         print(f"{rate * 10:^12.1f} | {result['al_capacity']:^12.2f} | {result['system_cost']:^12.2f} | "
-              f"{wind_cap:^10.2f} | {solar_cap:^10.2f} | {battery_cap:^10.2f} | {h2_cap:^10.2f}")
+              f"{co2_emissions:^12.2f} | {ocgt_cap:^10.2f} | {wind_cap:^10.2f} | {solar_cap:^10.2f} | {battery_cap:^10.2f} | {h2_cap:^10.2f}")
 
 def plot_results(n, p_min_pu):
     """绘制结果"""
@@ -290,6 +296,10 @@ def main():
     
     results = {}
     
+    # 用于比较不同场景排放的数据
+    emission_results = []
+    scenario_names = []
+    
     for year in CONFIG["years"]:
         year_results = {}
         
@@ -302,23 +312,32 @@ def main():
             # 创建并优化网络
             n = create_network(costs, ts, p_min_pu, CONFIG["al_excess_rate"])
             # 最大求解时间2分钟
-            # 设置求解器, 不显示求解信息,但显示求解时间
+            # 设置求解器, 不显示求解信息
             n.optimize(solver_name="gurobi", solver_options={
-                "OutputFlag": 0,  # 显示求解过程
+                "OutputFlag": 0,  # 不显示求解过程
                 "IntFeasTol": 1e-5  # 整数可行性容差
             })
-            # runtime = n.Runtime
-            # print("The run time is %f" % runtime)
-            # 在优化后调用
-            analyze_startups(n)
-                        
+            
+            # 在优化后调用启动分析
+            # analyze_startups(n)
+            
+            # 分析排放情况
+            scenario_name = f"Min Power {p_min_pu*100:.0f}%"
+            scenario_names.append(scenario_name)
+            emission_result = analyze_emissions(n)
+            emission_results.append(emission_result)
+            
+            # 记录总排放量（百万吨）用于结果表格
+            co2_emissions = emission_result['total_emissions'] / 1e6 if emission_result else 0
+            
             # 保存结果
             year_results[p_min_pu] = {
                 'p_min_pu': p_min_pu,
-                'system_cost': 91.1 - n.objective * 1e-9, # Billion
+                'system_cost': CONFIG["original_cost"] - n.objective * 1e-9, # Billion
                 'generator_capacities': n.generators.p_nom_opt * 1e-3, # GW
                 'storage_capacities': n.storage_units.p_nom_opt * 1e-3, # GW
-                'al_capacity': CONFIG["al_demand"] * (1 + CONFIG["al_excess_rate"])
+                'al_capacity': CONFIG["al_demand"] * (1 + CONFIG["al_excess_rate"]),
+                'co2_emissions': co2_emissions  # 添加CO2排放结果
             }
             
             # 绘制该过剩率下的用电情况
@@ -326,9 +345,39 @@ def main():
         
         results[year] = year_results
     
+    # 比较不同情景的排放结果
+    # compare_scenarios(emission_results, scenario_names)
+    
     # 输出结果表格到excel
-    df = pd.DataFrame(results)
-    df.to_excel("examples/results/capacity_expansion_planning.xlsx")
+    # 创建更详细的Excel结果
+    writer = pd.ExcelWriter("examples/results/capacity_expansion_planning.xlsx", engine='openpyxl')
+    
+    # # 创建一个汇总结果的数据框
+    # summary_data = []
+    # for year in results:
+    #     for p_min in results[year]:
+    #         result = results[year][p_min]
+    #         row = {
+    #             'Year': year,
+    #             'Min Power (%)': p_min * 100,
+    #             'System Cost (B€)': result['system_cost'],
+    #             'CO2 Emissions (Mt)': result['co2_emissions'],
+    #             'Al Capacity (GW)': result['al_capacity'],
+    #             'Wind (GW)': result['generator_capacities']['onwind'] + result['generator_capacities']['offwind'],
+    #             'Solar (GW)': result['generator_capacities']['solar'],
+    #             'OCGT (GW)': result['generator_capacities']['OCGT'],
+    #             'Battery (GW)': result['storage_capacities']['battery storage'],
+    #             'H2 Storage (GW)': result['storage_capacities']['hydrogen storage underground']
+    #         }
+    #         summary_data.append(row)
+    
+    # summary_df = pd.DataFrame(summary_data)
+    # summary_df.to_excel(writer, sheet_name='Summary', index=False)
+    
+    # 保存并关闭Excel
+    # writer.save()
+    
+    # 打印结果表格
     print_results_table(results)
 
     # 分析爬坡约束
