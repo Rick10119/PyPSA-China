@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: : 2023 The PyPSA-China Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+.snakemake*
+__pycache__
+.DS_Store
+.idea/
+/data/landuse_availability
+/data/heating
+/LICENSES
+/results
+/cutouts
+/logs
+/benchmarks
+./vscode
+PyPSA-China.code-workspace
+/PyPSA-master
+/PyPSA-0.21.3
