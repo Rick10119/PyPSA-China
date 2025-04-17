@@ -20538,3 +20538,45 @@ Set parameter LicenseID to value 2630292
 Set parameter LogFile to value "gurobi.log"
 Using license file /Users/rick/gurobi.lic
 Academic license - for non-commercial use only - expires 2026-03-03
+
+Gurobi 11.0.3 (win64, gurobi_cl) logging started Fri Apr 18 04:53:34 2025
+
+Set parameter LicenseID to value 2584348
+Set parameter LogFile to value "gurobi.log"
+Using license file C:\Users\dell\gurobi\gurobi.lic
+
+Gurobi 12.0.0 (win64, gurobi_cl) logging started Fri Apr 18 04:55:57 2025
+
+Set parameter LicenseID to value 2584348
+Set parameter LogFile to value "gurobi.log"
+Using license file C:\Users\dell\gurobi\gurobi.lic
+
+Gurobi 12.0.0 (win64, gurobi_cl) logging started Fri Apr 18 05:02:35 2025
+
+Set parameter LicenseID to value 2584348
+Set parameter LogFile to value "gurobi.log"
+Using license file C:\Users\dell\gurobi\gurobi.lic
+
+Gurobi 12.0.0 (win64, gurobi_cl) logging started Fri Apr 18 05:05:05 2025
+
+Set parameter LicenseID to value 2584348
+Set parameter LogFile to value "gurobi.log"
+Using license file C:\Users\dell\gurobi\gurobi.lic
+
+Gurobi 12.0.0 (win64, gurobi_cl) logging started Fri Apr 18 05:08:12 2025
+
+Set parameter LicenseID to value 2584348
+Set parameter LogFile to value "gurobi.log"
+Using license file C:\Users\dell\gurobi\gurobi.lic
+
+Gurobi 12.0.0 (win64, gurobi_cl) logging started Fri Apr 18 05:10:24 2025
+
+Set parameter LicenseID to value 2584348
+Set parameter LogFile to value "gurobi.log"
+Using license file C:\Users\dell\gurobi\gurobi.lic
+
+Gurobi 12.0.0 (win64, gurobi_cl) logging started Fri Apr 18 05:11:32 2025
+
+Set parameter LicenseID to value 2584348
+Set parameter LogFile to value "gurobi.log"
+Using license file C:\Users\dell\gurobi\gurobi.lic

@@ -8,6 +8,7 @@ __pycache__
 /data/landuse_availability
 /data/heating/DH_city:town_2020.csv
 /data/heating/DH_city:town_2020.h5
+/data/heating/DH_city
 /LICENSES
 /results
 /cutouts

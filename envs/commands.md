@@ -27,3 +27,7 @@ snakemake --cores 6
 ./run_pipeline.sh
 
 snakemake --dag | dot -Tpdf > dag.pdf
+
+snakemake -s Snakefile-network --cores 6
+
+snakemake -np prepare_base_networks_2020 prepare_base_networks add_existing_baseyear
