@@ -389,6 +389,8 @@ if config["foresight"] == "myopic":
         resources: mem_mb = 80000
         script: "scripts/solve_network_myopic_test.py"
 
+    ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
+
 if config["plot"]:
 
     include: "rules/plot.smk"
