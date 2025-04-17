@@ -6,7 +6,8 @@ __pycache__
 .DS_Store
 .idea/
 /data/landuse_availability
-/data/heating
+/data/heating/DH_city:town_2020.csv
+/data/heating/DH_city:town_2020.h5
 /LICENSES
 /results
 /cutouts
