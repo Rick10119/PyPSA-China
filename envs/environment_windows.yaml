@@ -9,7 +9,7 @@ channels:
   - gurobi
 dependencies:
   - python=3.8
-  # - pip
+  - pip
 
   # 核心依赖 - 只指定主版本
   - pypsa=0.21.3
@@ -62,7 +62,7 @@ dependencies:
 
   # pip 安装的包
   # - pip:
-  #   - vresutils
+  #   - vresutils>=0.3.1
   #   - tsam>=1.1.0
   #   - powerplantmatching>=0.4.8
 
