@@ -2,6 +2,37 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""
+This script prepares the base network for the PyPSA-China model for the year 2020.
+It creates a PyPSA network with the following components:
+
+1. Network Structure:
+   - Sets up the network with specified snapshots and time resolution
+   - Configures bus locations based on province centroids
+   - Adds carriers for different energy types (electricity, heat, gas, coal)
+
+2. Energy Components:
+   - Adds renewable generators (wind, solar, hydro)
+   - Configures conventional power plants
+   - Sets up heat pumps and resistive heaters
+   - Adds storage components (batteries, pumped hydro storage)
+   - Configures transmission lines between provinces
+
+3. Demand and Constraints:
+   - Loads electricity demand data
+   - Configures heat demand profiles
+   - Sets up CO2 emission constraints
+   - Adds capacity constraints for different technologies
+
+4. Cost Parameters:
+   - Loads technology costs
+   - Configures capital and marginal costs
+   - Sets up cost parameters for transmission and storage
+
+The script takes configuration parameters from the Snakefile and creates a network
+that serves as the base for further optimization and analysis.
+"""
+
 # for pathway network
 
 from vresutils.costdata import annuity
@@ -136,6 +167,9 @@ def prepare_network(config):
         network.add("Carrier", "gas", co2_emissions=costs.at['gas', 'co2_emissions'])  # in t_CO2/MWht
     if config["add_coal"]:
         network.add("Carrier", "coal", co2_emissions=costs.at['coal', 'co2_emissions'])
+    if config["add_aluminum"]:
+        network.add("Carrier", "aluminum")
+        network.add("Carrier", "aluminum smelter")
 
     # add global constraint
     if not isinstance(config['scenario']['co2_reduction'], tuple):
@@ -161,10 +195,51 @@ def prepare_network(config):
         load = 1e6 * store['load']
         load.index = load.index.tz_localize('Asia/shanghai')
         load = load.loc[network.snapshots]
-
+        
     load.columns = pro_names
 
     network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
+        
+    if config["add_aluminum"]:
+        # Calculate aluminum load as ratio of max electric load
+        max_electric_load = load[nodes].max()  # Get max electric load for each province
+        aluminum_load = pd.DataFrame(
+            0.77 * config['aluminum']['al_demand_ratio'] * max_electric_load,  # Calculate aluminum load as ratio of average electric load (0.77 of max)
+            index=network.snapshots,
+            columns=nodes
+        )
+
+        # Add aluminum smelters
+        network.madd("Link",
+                    nodes,
+                    suffix=" aluminum smelter",
+                    bus0=nodes,
+                    bus1=nodes + " aluminum",
+                    carrier="aluminum smelter",
+                    p_nom=0.77 * aluminum_load[nodes].max(),  # Set capacity to match demand
+                    p_nom_extendable=False,
+                    efficiency=1,
+                    start_up_cost=config['aluminum']['al_start_up_cost'] * aluminum_load[nodes].max(),  # Scale startup cost by capacity
+                    p_min_pu=config['aluminum']['al_p_min_pu'],
+                    committable=True)
+
+        # Add aluminum storage
+        network.madd("Store",
+                    nodes,
+                    suffix=" aluminum storage",
+                    bus=nodes + " aluminum",
+                    carrier="aluminum storage",
+                    e_nom_extendable=True,
+                    e_cyclic=True,
+                    marginal_cost_storage=config['aluminum']['al_marginal_cost_storage'])
+
+        # Add aluminum load
+        network.madd("Load",
+                    nodes,
+                    suffix=" aluminum",
+                    bus=nodes + " aluminum",
+                    p_set=aluminum_load[nodes])
+
 
     if config["heat_coupling"]:
 

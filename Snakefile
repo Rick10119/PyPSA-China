@@ -300,6 +300,7 @@ if config["foresight"] == "myopic":
             cop_name="data/heating/cop.h5",
             province_shape="data/province_shapes/CHN_adm1.shp",
             elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            aluminum_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_city:town_2020.h5",
             tech_costs= "data/costs/costs_{planning_horizons}.csv",

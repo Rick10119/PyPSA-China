@@ -138,6 +138,24 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
+add_aluminum: True
+
+aluminum:
+  original_cost: 64.09  # original cost
+  al_demand_ratio: 0.07  # aluminum demand, 7% load
+  al_excess_rate: 0.3  # aluminum excess rate
+  
+  # Electrolyzer costs
+  al_capital_cost: 0  # annualized capital cost of electrolyzer ($/MW/year)
+  
+  # Aluminum storage costs ($/MWh per hour)
+  al_marginal_cost_storage: 3.91479E-05 * 7.3 / 7.55
+  al_storage_limit: 720  # hours (24 * 30)
+  
+  # Electrolyzer startup costs
+  al_start_up_cost: 16000 * 7.3 / 7.55 * 6.8  # euro/MW
+  al_p_min_pu: 0.1
+
 
 transmission_efficiency:
   DC:
