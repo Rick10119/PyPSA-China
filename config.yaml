@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0416.24H.70
+version: 0421.24H.6
 logging_level: INFO
 foresight: "myopic"
 
@@ -20,9 +20,9 @@ scenario:
       '2030': 0.50
       '2035': 0.75
       '2040': 1.0
-      '2045': 0.79092165
-      '2050': 0.87480618
-      '2055': 0.94359322
+      '2045': 1.0
+      '2050': 1.0
+      '2055': 1.0
       '2060': 1.0
     linear175:
       '2020': 0.
@@ -148,12 +148,12 @@ aluminum:
   # Electrolyzer costs
   al_capital_cost: 0  # annualized capital cost of electrolyzer ($/MW/year)
   
-  # Aluminum storage costs ($/MWh per hour)
-  al_marginal_cost_storage: 3.91479E-05 * 7.3 / 7.55
+  # Aluminum storage costs ($/MWh per hour) 3.91479E-05
+  al_marginal_cost_storage: 3.79E-05 # euro/MWh
   al_storage_limit: 720  # hours (24 * 30)
   
-  # Electrolyzer startup costs
-  al_start_up_cost: 16000 * 7.3 / 7.55 * 6.8  # euro/MW
+  # Electrolyzer startup costs 16000 * 7.3 / 7.55  # euro/MW
+  al_start_up_cost: 15470
   al_p_min_pu: 0.1
 
 

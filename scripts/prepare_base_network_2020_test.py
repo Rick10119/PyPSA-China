@@ -147,6 +147,15 @@ def prepare_network(config):
         carrier = config["bus_carrier"][suffix]
         add_buses(network, nodes, suffix, carrier, pro_centroid_x, pro_centroid_y)
 
+    if config["add_aluminum"]:
+        # Add aluminum buses
+        network.madd('Bus',
+                    nodes,
+                    suffix=" aluminum",
+                    x=pro_centroid_x,
+                    y=pro_centroid_y,
+                    carrier="aluminum")
+
     # add carriers
     if config["heat_coupling"]:
         network.add("Carrier", "heat")
@@ -203,8 +212,14 @@ def prepare_network(config):
     if config["add_aluminum"]:
         # Calculate aluminum load as ratio of max electric load
         max_electric_load = load[nodes].max()  # Get max electric load for each province
+        # Create a 2D array with shape (n_snapshots, n_provinces)
+        al_load_values = np.tile(
+            0.77 * config['aluminum']['al_demand_ratio'] * max_electric_load.values,
+            (len(network.snapshots), 1)
+        )
+        # Create DataFrame with the properly shaped data
         aluminum_load = pd.DataFrame(
-            0.77 * config['aluminum']['al_demand_ratio'] * max_electric_load,  # Calculate aluminum load as ratio of average electric load (0.77 of max)
+            data=al_load_values,
             index=network.snapshots,
             columns=nodes
         )
@@ -216,12 +231,13 @@ def prepare_network(config):
                     bus0=nodes,
                     bus1=nodes + " aluminum",
                     carrier="aluminum smelter",
-                    p_nom=0.77 * aluminum_load[nodes].max(),  # Set capacity to match demand
+                    p_nom=(1+config['aluminum']['al_excess_rate']) * aluminum_load[nodes].max(),  # Series of max loads
                     p_nom_extendable=False,
-                    efficiency=1,
-                    start_up_cost=config['aluminum']['al_start_up_cost'] * aluminum_load[nodes].max(),  # Scale startup cost by capacity
-                    p_min_pu=config['aluminum']['al_p_min_pu'],
-                    committable=True)
+                    efficiency=1.0,  # Scalar value
+                    # start_up_cost=float(config['aluminum']['al_start_up_cost']) * aluminum_load[nodes].max(),  # Series of costs
+                    # p_min_pu=0.1,  # Scalar value
+                    # committable=True
+                    )
 
         # Add aluminum storage
         network.madd("Store",
