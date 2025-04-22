@@ -13,32 +13,6 @@ configfile: "config.yaml"
 ATLITE_NPROCESSES = config['atlite'].get('nprocesses', 4)
 
 
-if config["foresight"] == "non-pathway":
-    rule prepare_all_networks:
-        input:
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-                **config["scenario"]
-            )
-
-    rule solve_all_networks:
-        input:
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-                **config["scenario"]
-            ),
-
-    rule plot_all:
-        input:
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext.pdf',
-                **config["scenario"]
-            ),
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_costs.png',
-                **config["scenario"]
-            ),
-
 if config["foresight"] == "myopic":
 
     # rule prepare_all_networks:
