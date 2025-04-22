@@ -5,8 +5,8 @@
 from os.path import normpath
 from shutil import move
 
-from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
-HTTP = HTTPRemoteProvider()
+# from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+# HTTP = HTTPRemoteProvider()
 
 configfile: "config.yaml"
 
