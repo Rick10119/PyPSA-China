@@ -30,3 +30,8 @@ snakemake --dag | dot -Tpdf > dag.pdf
 
 snakemake -s Snakefile-network --cores 6
 
+module load anaconda3/2024.6
+git clone https://github.com/Rick10119/PyPSA-China.git
+conda env update -f envs/environment_mac.yaml
+cd Documents/github/PyPSA-China
+conda activate pypsa-linux
