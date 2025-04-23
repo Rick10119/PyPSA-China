@@ -207,8 +207,6 @@ def prepare_network(config):
         
     load.columns = pro_names
 
-    network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
-        
     if config["add_aluminum"]:
         # Calculate aluminum load as ratio of max electric load
         max_electric_load = load[nodes].max()  # Get max electric load for each province
@@ -223,6 +221,9 @@ def prepare_network(config):
             index=network.snapshots,
             columns=nodes
         )
+        # Subtract aluminum load from electric load
+        load_minus_al = load[nodes] - aluminum_load
+        network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
 
         # Add aluminum smelters
         network.madd("Link",
@@ -255,7 +256,8 @@ def prepare_network(config):
                     suffix=" aluminum",
                     bus=nodes + " aluminum",
                     p_set=aluminum_load[nodes])
-
+    else:
+        network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
 
     if config["heat_coupling"]:
 

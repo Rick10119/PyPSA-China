@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0421.24H.24
+version: 0421.24H.27
 logging_level: INFO
 foresight: "myopic"
 
@@ -77,8 +77,8 @@ snapshots:
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '4H'
-frequency: 4.
+freq: '24H'
+frequency: 24.
 
 logging:
   level: INFO
@@ -127,14 +127,14 @@ Techs:
 
 
 ## add components
-heat_coupling: False
+heat_coupling: True
 add_gas: True
 add_coal: True
 add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: True
+add_aluminum: False
 
 aluminum:
   original_cost: 64.09  # original cost
