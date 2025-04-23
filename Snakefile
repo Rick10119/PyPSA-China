@@ -26,20 +26,6 @@ if config["foresight"] == "myopic":
     #                 'version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
     #             ** config["scenario"]
     #         )
-
-
-    rule solve_all_networks:
-        input:
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-                **config["scenario"]
-            ),
-
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-                **config["scenario"]
-            ),
-
     rule plot_all:
         input:
             # expand(
@@ -67,6 +53,20 @@ if config["foresight"] == "myopic":
             #     config['version']) + '/plots/network/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext_heat.pdf',
             #     **config["scenario"]
             # )
+
+    rule solve_all_networks:
+        input:
+            expand(
+                config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+                **config["scenario"]
+            ),
+
+            expand(
+                config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+                **config["scenario"]
+            )
+
+
 
 
 # rule build_population:

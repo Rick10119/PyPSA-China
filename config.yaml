@@ -257,7 +257,7 @@ costs:
     co2: 0.
 
 
-plot: False
+plot: True
 plotting:
   map:
     figsize: [14, 8]
