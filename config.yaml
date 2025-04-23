@@ -2,12 +2,22 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0421.24H.27
+version: 0421.24H.29
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
+
+## add components
+heat_coupling: True
+add_gas: True
+add_coal: True
+add_biomass: True
+add_hydro: True
+add_H2: True
+add_methanation: True
+add_aluminum: True
 
 scenario:
   line_limits: [ 'opt' ]
@@ -125,21 +135,16 @@ Techs:
   conv_techs: ["OCGT gas", "CHP gas", "gas boiler","coal boiler","coal power plant","CHP coal"]
   store_techs: ["H2","battery","water tanks","PHS"]
 
-
-## add components
-heat_coupling: True
-add_gas: True
-add_coal: True
-add_biomass: True
-add_hydro: True
-add_H2: True
-add_methanation: True
-add_aluminum: False
-
 aluminum:
   original_cost: 64.09  # original cost
   al_demand_ratio: 0.07  # aluminum demand, 7% load
-  al_excess_rate: 0.0  # aluminum excess rate
+  al_excess_rate: # aluminum excess rate
+    '2020': 0.0
+    '2025': 0.0
+    '2030': 0.35
+    '2035': 0.40
+    '2040': 0.60
+
   
   # Electrolyzer costs
   al_capital_cost: 0  # annualized capital cost of electrolyzer ($/MW/year)
