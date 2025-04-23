@@ -301,6 +301,12 @@ def calculate_energy(n, label, energy):
                     continue
                     
                 print(f"Processing port: {port}")
+                
+                # Skip if power flow data is missing for this port
+                if "p" + port not in c.pnl:
+                    print(f"Skipping port {port} for {c.name} as power flow data is missing")
+                    continue
+                    
                 try:
                     # Calculate total energy flow through each port
                     totals = (
@@ -324,7 +330,7 @@ def calculate_energy(n, label, energy):
                     print(f"Error processing port {port}: {str(e)}")
                     print(f"Component data: {c.df.head()}")
                     print(f"Component pnl: {c.pnl.keys()}")
-                    raise
+                    continue  # Skip this port and continue with others instead of raising the error
 
         # Add component name as first level of index
         c_energies = pd.concat([c_energies], keys=[c.list_name])
