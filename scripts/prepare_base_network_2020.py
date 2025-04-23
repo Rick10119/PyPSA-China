@@ -147,15 +147,6 @@ def prepare_network(config):
         carrier = config["bus_carrier"][suffix]
         add_buses(network, nodes, suffix, carrier, pro_centroid_x, pro_centroid_y)
 
-    if config["add_aluminum"]:
-        # Add aluminum buses
-        network.madd('Bus',
-                    nodes,
-                    suffix=" aluminum",
-                    x=pro_centroid_x,
-                    y=pro_centroid_y,
-                    carrier="aluminum")
-
     # add carriers
     if config["heat_coupling"]:
         network.add("Carrier", "heat")

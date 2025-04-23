@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0421.24H.30
+version: 0421.24H.32
 logging_level: INFO
 foresight: "myopic"
 
@@ -28,7 +28,7 @@ aluminum:
   original_cost: 64.09  # original cost
   al_demand_ratio: 0.07  # aluminum demand, 7% load
   al_excess_rate: # aluminum excess rate
-    '2020': 0.0
+    '2020': 0.2
     '2025': 0.0
     '2030': 0.35
     '2035': 0.40
@@ -52,6 +52,7 @@ scenario:
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
     - 2020
+    - 2025
   co2_reduction:
     exponential175:
       '2020': 0.0
@@ -144,13 +145,14 @@ hydrogen_lines: false
 
 existing_infrastructure: ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']
 
-bus_suffix: [""," central heat"," decentral heat"," gas"," coal"]
+bus_suffix: [""," central heat"," decentral heat"," gas"," coal"," aluminum"]
 bus_carrier: {
     "": "AC",
     " central heat": "heat",
     " decentral heat": "heat",
     " gas": "gas",
     " coal": "coal",
+    " aluminum": "aluminum",
 }
 
 Techs:
