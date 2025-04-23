@@ -11,8 +11,8 @@ summary_dir: 'summary/'
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '24H'
-frequency: 24.
+freq: '1H'
+frequency: 1.
 
 ## add components
 heat_coupling: True
