@@ -266,8 +266,6 @@ def calculate_energy(n, label, energy):
     
     # Iterate through all components (both one-port and branch components)
     for c in n.iterate_components(n.one_port_components | n.branch_components):
-        print(f"\nProcessing component: {c.name}")
-        print(f"Component attributes: {n.component_attrs[c.name]}")
         
         # Handle one-port components (like generators, loads, storage units)
         if c.name in n.one_port_components:
@@ -293,8 +291,12 @@ def calculate_energy(n, label, energy):
             # Process each port of the branch component
             # (e.g., bus0, bus1 for a line)
             for port in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
+                # Skip bus2 for hydro turbine links
+                if c.name == "Link" and port == "2" and "hydroelectricity" in c.df.carrier.unique():
+                    print("Skipping bus2 for hydro turbine links")
+                    continue
+                    
                 print(f"Processing port: {port}")
-                print(f"Available attributes: {n.component_attrs[c.name].index.tolist()}")
                 try:
                     # Calculate total energy flow through each port
                     totals = (

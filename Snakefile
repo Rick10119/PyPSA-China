@@ -69,6 +69,7 @@ if config["foresight"] == "myopic":
 
 
 
+
 # rule build_population:
 #     input:
 #         population="data/population/population_from_National_Data_2020.csv"

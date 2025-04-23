@@ -19,6 +19,8 @@ rule make_summary:
     resources: mem_mb=5000
     script: "../scripts/make_summary.py"
 
+ruleorder: solve_all_networks > make_summary
+
 rule plot_summary:
     input:
         config['results_dir'] + 'version-' + str(
