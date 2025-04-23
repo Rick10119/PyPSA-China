@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0421.24H.22
+version: 0421.24H.24
 logging_level: INFO
 foresight: "myopic"
 
@@ -77,8 +77,8 @@ snapshots:
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '24H'
-frequency: 24.
+freq: '4H'
+frequency: 4.
 
 logging:
   level: INFO
@@ -127,7 +127,7 @@ Techs:
 
 
 ## add components
-heat_coupling: True
+heat_coupling: False
 add_gas: True
 add_coal: True
 add_biomass: True
@@ -272,7 +272,7 @@ plotting:
   costs_max: 500
   costs_avg: 50
   costs_threshold: 1000
-  costs_plots_threshold: 20
+  costs_plots_threshold: 2
 
   energy_max: 25000.
   energy_min: 0.
