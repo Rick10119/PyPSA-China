@@ -246,8 +246,34 @@ def calculate_curtailment(n, label, curtailment):
 
 
 def calculate_energy(n, label, energy):
+    """
+    Calculate the total energy for each component in the network.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components
+    label : str
+        The label/identifier for the current scenario
+    energy : pd.DataFrame
+        DataFrame to store the calculated energy values
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated energy DataFrame with new calculations
+    """
+    
+    # Iterate through all components (both one-port and branch components)
     for c in n.iterate_components(n.one_port_components | n.branch_components):
+        
+        # Handle one-port components (like generators, loads, storage units)
         if c.name in n.one_port_components:
+            # Calculate energy by:
+            # 1. Multiply power by snapshot weightings (to account for time periods)
+            # 2. Sum over all time periods
+            # 3. Multiply by sign (to handle consumption vs generation)
+            # 4. Group by carrier type
             c_energies = (
                 c.pnl.p.multiply(n.snapshot_weightings.generators, axis=0)
                 .sum()
@@ -256,24 +282,36 @@ def calculate_energy(n, label, energy):
                 .sum()
             )
         else:
+            # For branch components (like lines, transformers, links)
+            # Initialize empty series with zeros for each carrier
             c_energies = pd.Series(0.0, c.df.carrier.unique())
+            
+            # Process each port of the branch component
+            # (e.g., bus0, bus1 for a line)
             for port in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
+                # Calculate total energy flow through each port
                 totals = (
                     c.pnl["p" + port]
                     .multiply(n.snapshot_weightings.generators, axis=0)
                     .sum()
                 )
-                # remove values where bus is missing (bug in nomopyomo)
+                
+                # Handle cases where bus is missing (bug in nomopyomo)
                 no_bus = c.df.index[c.df["bus" + port] == ""]
                 totals.loc[no_bus] = float(
                     n.component_attrs[c.name].loc["p" + port, "default"]
                 )
+                
+                # Subtract the port's energy from total (to account for flow direction)
                 c_energies -= totals.groupby(c.df.carrier).sum()
 
+        # Add component name as first level of index
         c_energies = pd.concat([c_energies], keys=[c.list_name])
 
+        # Ensure the energy DataFrame has all necessary indices
         energy = energy.reindex(c_energies.index.union(energy.index))
 
+        # Store the calculated energies in the DataFrame
         energy.loc[c_energies.index, label] = c_energies
 
     return energy

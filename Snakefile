@@ -286,7 +286,7 @@ if config["foresight"] == "myopic":
             planning_horizons=2020 #only applies to baseyear
         threads: 1
         resources: mem_mb=10000
-        script: "scripts/prepare_base_network_2020_test.py"
+        script: "scripts/prepare_base_network_2020.py"
 
     rule prepare_base_networks:
         input:
@@ -306,7 +306,7 @@ if config["foresight"] == "myopic":
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
         threads: 1
         resources: mem_mb=10000
-        script: "scripts/prepare_base_network_test.py"
+        script: "scripts/prepare_base_network.py"
 
     ruleorder: prepare_base_networks_2020 > prepare_base_networks
 
@@ -323,7 +323,7 @@ if config["foresight"] == "myopic":
             planning_horizons=config['scenario']['planning_horizons'][0] #only applies to baseyear
         threads: 1
         resources: mem_mb=2000
-        script: "scripts/add_existing_baseyear_test.py"
+        script: "scripts/add_existing_baseyear.py"
 
     def solved_previous_horizon(wildcards):
         planning_horizons = config["scenario"]["planning_horizons"]
@@ -362,7 +362,7 @@ if config["foresight"] == "myopic":
             solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log")
         threads: 6
         resources: mem_mb = 80000
-        script: "scripts/solve_network_myopic_test.py"
+        script: "scripts/solve_network_myopic.py"
 
     ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
 
