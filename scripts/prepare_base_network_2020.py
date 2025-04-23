@@ -208,11 +208,18 @@ def prepare_network(config):
     load.columns = pro_names
 
     if config["add_aluminum"]:
-        # Calculate aluminum load as ratio of max electric load
-        max_electric_load = load[nodes].max()  # Get max electric load for each province
-        # Create a 2D array with shape (n_snapshots, n_provinces)
+        # Calculate national total aluminum load
+        national_max_electric_load = load[nodes].max().sum()  # Get national max electric load
+        national_al_load = 0.77 * (1-config['aluminum']['al_excess_rate'][planning_horizons]) * config['aluminum']['al_demand_ratio'] * national_max_electric_load
+        
+        # Read production ratios
+        production_ratio = pd.read_csv(snakemake.input.aluminum_production_ratio)
+        production_ratio = production_ratio.set_index('Province')['production_share_2023']
+        production_ratio = production_ratio.reindex(nodes).fillna(0)  # Ensure all provinces are included
+        
+        # Create a 2D array with shape (n_snapshots, n_provinces) using production ratios
         al_load_values = np.tile(
-            0.77 * (1-config['aluminum']['al_excess_rate'][planning_horizons]) * config['aluminum']['al_demand_ratio'] * max_electric_load.values,
+            national_al_load * production_ratio.values,
             (len(network.snapshots), 1)
         )
         # Create DataFrame with the properly shaped data
@@ -221,9 +228,6 @@ def prepare_network(config):
             index=network.snapshots,
             columns=nodes
         )
-        # Subtract aluminum load from electric load
-        load_minus_al = load[nodes] - aluminum_load
-        network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
 
         # Add aluminum smelters
         network.madd("Link",
@@ -256,6 +260,9 @@ def prepare_network(config):
                     suffix=" aluminum",
                     bus=nodes + " aluminum",
                     p_set=aluminum_load[nodes])
+        # Subtract aluminum load from electric load
+        load_minus_al = load[nodes] - aluminum_load
+        network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
     else:
         network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
 

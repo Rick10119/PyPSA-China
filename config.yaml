@@ -2,12 +2,17 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0421.24H.29
+version: 0421.24H.30
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
+
+tmin: '-01-01 00:00'
+tmax: '-12-31 23:00'
+freq: '24H'
+frequency: 24.
 
 ## add components
 heat_coupling: True
@@ -19,10 +24,34 @@ add_H2: True
 add_methanation: True
 add_aluminum: True
 
+aluminum:
+  original_cost: 64.09  # original cost
+  al_demand_ratio: 0.07  # aluminum demand, 7% load
+  al_excess_rate: # aluminum excess rate
+    '2020': 0.0
+    '2025': 0.0
+    '2030': 0.35
+    '2035': 0.40
+    '2040': 0.60
+
+  
+  # Electrolyzer costs
+  al_capital_cost: 0  # annualized capital cost of electrolyzer ($/MW/year)
+  
+  # Aluminum storage costs ($/MWh per hour) 3.91479E-05
+  al_marginal_cost_storage: 3.79E-05 # euro/MWh
+  al_storage_limit: 8760  # hours (24 * 365)
+  
+  # Electrolyzer startup costs 16000 * 7.3 / 7.55  # euro/MW
+  al_start_up_cost: 15470
+  al_p_min_pu: 0.1
+
 scenario:
   line_limits: [ 'opt' ]
   pathway: ['exponential175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
+  planning_horizons:
+    - 2020
   co2_reduction:
     exponential175:
       '2020': 0.0
@@ -76,8 +105,6 @@ scenario:
       '2060': 1.0
   opts: ['ll']
   attr: 'p_nom'
-  planning_horizons:
-    - 2020
   heating_demand: ['positive']
 
 snapshots:
@@ -85,10 +112,7 @@ snapshots:
   end: "2021-01-01"
   inclusive: 'left'
 
-tmin: '-01-01 00:00'
-tmax: '-12-31 23:00'
-freq: '24H'
-frequency: 24.
+
 
 logging:
   level: INFO
@@ -134,28 +158,6 @@ Techs:
   vre_techs: [ "onwind","offwind","solar","solar thermal","hydroelectricity", "nuclear","biomass","heat pump","resistive heater","Sabatier","H2 CHP"]
   conv_techs: ["OCGT gas", "CHP gas", "gas boiler","coal boiler","coal power plant","CHP coal"]
   store_techs: ["H2","battery","water tanks","PHS"]
-
-aluminum:
-  original_cost: 64.09  # original cost
-  al_demand_ratio: 0.07  # aluminum demand, 7% load
-  al_excess_rate: # aluminum excess rate
-    '2020': 0.0
-    '2025': 0.0
-    '2030': 0.35
-    '2035': 0.40
-    '2040': 0.60
-
-  
-  # Electrolyzer costs
-  al_capital_cost: 0  # annualized capital cost of electrolyzer ($/MW/year)
-  
-  # Aluminum storage costs ($/MWh per hour) 3.91479E-05
-  al_marginal_cost_storage: 3.79E-05 # euro/MWh
-  al_storage_limit: 720  # hours (24 * 30)
-  
-  # Electrolyzer startup costs 16000 * 7.3 / 7.55  # euro/MW
-  al_start_up_cost: 15470
-  al_p_min_pu: 0.1
 
 
 transmission_efficiency:
