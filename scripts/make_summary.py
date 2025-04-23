@@ -266,9 +266,12 @@ def calculate_energy(n, label, energy):
     
     # Iterate through all components (both one-port and branch components)
     for c in n.iterate_components(n.one_port_components | n.branch_components):
+        print(f"\nProcessing component: {c.name}")
+        print(f"Component attributes: {n.component_attrs[c.name]}")
         
         # Handle one-port components (like generators, loads, storage units)
         if c.name in n.one_port_components:
+            print(f"Processing one-port component: {c.name}")
             # Calculate energy by:
             # 1. Multiply power by snapshot weightings (to account for time periods)
             # 2. Sum over all time periods
@@ -282,6 +285,7 @@ def calculate_energy(n, label, energy):
                 .sum()
             )
         else:
+            print(f"Processing branch component: {c.name}")
             # For branch components (like lines, transformers, links)
             # Initialize empty series with zeros for each carrier
             c_energies = pd.Series(0.0, c.df.carrier.unique())
@@ -289,21 +293,32 @@ def calculate_energy(n, label, energy):
             # Process each port of the branch component
             # (e.g., bus0, bus1 for a line)
             for port in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
-                # Calculate total energy flow through each port
-                totals = (
-                    c.pnl["p" + port]
-                    .multiply(n.snapshot_weightings.generators, axis=0)
-                    .sum()
-                )
-                
-                # Handle cases where bus is missing (bug in nomopyomo)
-                no_bus = c.df.index[c.df["bus" + port] == ""]
-                totals.loc[no_bus] = float(
-                    n.component_attrs[c.name].loc["p" + port, "default"]
-                )
-                
-                # Subtract the port's energy from total (to account for flow direction)
-                c_energies -= totals.groupby(c.df.carrier).sum()
+                print(f"Processing port: {port}")
+                print(f"Available attributes: {n.component_attrs[c.name].index.tolist()}")
+                try:
+                    # Calculate total energy flow through each port
+                    totals = (
+                        c.pnl["p" + port]
+                        .multiply(n.snapshot_weightings.generators, axis=0)
+                        .sum()
+                    )
+                    
+                    # Handle cases where bus is missing (bug in nomopyomo)
+                    no_bus = c.df.index[c.df["bus" + port] == ""]
+                    if len(no_bus) > 0:
+                        print(f"Found {len(no_bus)} components with missing bus{port}")
+                        default_value = float(
+                            n.component_attrs[c.name].loc["p" + port, "default"]
+                        )
+                        totals.loc[no_bus] = default_value
+                    
+                    # Subtract the port's energy from total (to account for flow direction)
+                    c_energies -= totals.groupby(c.df.carrier).sum()
+                except Exception as e:
+                    print(f"Error processing port {port}: {str(e)}")
+                    print(f"Component data: {c.df.head()}")
+                    print(f"Component pnl: {c.pnl.keys()}")
+                    raise
 
         # Add component name as first level of index
         c_energies = pd.concat([c_energies], keys=[c.list_name])

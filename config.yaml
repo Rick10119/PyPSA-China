@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0421.24H.11
+version: 0421.24H.20
 logging_level: INFO
 foresight: "myopic"
 
@@ -68,6 +68,10 @@ scenario:
   attr: 'p_nom'
   planning_horizons:
     - 2020
+    - 2025
+    - 2030
+    - 2035
+    - 2040
   heating_demand: ['positive']
 
 snapshots:
@@ -77,8 +81,8 @@ snapshots:
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '24H'
-frequency: 24.
+freq: '4H'
+frequency: 4.
 
 logging:
   level: INFO
@@ -134,7 +138,7 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: True
+add_aluminum: False
 
 aluminum:
   original_cost: 64.09  # original cost
