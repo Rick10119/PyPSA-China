@@ -167,7 +167,7 @@ def prepare_network(config):
         max_electric_load = load[nodes].max()  # Get max electric load for each province
         # Create a 2D array with shape (n_snapshots, n_provinces)
         al_load_values = np.tile(
-            0.77 * config['aluminum']['al_demand_ratio'] * max_electric_load.values,
+            0.77 * (1-config['aluminum']['al_excess_rate'][planning_horizons]) * config['aluminum']['al_demand_ratio'] * max_electric_load.values,
             (len(network.snapshots), 1)
         )
         # Create DataFrame with the properly shaped data
@@ -184,7 +184,7 @@ def prepare_network(config):
                     bus0=nodes,
                     bus1=nodes + " aluminum",
                     carrier="aluminum smelter",
-                    p_nom=(1+config['aluminum']['al_excess_rate']) * aluminum_load[nodes].max(),  # Series of max loads
+                    p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[nodes].max(),  # Series of max loads
                     p_nom_extendable=False,
                     efficiency=1.0,  # Scalar value
                     # start_up_cost=float(config['aluminum']['al_start_up_cost']) * aluminum_load[nodes].max(),  # Series of costs
