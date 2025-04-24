@@ -13,5 +13,5 @@
 module purge
 module load anaconda3/2024.10
 conda activate pypsa-linux
-module load gurobi/10.0.1
+module load gurobi/12.0.0
 snakemake --cores 1
