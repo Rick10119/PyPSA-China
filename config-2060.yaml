@@ -2,12 +2,13 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0423.1H.1
+version: 0423.1H.6
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
+cores: 20
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'

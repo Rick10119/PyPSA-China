@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0423.1H.5
+version: 0424.8H.1
 logging_level: INFO
 foresight: "myopic"
 
@@ -12,8 +12,8 @@ cores: 20
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1H'
-frequency: 1.
+freq: '8H'
+frequency: 8.
 
 ## add components
 heat_coupling: True
@@ -23,13 +23,13 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: False
+add_aluminum: True
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
   al_excess_rate: # aluminum excess rate
-    '2020': 0.0
-    '2025': 0.0
+    '2020': 0.01
+    '2025': 0.01
     '2030': 0.35
     '2035': 0.40
     '2040': 0.50
@@ -56,14 +56,6 @@ scenario:
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
     - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
-    - 2050
-    - 2055
-    - 2060
   co2_reduction:
     exponential175:
       '2020': 0.0
