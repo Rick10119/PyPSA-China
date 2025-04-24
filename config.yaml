@@ -24,7 +24,7 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: True
+add_aluminum: False
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
