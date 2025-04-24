@@ -220,8 +220,8 @@ if config["foresight"] == "non-pathway":
                for tech in config['renewable']}
         output:
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-        threads: 6
-        resources: mem_mb=10000
+        threads: config['cores']
+        resources: mem_mb=config['cores'] * 4000
         script: "scripts/prepare_network_test.py"
 
     rule solve_networks:
@@ -231,8 +231,8 @@ if config["foresight"] == "non-pathway":
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc'
         log:
             solver=normpath("logs/solve_operations_network/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log")
-        threads: 4
-        resources: mem_mb=35000
+        threads: config['cores']
+        resources: mem_mb=config['cores'] * 4000
         script: "scripts/solve_network.py"
     #
     # rule plot_network:
@@ -286,8 +286,8 @@ if config["foresight"] == "myopic":
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
         wildcard_constraints:
             planning_horizons=2020 #only applies to baseyear
-        threads: 1
-        resources: mem_mb=10000
+        threads: config['cores']
+        resources: mem_mb=config['cores'] * 4000
         script: "scripts/prepare_base_network_2020.py"
 
     rule prepare_base_networks:
@@ -308,8 +308,8 @@ if config["foresight"] == "myopic":
                for tech in config['renewable']}
         output:
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-        threads: 1
-        resources: mem_mb=10000
+        threads: config['cores']
+        resources: mem_mb=config['cores'] * 4000
         script: "scripts/prepare_base_network.py"
 
     ruleorder: prepare_base_networks_2020 > prepare_base_networks
@@ -326,7 +326,7 @@ if config["foresight"] == "myopic":
         wildcard_constraints:
             planning_horizons=config['scenario']['planning_horizons'][0] #only applies to baseyear
         threads: 1
-        resources: mem_mb=2000
+        resources: mem_mb=config['cores'] * 4000
         script: "scripts/add_existing_baseyear.py"
 
     def solved_previous_horizon(wildcards):
@@ -345,8 +345,8 @@ if config["foresight"] == "myopic":
                 for tech in config['renewable']}
         output:
             network_name = config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-        threads: 4
-        resources: mem_mb=10000
+        threads: config['cores']
+        resources: mem_mb=config['cores'] * 4000
         script: "scripts/add_brownfield.py"
 
     ruleorder: add_existing_baseyear > add_brownfield
@@ -364,8 +364,8 @@ if config["foresight"] == "myopic":
             network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
         log:
             solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log")
-        threads: 6
-        resources: mem_mb = 80000
+        threads: config['cores']
+        resources: mem_mb = config['cores'] * 4000
         script: "scripts/solve_network_myopic.py"
 
     ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
