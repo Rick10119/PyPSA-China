@@ -2,19 +2,19 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0424.8H.1
+version: 0424.1H.1
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-cores: 4
+cores: 20
 mem_per_core: 2000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '8H'
-frequency: 8.
+freq: '1H'
+frequency: 1.
 
 ## add components
 heat_coupling: True
@@ -57,6 +57,14 @@ scenario:
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
     - 2020
+    - 2025
+    - 2030
+    - 2035
+    - 2040
+    - 2045
+    - 2050
+    - 2055
+    - 2060
   co2_reduction:
     exponential175:
       '2020': 0.0
