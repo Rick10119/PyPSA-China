@@ -8,7 +8,8 @@ foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-cores: 20
+cores: 4
+mem_per_core: 2000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
