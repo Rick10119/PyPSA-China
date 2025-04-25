@@ -198,7 +198,7 @@ def prepare_network(config):
         
     load.columns = pro_names
 
-    if config["add_aluminum"]:
+    if config["add_aluminum"] and config["aluminum"]["al_excess_rate"][planning_horizons] > 0.01:
         # Calculate national total aluminum load
         national_max_electric_load = load[nodes].max().sum()  # Get national max electric load
         national_al_load = 0.77 * (1-config['aluminum']['al_excess_rate'][planning_horizons]) * config['aluminum']['al_demand_ratio'] * national_max_electric_load
