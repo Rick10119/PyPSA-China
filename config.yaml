@@ -2,19 +2,19 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0425.2H.1
+version: 0425.4H.3
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-cores: 72
-mem_per_core: 1500
+threads: 72
+mem_per_thread: 1500
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '2h'
-frequency: 2.
+freq: '4h'
+frequency: 4.
 
 ## add components
 heat_coupling: True

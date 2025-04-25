@@ -16,7 +16,7 @@ rule make_summary:
         directory(config['results_dir'] + 'version-' + str(
             config['version']) + '/summary/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}'),
     log: "logs/make_summary/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log"
-    resources: mem_mb=5000
+    resources: mem_mb=config['mem_per_thread'] * config['threads']
     script: "../scripts/make_summary.py"
 
 ruleorder: solve_all_networks > make_summary
