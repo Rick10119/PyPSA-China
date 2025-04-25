@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0425.4H.4
+version: 0425.8H.5
 logging_level: INFO
 foresight: "myopic"
 
@@ -13,8 +13,8 @@ mem_per_thread: 1500
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '4h'
-frequency: 4.
+freq: '8h'
+frequency: 8.
 
 ## add components
 heat_coupling: True
@@ -52,8 +52,8 @@ solving:
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
   al_excess_rate: # aluminum excess rate
-    '2020': 0.01
-    '2025': 0.01
+    '2020': 0.00
+    '2025': 0.00
     '2030': 0.35
     '2035': 0.40
     '2040': 0.50
