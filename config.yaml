@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0424.1H.6
+version: 0424.1H.7
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-cores: 20
-mem_per_core: 2000
+cores: 72
+mem_per_core: 1500
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
@@ -24,7 +24,7 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: False
+add_aluminum: True
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
@@ -622,7 +622,7 @@ solving:
     default:
       MIPGap: 0.01
       TimeLimit: 7200
-      Threads: 20
+      Threads: 72
       LogToConsole: 1
   options:
     track_iterations: false
@@ -634,7 +634,7 @@ solving:
     noisy_costs: false
     clip_p_max_pu: 0.01
 
-  mem: 80000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+  mem: 100000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 no_lines: False
 line_volume_limit_max: 5.e+15   #line_volume_limit is set = factor * max
