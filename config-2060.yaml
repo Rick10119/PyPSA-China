@@ -2,18 +2,19 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0423.1H.6
+version: 0425.4H.3
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-cores: 20
+threads: 72
+mem_per_thread: 1500
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1H'
-frequency: 1.
+freq: '4h'
+frequency: 4.
 
 ## add components
 heat_coupling: True
@@ -28,8 +29,8 @@ add_aluminum: True
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
   al_excess_rate: # aluminum excess rate
-    '2020': 0.0
-    '2025': 0.0
+    '2020': 0.01
+    '2025': 0.01
     '2030': 0.35
     '2035': 0.40
     '2040': 0.50
@@ -620,8 +621,8 @@ solving:
   solver_options:
     default:
       MIPGap: 0.01
-      TimeLimit: 3600
-      Threads: 6
+      TimeLimit: 7200
+      Threads: 72
       LogToConsole: 1
   options:
     track_iterations: false
@@ -633,7 +634,7 @@ solving:
     noisy_costs: false
     clip_p_max_pu: 0.01
 
-  mem: 80000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+  mem: 100000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 no_lines: False
 line_volume_limit_max: 5.e+15   #line_volume_limit is set = factor * max
