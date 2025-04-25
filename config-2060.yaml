@@ -2,13 +2,13 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0425.4H.3
+version: 0425.4H.4
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 72
+threads: 80
 mem_per_thread: 1500
 
 tmin: '-01-01 00:00'
@@ -25,6 +25,29 @@ add_hydro: True
 add_H2: True
 add_methanation: True
 add_aluminum: True
+
+
+solving:
+  solver:
+    name: gurobi
+    options: default
+  solver_options:
+    default:
+      MIPGap: 0.01
+      TimeLimit: 7200
+      Threads: 160
+      LogToConsole: 1
+  options:
+    track_iterations: false
+    min_iterations: 4
+    max_iterations: 6
+    skip_iterations: false
+    formulation: kirchhoff
+    load_shedding: false
+    noisy_costs: false
+    clip_p_max_pu: 0.01
+
+  mem: 140000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
@@ -612,29 +635,6 @@ plotting:
       onwind: "Onshore Wind"
       solar: "Solar"
       solar thermal: "Solar Thermal"
-
-
-solving:
-  solver:
-    name: gurobi
-    options: default
-  solver_options:
-    default:
-      MIPGap: 0.01
-      TimeLimit: 7200
-      Threads: 72
-      LogToConsole: 1
-  options:
-    track_iterations: false
-    min_iterations: 4
-    max_iterations: 6
-    skip_iterations: false
-    formulation: kirchhoff
-    load_shedding: false
-    noisy_costs: false
-    clip_p_max_pu: 0.01
-
-  mem: 100000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 no_lines: False
 line_volume_limit_max: 5.e+15   #line_volume_limit is set = factor * max
