@@ -325,7 +325,7 @@ if config["foresight"] == "myopic":
         output: config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
         wildcard_constraints:
             planning_horizons=config['scenario']['planning_horizons'][0] #only applies to baseyear
-        threads: 1
+        threads: config['cores']
         resources: mem_mb=config['mem_per_core'] * config['cores']
         script: "scripts/add_existing_baseyear.py"
 
