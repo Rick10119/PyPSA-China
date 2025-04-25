@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0424.1H.3
+version: 0424.1H.5
 logging_level: INFO
 foresight: "myopic"
 
@@ -622,7 +622,7 @@ solving:
     default:
       MIPGap: 0.01
       TimeLimit: 7200
-      Threads: 6
+      Threads: 20
       LogToConsole: 1
   options:
     track_iterations: false
