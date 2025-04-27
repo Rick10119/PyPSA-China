@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0425.2H.2
+version: 0425.4H.9
 logging_level: INFO
 foresight: "myopic"
 
@@ -13,8 +13,8 @@ mem_per_thread: 1200
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '2h'
-frequency: 2.
+freq: '4h'
+frequency: 4.
 
 ## add components
 heat_coupling: True
@@ -24,7 +24,7 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: False
+add_aluminum: True
 
 
 solving:
@@ -34,7 +34,7 @@ solving:
   solver_options:
     default:
       MIPGap: 0.01
-      TimeLimit: 54000
+      TimeLimit: 72000
       Threads: 160
       LogToConsole: 1
   options:
