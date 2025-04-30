@@ -24,7 +24,7 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: False
+add_aluminum: True
 
 
 solving:
@@ -34,7 +34,7 @@ solving:
   solver_options:
     default:
       MIPGap: 0.01
-      TimeLimit: 86400
+      TimeLimit: 162800
       Threads: 180
       LogToConsole: 1
   options:
@@ -47,7 +47,7 @@ solving:
     noisy_costs: false
     clip_p_max_pu: 0.01
 
-  mem: 100000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+  mem: 78000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
@@ -79,10 +79,6 @@ scenario:
   pathway: ['exponential175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2020
-    - 2025
-    - 2030
-    - 2035
     - 2040
     - 2045
     - 2050
