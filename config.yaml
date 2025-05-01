@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0425.2H.1
+version: 0425.2H.2
 logging_level: INFO
 foresight: "myopic"
 
@@ -24,7 +24,7 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: True
+add_aluminum: False
 
 
 solving:
