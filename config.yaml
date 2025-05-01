@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0425.1H.3
+version: 0425.2H.1
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 80
-mem_per_thread: 1200
+threads: 78
+mem_per_thread: 1000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
@@ -24,7 +24,7 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: False
+add_aluminum: True
 
 
 solving:
@@ -79,10 +79,6 @@ scenario:
   pathway: ['exponential175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2040
-    - 2045
-    - 2050
-    - 2055
     - 2060
   co2_reduction:
     exponential175:
