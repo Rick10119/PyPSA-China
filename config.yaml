@@ -9,7 +9,7 @@ foresight: "myopic"
 results_dir: 'results/'
 summary_dir: 'summary/'
 threads: 78
-mem_per_thread: 1000
+mem_per_thread: 1400
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
@@ -47,7 +47,7 @@ solving:
     noisy_costs: false
     clip_p_max_pu: 0.01
 
-  mem: 78000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+  mem: 110000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
