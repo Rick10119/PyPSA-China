@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0425.1H.2
+version: 0425.1H.3
 logging_level: INFO
 foresight: "myopic"
 
@@ -24,7 +24,7 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: True
+add_aluminum: False
 
 
 solving:
@@ -79,6 +79,7 @@ scenario:
   pathway: ['exponential175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
+    - 2045
     - 2050
     - 2055
     - 2060
