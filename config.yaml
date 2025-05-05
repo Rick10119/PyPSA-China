@@ -79,7 +79,6 @@ scenario:
   pathway: ['exponential175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2045
     - 2050
     - 2055
     - 2060
