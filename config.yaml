@@ -34,7 +34,7 @@ solving:
   solver_options:
     default:
       MIPGap: 0.01
-      TimeLimit: 162800
+      TimeLimit: 81400
       Threads: 180
       LogToConsole: 1
   options:
@@ -79,7 +79,6 @@ scenario:
   pathway: ['exponential175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2050
     - 2055
     - 2060
   co2_reduction:
