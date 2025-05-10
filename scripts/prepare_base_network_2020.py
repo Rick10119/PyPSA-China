@@ -2,6 +2,37 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""
+This script prepares the base network for the PyPSA-China model for the year 2020.
+It creates a PyPSA network with the following components:
+
+1. Network Structure:
+   - Sets up the network with specified snapshots and time resolution
+   - Configures bus locations based on province centroids
+   - Adds carriers for different energy types (electricity, heat, gas, coal)
+
+2. Energy Components:
+   - Adds renewable generators (wind, solar, hydro)
+   - Configures conventional power plants
+   - Sets up heat pumps and resistive heaters
+   - Adds storage components (batteries, pumped hydro storage)
+   - Configures transmission lines between provinces
+
+3. Demand and Constraints:
+   - Loads electricity demand data
+   - Configures heat demand profiles
+   - Sets up CO2 emission constraints
+   - Adds capacity constraints for different technologies
+
+4. Cost Parameters:
+   - Loads technology costs
+   - Configures capital and marginal costs
+   - Sets up cost parameters for transmission and storage
+
+The script takes configuration parameters from the Snakefile and creates a network
+that serves as the base for further optimization and analysis.
+"""
+
 # for pathway network
 
 from vresutils.costdata import annuity
@@ -136,6 +167,9 @@ def prepare_network(config):
         network.add("Carrier", "gas", co2_emissions=costs.at['gas', 'co2_emissions'])  # in t_CO2/MWht
     if config["add_coal"]:
         network.add("Carrier", "coal", co2_emissions=costs.at['coal', 'co2_emissions'])
+    if config["add_aluminum"]:
+        network.add("Carrier", "aluminum")
+        network.add("Carrier", "aluminum smelter")
 
     # add global constraint
     if not isinstance(config['scenario']['co2_reduction'], tuple):
@@ -161,10 +195,67 @@ def prepare_network(config):
         load = 1e6 * store['load']
         load.index = load.index.tz_localize('Asia/shanghai')
         load = load.loc[network.snapshots]
-
+        
     load.columns = pro_names
 
-    network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
+    if config["add_aluminum"] and config["aluminum"]["al_excess_rate"][planning_horizons] > 0.01:
+        # Calculate national total aluminum load
+        national_max_electric_load = load[nodes].max().sum()  # Get national max electric load
+        national_al_load = 0.77 * (1-config['aluminum']['al_excess_rate'][planning_horizons]) * config['aluminum']['al_demand_ratio'] * national_max_electric_load
+        
+        # Read production ratios and filter out those less than 0.01
+        production_ratio = pd.read_csv(snakemake.input.aluminum_production_ratio)
+        production_ratio = production_ratio.set_index('Province')['production_share_2023']
+        production_ratio = production_ratio.reindex(nodes).fillna(0)  # Ensure all provinces are included
+        production_ratio = production_ratio[production_ratio > 0.01]  # Filter out low production ratios
+        
+        # Create a 2D array with shape (n_snapshots, n_provinces) using filtered production ratios
+        al_load_values = np.tile(
+            national_al_load * production_ratio.values,
+            (len(network.snapshots), 1)
+        )
+        # Create DataFrame with the properly shaped data
+        aluminum_load = pd.DataFrame(
+            data=al_load_values,
+            index=network.snapshots,
+            columns=production_ratio.index  # Use filtered provinces
+        )
+
+        # Add aluminum smelters only for provinces with production ratio > 0.01
+        network.madd("Link",
+                    production_ratio.index,  # Only add for filtered provinces
+                    suffix=" aluminum smelter",
+                    bus0=production_ratio.index,
+                    bus1=production_ratio.index + " aluminum",
+                    carrier="aluminum smelter",
+                    p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
+                    p_nom_extendable=False,
+                    efficiency=1.0,  # Scalar value
+                    )
+
+        # Add aluminum storage only for provinces with production ratio > 0.01
+        network.madd("Store",
+                    production_ratio.index,  # Only add for filtered provinces
+                    suffix=" aluminum storage",
+                    bus=production_ratio.index + " aluminum",
+                    carrier="aluminum storage",
+                    e_nom_extendable=True,
+                    e_cyclic=True,
+                    marginal_cost_storage=config['aluminum']['al_marginal_cost_storage'])
+
+        # Add aluminum load only for provinces with production ratio > 0.01
+        network.madd("Load",
+                    production_ratio.index,  # Only add for filtered provinces
+                    suffix=" aluminum",
+                    bus=production_ratio.index + " aluminum",
+                    p_set=aluminum_load[production_ratio.index])
+
+        # Subtract aluminum load from electric load only for affected provinces
+        load_minus_al = load.copy()
+        load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index]
+        network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
+    else:
+        network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
 
     if config["heat_coupling"]:
 
@@ -217,7 +308,7 @@ def prepare_network(config):
         points = df.apply(lambda row: Point(row.Lon, row.Lat), axis=1)
         dams = gpd.GeoDataFrame(df, geometry=points, crs=4236)
 
-        hourly_rng = pd.date_range('1979-01-01', '2017-01-01', freq='1H', inclusive='left')
+        hourly_rng = pd.date_range('1979-01-01', '2017-01-01', freq='1h', inclusive='left')
         inflow = pd.read_pickle('data/hydro/daily_hydro_inflow_per_dam_1979_2016_m3.pickle').reindex(hourly_rng, fill_value=0)
         inflow.columns = dams.index
 

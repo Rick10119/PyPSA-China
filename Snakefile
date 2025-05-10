@@ -5,39 +5,13 @@
 from os.path import normpath
 from shutil import move
 
-from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
-HTTP = HTTPRemoteProvider()
+# from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+# HTTP = HTTPRemoteProvider()
 
 configfile: "config.yaml"
 
 ATLITE_NPROCESSES = config['atlite'].get('nprocesses', 4)
 
-
-if config["foresight"] == "non-pathway":
-    rule prepare_all_networks:
-        input:
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-                **config["scenario"]
-            )
-
-    rule solve_all_networks:
-        input:
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-                **config["scenario"]
-            ),
-
-    rule plot_all:
-        input:
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext.pdf',
-                **config["scenario"]
-            ),
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_costs.png',
-                **config["scenario"]
-            ),
 
 if config["foresight"] == "myopic":
 
@@ -52,20 +26,6 @@ if config["foresight"] == "myopic":
     #                 'version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
     #             ** config["scenario"]
     #         )
-
-
-    rule solve_all_networks:
-        input:
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-                **config["scenario"]
-            ),
-
-            expand(
-                config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-                **config["scenario"]
-            ),
-
     rule plot_all:
         input:
             # expand(
@@ -93,6 +53,21 @@ if config["foresight"] == "myopic":
             #     config['version']) + '/plots/network/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext_heat.pdf',
             #     **config["scenario"]
             # )
+
+    rule solve_all_networks:
+        input:
+            expand(
+                config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+                **config["scenario"]
+            ),
+
+            expand(
+                config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+                **config["scenario"]
+            )
+
+
+
 
 
 # rule build_population:
@@ -245,8 +220,8 @@ if config["foresight"] == "non-pathway":
                for tech in config['renewable']}
         output:
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-        threads: 6
-        resources: mem_mb=10000
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
         script: "scripts/prepare_network_test.py"
 
     rule solve_networks:
@@ -256,8 +231,8 @@ if config["foresight"] == "non-pathway":
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc'
         log:
             solver=normpath("logs/solve_operations_network/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log")
-        threads: 4
-        resources: mem_mb=35000
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
         script: "scripts/solve_network.py"
     #
     # rule plot_network:
@@ -300,6 +275,8 @@ if config["foresight"] == "myopic":
             cop_name="data/heating/cop.h5",
             province_shape="data/province_shapes/CHN_adm1.shp",
             elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            aluminum_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            aluminum_production_ratio="data/p_nom/al_production_ratio.csv",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_city:town_2020.h5",
             tech_costs= "data/costs/costs_{planning_horizons}.csv",
@@ -309,9 +286,9 @@ if config["foresight"] == "myopic":
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
         wildcard_constraints:
             planning_horizons=2020 #only applies to baseyear
-        threads: 1
-        resources: mem_mb=10000
-        script: "scripts/prepare_base_network_2020_test.py"
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
+        script: "scripts/prepare_base_network_2020.py"
 
     rule prepare_base_networks:
         input:
@@ -321,6 +298,8 @@ if config["foresight"] == "myopic":
             cop_name="data/heating/cop.h5",
             province_shape="data/province_shapes/CHN_adm1.shp",
             elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            aluminum_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            aluminum_production_ratio="data/p_nom/al_production_ratio.csv",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_city:town_2020.h5",
             tech_costs= "data/costs/costs_{planning_horizons}.csv",
@@ -329,9 +308,9 @@ if config["foresight"] == "myopic":
                for tech in config['renewable']}
         output:
             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-        threads: 1
-        resources: mem_mb=10000
-        script: "scripts/prepare_base_network_test.py"
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
+        script: "scripts/prepare_base_network.py"
 
     ruleorder: prepare_base_networks_2020 > prepare_base_networks
 
@@ -346,9 +325,9 @@ if config["foresight"] == "myopic":
         output: config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
         wildcard_constraints:
             planning_horizons=config['scenario']['planning_horizons'][0] #only applies to baseyear
-        threads: 1
-        resources: mem_mb=2000
-        script: "scripts/add_existing_baseyear_test.py"
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
+        script: "scripts/add_existing_baseyear.py"
 
     def solved_previous_horizon(wildcards):
         planning_horizons = config["scenario"]["planning_horizons"]
@@ -366,8 +345,8 @@ if config["foresight"] == "myopic":
                 for tech in config['renewable']}
         output:
             network_name = config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-        threads: 4
-        resources: mem_mb=10000
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
         script: "scripts/add_brownfield.py"
 
     ruleorder: add_existing_baseyear > add_brownfield
@@ -385,9 +364,9 @@ if config["foresight"] == "myopic":
             network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
         log:
             solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log")
-        threads: 6
-        resources: mem_mb = 80000
-        script: "scripts/solve_network_myopic_test.py"
+        threads: config['threads']
+        resources: mem_mb = config['mem_per_thread'] * config['threads']
+        script: "scripts/solve_network_myopic.py"
 
     ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
 

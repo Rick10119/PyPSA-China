@@ -245,7 +245,39 @@ def solve_network(n, config, solving, opts="", **kwargs):
     if not n.lines.s_nom_extendable.any():
         skip_iterations = True
         logger.info("No expandable lines found. Skipping iterative solving.")
-  
+
+# Add diagnostic code before optimization
+    logger.info("Checking network feasibility...")
+    logger.info(f"Number of buses: {len(n.buses)}")
+    logger.info(f"Number of generators: {len(n.generators)}")
+    logger.info(f"Number of loads: {len(n.loads)}")
+    logger.info(f"Number of links: {len(n.links)}")
+    
+    # Check if there's enough generation capacity to meet demand
+    total_demand = n.loads_t.p_set.mean()
+    # logger.info("Provincial demand (MW):")
+    # for province, demand in total_demand.items():
+    #     logger.info(f"{province}: {demand:.2f}")
+    total_demand = total_demand.sum()
+    logger.info(f"Total mean demand across all provinces: {total_demand:.2f} MW")
+    
+    # Also check peak demand
+    peak_demand = n.loads_t.p_set.max().sum()
+    # logger.info(f"Peak total demand: {peak_demand:.2f} MW")
+    
+    total_generation_capacity = n.generators.p_nom.sum()
+    # logger.info("Provincial generation capacity (MW):")
+    # for province in n.generators.bus.unique():
+    #     capacity = n.generators[n.generators.bus == province].p_nom.sum()
+    #     logger.info(f"{province}: {capacity:.2f}")
+    logger.info("\nGeneration capacity by type (MW):")
+    for carrier in n.generators.carrier.unique():
+        capacity = n.generators[n.generators.carrier == carrier].p_nom.sum() 
+        logger.info(f"{carrier}: {capacity:.2f}")
+    logger.info(f"Total demand: {total_demand:.2f} MW")
+    logger.info(f"Total generation capacity: {total_generation_capacity:.2f} MW")
+    
+    
     if skip_iterations:
         status, condition = n.optimize(
             solver_name=solver_name,

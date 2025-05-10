@@ -2,19 +2,19 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0425.1H.3
+version: 0425.8H.5
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 78
-mem_per_thread: 1400
+threads: 6
+mem_per_thread: 1300
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1h'
-frequency: 1.
+freq: '8h'
+frequency: 8.
 
 ## add components
 heat_coupling: True
@@ -24,43 +24,20 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: False
-
-
-solving:
-  solver:
-    name: gurobi
-    options: default
-  solver_options:
-    default:
-      MIPGap: 0.01
-      TimeLimit: 81400
-      Threads: 180
-      LogToConsole: 1
-  options:
-    track_iterations: false
-    min_iterations: 4
-    max_iterations: 6
-    skip_iterations: false
-    formulation: kirchhoff
-    load_shedding: false
-    noisy_costs: false
-    clip_p_max_pu: 0.01
-
-  mem: 110000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+add_aluminum: True
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
   al_excess_rate: # aluminum excess rate
     '2020': 0.00
     '2025': 0.00
-    '2030': 0.35
-    '2035': 0.40
-    '2040': 0.50
-    '2045': 0.60
+    '2030': 0.20
+    '2035': 0.30
+    '2040': 0.40
+    '2045': 0.50
     '2050': 0.50
-    '2055': 0.40
-    '2060': 0.30
+    '2055': 0.50
+    '2060': 0.50
 
   
   # Electrolyzer costs
@@ -79,8 +56,8 @@ scenario:
   pathway: ['exponential175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2055
-    - 2060
+    - 2020
+    - 2025
   co2_reduction:
     exponential175:
       '2020': 0.0
@@ -628,6 +605,29 @@ plotting:
       onwind: "Onshore Wind"
       solar: "Solar"
       solar thermal: "Solar Thermal"
+
+
+solving:
+  solver:
+    name: gurobi
+    options: default
+  solver_options:
+    default:
+      MIPGap: 0.01
+      TimeLimit: 7200
+      Threads: 6
+      LogToConsole: 1
+  options:
+    track_iterations: false
+    min_iterations: 4
+    max_iterations: 6
+    skip_iterations: false
+    formulation: kirchhoff
+    load_shedding: false
+    noisy_costs: false
+    clip_p_max_pu: 0.01
+
+  mem: 8000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 no_lines: False
 line_volume_limit_max: 5.e+15   #line_volume_limit is set = factor * max
