@@ -163,6 +163,7 @@ def add_load_shedding(n, materials, demand_matrix, price_matrix):
 def plot_results(n):
     """绘制结果图像"""
 
+    # 这个函数还没有写好
     # 绘制links的输入功率
     n.links_t.p0.plot(figsize=(9, 7), lw=3)
     plt.tight_layout()
