@@ -119,7 +119,7 @@ def add_links(n, materials, relationship_matrix):
                 inputs.append(input_material)
                 efficiencies.append(relationship_matrix[i][j])
         # 创建Link元件（每个产品一个生产Link）
-        if inputs:
+        if inputs: #(?)
             link_kwargs = {
                 "bus0": "electricity",  # 电力输入
                 # "efficiency": -1.0,  # 可选
@@ -167,7 +167,8 @@ def add_load_shedding(n, materials, demand_matrix, price_matrix):
             p_max_pu = 0,  # 最大出力为0，只能切负荷
             p_min_pu = demand_series,  # 需求量
             p_nom = demand_matrix[i],  # 需求规模
-            marginal_cost = price_matrix[i])  # 切负荷成本
+            marginal_cost = 1e6 * price_matrix[i])  # 切负荷成本
+
 
 # =====================
 # 结果绘图
@@ -181,6 +182,12 @@ def plot_results(n):
     n.links_t.p0.plot(figsize=(9, 7), lw=3)
     plt.tight_layout()
     plt.savefig("examples/LS/results/links_p0.png")
+    plt.show()
+    
+    # plot the demand
+    n.generators_t.p.plot(figsize=(9, 7), lw=3)
+    plt.tight_layout()
+    plt.savefig("examples/LS/results/generators_p.png")
     plt.show()
 
 # =====================
