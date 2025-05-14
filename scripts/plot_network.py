@@ -1,3 +1,6 @@
+# This script is used to plot the network cost map.
+# It is used to visualize the spatial distribution of system costs and grid expansion.
+
 import logging
 
 # Set up a logger for this module
