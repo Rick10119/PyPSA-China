@@ -255,21 +255,13 @@ def solve_network(n, config, solving, opts="", **kwargs):
     
     # Check if there's enough generation capacity to meet demand
     total_demand = n.loads_t.p_set.mean()
-    # logger.info("Provincial demand (MW):")
-    # for province, demand in total_demand.items():
-    #     logger.info(f"{province}: {demand:.2f}")
     total_demand = total_demand.sum()
     logger.info(f"Total mean demand across all provinces: {total_demand:.2f} MW")
     
     # Also check peak demand
     peak_demand = n.loads_t.p_set.max().sum()
-    # logger.info(f"Peak total demand: {peak_demand:.2f} MW")
     
     total_generation_capacity = n.generators.p_nom.sum()
-    # logger.info("Provincial generation capacity (MW):")
-    # for province in n.generators.bus.unique():
-    #     capacity = n.generators[n.generators.bus == province].p_nom.sum()
-    #     logger.info(f"{province}: {capacity:.2f}")
     logger.info("\nGeneration capacity by type (MW):")
     for carrier in n.generators.carrier.unique():
         capacity = n.generators[n.generators.carrier == carrier].p_nom.sum() 
@@ -302,6 +294,14 @@ def solve_network(n, config, solving, opts="", **kwargs):
         )
     if "infeasible" in condition:
         raise RuntimeError("Solving status 'infeasible'")
+
+    # Store the objective value from the model
+    if hasattr(n.model, 'objective_value'):
+        n.objective = n.model.objective_value
+    elif hasattr(n.model, 'objective'):
+        n.objective = n.model.objective.value
+    else:
+        logger.warning("Could not find objective value in model")
 
     return n
 
