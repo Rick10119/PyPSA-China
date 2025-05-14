@@ -8,7 +8,7 @@ foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 78
+threads: 8 # 78
 mem_per_thread: 1400
 
 tmin: '-01-01 00:00'
