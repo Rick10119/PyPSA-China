@@ -8,13 +8,13 @@ foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 8 # 78
+threads: 78
 mem_per_thread: 1400
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '8h'
-frequency: 8.
+freq: '4h'
+frequency: 4.
 
 ## add components
 heat_coupling: True

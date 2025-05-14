@@ -37,7 +37,7 @@ dependencies:
   - shapely
   - progressbar2
   - pyomo
-  - matplotlib
+  - matplotlib=3.6.3
   - tqdm
 
   # GIS 依赖 - 最小限制

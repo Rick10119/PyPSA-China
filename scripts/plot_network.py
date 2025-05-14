@@ -22,7 +22,7 @@ from pypsa.plot import add_legend_circles, add_legend_lines, add_legend_patches
 # and readability
 
 def set_plot_style():
-    plt.style.use(['classic', 'seaborn-v0_8-white',
+    plt.style.use(['classic', 'seaborn-v0_8-whitegrid',
                    {'axes.grid': False, 'grid.linestyle': '--', 'grid.color': u'0.6',
                     'hatch.color': 'white',
                     'patch.linewidth': 0.5,
@@ -47,7 +47,7 @@ def assign_location(n):
 # Helper function to process and order cost data for plotting.
 # It ensures costs are grouped, ordered, and filtered according to the preferred order and available tech colors.
 def get_costs(costs, tech_colors):
-    costs = costs.groupby(costs.columns, axis=1).sum()
+    costs = costs.T.groupby(costs.columns).sum().T
     costs.drop(list(costs.columns[(costs == 0.0).all()]), axis=1, inplace=True)
     new_columns = preferred_order.intersection(costs.columns).append(
         costs.columns.difference(preferred_order)

@@ -5,7 +5,7 @@ import pypsa
 import matplotlib.pyplot as plt
 
 def set_plot_style():
-    plt.style.use(['classic', 'seaborn-white',
+    plt.style.use(['classic', 'seaborn-v0_8-whitegrid',
                    {'axes.grid': False, 'grid.linestyle': '--', 'grid.color': u'0.6',
                     'hatch.color': 'white',
                     'patch.linewidth': 0.5,
@@ -47,7 +47,8 @@ def plot_water_store(n):
     planning_horizon = snakemake.wildcards.planning_horizons
     fig, ax = plt.subplots(figsize=map_figsize)
     (n.stores_t.e.filter(like='water').sum(axis=1) / n.stores.e_nom_opt.filter(like='water').sum()).plot(ax=ax)
-    ax.set_ylim(0, 1.0, 0.1)
+    ax.set_ylim(0, 1.0)
+    ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
     ax.set_title(" water tank storage in " + planning_horizon)
     fig.savefig(snakemake.output["water_store"], dpi=150, bbox_inches='tight')
 
