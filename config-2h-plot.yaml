@@ -2,17 +2,92 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0412.175.1H
+version: 0425.2H.2
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
+threads: 8 #78
+mem_per_thread: 1400
+
+tmin: '-01-01 00:00'
+tmax: '-12-31 23:00'
+freq: '2h'
+frequency: 2.
+
+## add components
+heat_coupling: True
+add_gas: True
+add_coal: True
+add_biomass: True
+add_hydro: True
+add_H2: True
+add_methanation: True
+add_aluminum: False
+
+
+solving:
+  solver:
+    name: gurobi
+    options: default
+  solver_options:
+    default:
+      MIPGap: 0.01
+      TimeLimit: 7200
+      Threads: 180
+      LogToConsole: 1
+  options:
+    track_iterations: false
+    min_iterations: 4
+    max_iterations: 6
+    skip_iterations: false
+    formulation: kirchhoff
+    load_shedding: false
+    noisy_costs: false
+    clip_p_max_pu: 0.01
+
+  mem: 110000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+
+aluminum:
+  al_demand_ratio: 0.07  # aluminum demand, 7% load
+  al_excess_rate: # aluminum excess rate
+    '2020': 0.00
+    '2025': 0.00
+    '2030': 0.35
+    '2035': 0.40
+    '2040': 0.50
+    '2045': 0.60
+    '2050': 0.50
+    '2055': 0.40
+    '2060': 0.30
+
+  
+  # Electrolyzer costs
+  al_capital_cost: 0  # annualized capital cost of electrolyzer ($/MW/year)
+  
+  # Aluminum storage costs ($/MWh per hour) 3.91479E-05
+  al_marginal_cost_storage: 3.79E-05 # euro/MWh
+  al_storage_limit: 8760  # hours (24 * 365)
+  
+  # Electrolyzer startup costs 16000 * 7.3 / 7.55  # euro/MW
+  al_start_up_cost: 15470
+  al_p_min_pu: 0.1
 
 scenario:
   line_limits: [ 'opt' ]
-  pathway: ['exponential175','beta25175']
+  pathway: ['exponential175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
+  planning_horizons:
+    - 2020
+    - 2025
+    - 2030
+    - 2035
+    - 2040
+    - 2045
+    - 2050
+    - 2055
+    - 2060
   co2_reduction:
     exponential175:
       '2020': 0.0
@@ -66,16 +141,6 @@ scenario:
       '2060': 1.0
   opts: ['ll']
   attr: 'p_nom'
-  planning_horizons:
-    - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
-    - 2050
-    - 2055
-    - 2060
   heating_demand: ['positive']
 
 snapshots:
@@ -83,10 +148,7 @@ snapshots:
   end: "2021-01-01"
   inclusive: 'left'
 
-tmin: '-01-01 00:00'
-tmax: '-12-31 23:00'
-freq: '1H'
-frequency: 1.
+
 
 logging:
   level: INFO
@@ -118,13 +180,14 @@ hydrogen_lines: false
 
 existing_infrastructure: ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']
 
-bus_suffix: [""," central heat"," decentral heat"," gas"," coal"]
+bus_suffix: [""," central heat"," decentral heat"," gas"," coal"," aluminum"]
 bus_carrier: {
     "": "AC",
     " central heat": "heat",
     " decentral heat": "heat",
     " gas": "gas",
     " coal": "coal",
+    " aluminum": "aluminum",
 }
 
 Techs:
@@ -133,15 +196,6 @@ Techs:
   conv_techs: ["OCGT gas", "CHP gas", "gas boiler","coal boiler","coal power plant","CHP coal"]
   store_techs: ["H2","battery","water tanks","PHS"]
 
-
-## add components
-heat_coupling: True
-add_gas: True
-add_coal: True
-add_biomass: True
-add_hydro: True
-add_H2: True
-add_methanation: True
 
 transmission_efficiency:
   DC:
@@ -262,7 +316,7 @@ plotting:
   costs_max: 500
   costs_avg: 50
   costs_threshold: 1000
-  costs_plots_threshold: 20
+  costs_plots_threshold: 2
 
   energy_max: 25000.
   energy_min: 0.
@@ -581,96 +635,6 @@ plotting:
       onwind: "Onshore Wind"
       solar: "Solar"
       solar thermal: "Solar Thermal"
-
-
-solving:
-  options:
-#    clip_p_max_pu: 1.e-2
-#    load_shedding: false
-#    transmission_losses: 0
-#    noisy_costs: false
-#    skip_iterations: true
-#    track_iterations: false
-#    min_iterations: 4
-#    max_iterations: 6
-#    seed: 123
-    formulation: kirchhoff
-    load_shedding: false
-    noisy_costs: false
-    min_iterations: 4
-    max_iterations: 6
-    clip_p_max_pu: 0.01
-    skip_iterations: false
-    track_iterations: false
-
-  solver:
-    name: gurobi
-    options: gurobi-default
-
-  solver_options:
-    highs-default:
-      # refer to https://ergo-code.github.io/HiGHS/options/definitions.html#solver
-      threads: 4
-      solver: "ipm"
-      run_crossover: "off"
-      small_matrix_value: 1e-6
-      large_matrix_value: 1e9
-      primal_feasibility_tolerance: 1e-5
-      dual_feasibility_tolerance: 1e-5
-      ipm_optimality_tolerance: 1e-4
-      parallel: "on"
-      random_seed: 123
-    gurobi-default:
-      threads: 8
-      method: 2 # barrier
-      crossover: 0
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-6
-      AggFill: 0
-      PreDual: 0
-      GURO_PAR_BARDENSETHRESH: 200
-      DualReductions: 0
-#      threads: 4
-#      method: 2 # barrier
-#      crossover: 0
-#      BarConvTol: 1.e-6
-#      Seed: 123
-#      AggFill: 0
-#      PreDual: 0
-#      GURO_PAR_BARDENSETHRESH: 200
-#      seed: 10              # Consistent seed for all plattforms
-    gurobi-numeric-focus:
-      name: gurobi
-      NumericFocus: 3       # Favour numeric stability over speed
-      method: 2             # barrier
-      crossover: 0          # do not use crossover
-      BarHomogeneous: 1     # Use homogeneous barrier if standard does not converge
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-4
-      OptimalityTol: 1.e-4
-      ObjScale: -0.5
-      threads: 8
-      Seed: 123
-    gurobi-fallback:        # Use gurobi defaults
-      name: gurobi
-      crossover: 0
-      method: 2             # barrier
-      BarHomogeneous: 1     # Use homogeneous barrier if standard does not converge
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-5
-      OptimalityTol: 1.e-5
-      Seed: 123
-      threads: 8
-    cplex-default:
-      threads: 4
-      lpmethod: 4 # barrier
-      solutiontype: 2 # non basic solution, ie no crossover
-      barrier.convergetol: 1.e-5
-      feasopt.tolerance: 1.e-6
-    cbc-default: {} # Used in CI
-    glpk-default: {} # Used in CI
-
-  mem: 80000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 no_lines: False
 line_volume_limit_max: 5.e+15   #line_volume_limit is set = factor * max

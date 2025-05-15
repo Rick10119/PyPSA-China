@@ -2,19 +2,19 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0514.8H.1
+version: 0425.2H.2
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 78
+threads: 8 #78
 mem_per_thread: 1400
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '8h'
-frequency: 8.
+freq: '2h'
+frequency: 2.
 
 ## add components
 heat_coupling: True
@@ -24,7 +24,7 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: True
+add_aluminum: False
 
 
 solving:
