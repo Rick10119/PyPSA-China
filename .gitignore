@@ -20,3 +20,5 @@ PyPSA-China.code-workspace
 /gurobi.log
 /results
 /dag.pdf
+/envs/commands.md
+/envs/commands-server.md

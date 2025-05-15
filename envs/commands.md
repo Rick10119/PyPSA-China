@@ -4,15 +4,6 @@ conda install -c gurobi gurobi
 # 安装命令
 # conda env update -f envs/environment.yaml
 
-# conda install -c conda-forge dask xlrd openpyxl pycountry seaborn
-# conda install -c conda-forge memory_profiler yaml pytables lxml powerplantmatching pyyaml
-# conda install -c conda-forge numpy pandas geopandas xarray netcdf4 networkx scipy shapely progressbar2 pyomo matplotlib
-# conda install -c conda-forge proj 'fiona<=1.18.20' geopy tqdm pytz country_converter tabula-py
-# conda install -c conda-forge ipython cartopy descartes rasterio
-# conda install -c conda-forge -c bioconda snakemake-minimal
-# conda install -c conda-forge graphviz
-# pip install vresutils tsam
-# conda install -c conda-forge xarray
 # # 核心依赖
 # conda install -c conda-forge pypsa=0.21.1 atlite=0.2.14 dask
 
@@ -20,7 +11,7 @@ snakemake solve_network_myopic --config opts=ll topology=current+Neighbor pathwa
 
 conda remove
 
-conda env export --no-builds > environment.yml
+conda env export --no-builds > environment.yaml
 
 snakemake --cores 6
 
