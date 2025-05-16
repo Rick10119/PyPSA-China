@@ -265,9 +265,12 @@ def calculate_energy(n, label, energy):
                 )
                 # remove values where bus is missing (bug in nomopyomo)
                 no_bus = c.df.index[c.df["bus" + port] == ""]
-                totals.loc[no_bus] = float(
-                    n.component_attrs[c.name].loc["p" + port, "default"]
-                )
+                # Only process links that exist in both totals and no_bus
+                valid_no_bus = no_bus.intersection(totals.index)
+                if not valid_no_bus.empty:
+                    totals.loc[valid_no_bus] = float(
+                        n.component_attrs[c.name].loc["p" + port, "default"]
+                    )
                 c_energies -= totals.groupby(c.df.carrier).sum()
 
         c_energies = pd.concat([c_energies], keys=[c.list_name])
@@ -317,15 +320,18 @@ def calculate_supply(n, label, supply):
                     continue
 
                 # lots of sign compensation for direction and to do maximums
-                s = (-1) ** (1 - int(end)) * (
-                    (-1) ** int(end) * c.pnl["p" + end][items]
-                ).max().groupby(c.df.loc[items, "carrier"]).sum()
-                s.index = s.index + end
-                s = pd.concat([s], keys=[c.list_name])
-                s = pd.concat([s], keys=[i])
+                # Only process items that exist in the pnl DataFrame
+                valid_items = items.intersection(c.pnl["p" + end].columns)
+                if not valid_items.empty:
+                    s = (-1) ** (1 - int(end)) * (
+                        (-1) ** int(end) * c.pnl["p" + end][valid_items]
+                    ).max().groupby(c.df.loc[valid_items, "carrier"]).sum()
+                    s.index = s.index + end
+                    s = pd.concat([s], keys=[c.list_name])
+                    s = pd.concat([s], keys=[i])
 
-                supply = supply.reindex(s.index.union(supply.index))
-                supply.loc[s.index, label] = s
+                    supply = supply.reindex(s.index.union(supply.index))
+                    supply.loc[s.index, label] = s
 
     return supply
 
@@ -368,18 +374,21 @@ def calculate_supply_energy(n, label, supply_energy):
                 if len(items) == 0:
                     continue
 
-                s = (-1) * c.pnl["p" + end][items].multiply(
-                    n.snapshot_weightings.generators, axis=0
-                ).sum().groupby(c.df.loc[items, "carrier"]).sum()
-                s.index = s.index + end
-                s = pd.concat([s], keys=[c.list_name])
-                s = pd.concat([s], keys=[i])
+                # Only process items that exist in the pnl DataFrame
+                valid_items = items.intersection(c.pnl["p" + end].columns)
+                if not valid_items.empty:
+                    s = (-1) * c.pnl["p" + end][valid_items].multiply(
+                        n.snapshot_weightings.generators, axis=0
+                    ).sum().groupby(c.df.loc[valid_items, "carrier"]).sum()
+                    s.index = s.index + end
+                    s = pd.concat([s], keys=[c.list_name])
+                    s = pd.concat([s], keys=[i])
 
-                supply_energy = supply_energy.reindex(
-                    s.index.union(supply_energy.index)
-                )
+                    supply_energy = supply_energy.reindex(
+                        s.index.union(supply_energy.index)
+                    )
 
-                supply_energy.loc[s.index, label] = s
+                    supply_energy.loc[s.index, label] = s
 
     return supply_energy
 
