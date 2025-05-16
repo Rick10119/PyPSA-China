@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: : 2024 The PyPSA-China Authors
+# SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors
 #
 # SPDX-License-Identifier: MIT
 
@@ -197,13 +197,21 @@ def add_retrofit_constraints(n):
             index=Bus
         )
 
-        lhs  = (
-            n.model["Generator-p_nom"].loc[coal]
-            + n.model["Generator-p_nom"].loc[coal_retrofit]
-            - (p_nom_max[str(year)].loc[Bus] - coal_retrofitted.reindex(p_nom_max[str(year)].loc[Bus].index,fill_value=0)).values
-        )
-
-        n.model.add_constraints(lhs == 0, name="Generator-coal-retrofit-" + str(year))
+        # Create constraint with proper dimension handling
+        for bus in Bus:
+            if bus in coal_retrofitted.index:
+                retrofit_cap = coal_retrofitted[bus]
+            else:
+                retrofit_cap = 0
+                
+            max_cap = p_nom_max[str(year)].loc[bus]
+            coal_bus = coal[n.generators.loc[coal].bus == bus]
+            coal_retrofit_bus = coal_retrofit[n.generators.loc[coal_retrofit].bus == bus]
+            
+            if len(coal_bus) > 0 or len(coal_retrofit_bus) > 0:
+                lhs = n.model["Generator-p_nom"].loc[coal_bus].sum() + n.model["Generator-p_nom"].loc[coal_retrofit_bus].sum()
+                rhs = max_cap - retrofit_cap
+                n.model.add_constraints(lhs == rhs, name=f"Generator-coal-retrofit-{year}-{bus}")
 
 def extra_functionality(n, snapshots):
     """
@@ -237,6 +245,30 @@ def solve_network(n, config, solving, opts="", **kwargs):
     if not n.lines.s_nom_extendable.any():
         skip_iterations = True
         logger.info("No expandable lines found. Skipping iterative solving.")
+
+# Add diagnostic code before optimization
+    logger.info("Checking network feasibility...")
+    logger.info(f"Number of buses: {len(n.buses)}")
+    logger.info(f"Number of generators: {len(n.generators)}")
+    logger.info(f"Number of loads: {len(n.loads)}")
+    logger.info(f"Number of links: {len(n.links)}")
+    
+    # Check if there's enough generation capacity to meet demand
+    total_demand = n.loads_t.p_set.mean()
+    total_demand = total_demand.sum()
+    logger.info(f"Total mean demand across all provinces: {total_demand:.2f} MW")
+    
+    # Also check peak demand
+    peak_demand = n.loads_t.p_set.max().sum()
+    
+    total_generation_capacity = n.generators.p_nom.sum()
+    logger.info("\nGeneration capacity by type (MW):")
+    for carrier in n.generators.carrier.unique():
+        capacity = n.generators[n.generators.carrier == carrier].p_nom.sum() 
+        logger.info(f"{carrier}: {capacity:.2f}")
+    logger.info(f"Total demand: {total_demand:.2f} MW")
+    logger.info(f"Total generation capacity: {total_generation_capacity:.2f} MW")
+    
     
     if skip_iterations:
         status, condition = n.optimize(
