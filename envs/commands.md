@@ -5,13 +5,15 @@ conda install -c gurobi gurobi
 # conda env update -f envs/environment.yaml
 
 # # 核心依赖
-# conda install -c conda-forge pypsa=0.21.1 atlite=0.2.14 dask
+# conda install -c conda-forge pypsa=0.21.3 atlite=0.2.14 dask
 
 snakemake solve_network_myopic --config opts=ll topology=current+Neighbor pathway=beta25175 planning_horizons=2020 heating_demand=positive
 
 conda remove
 
 conda env export --no-builds > environment.yaml
+
+conda create --name cloned_env --clone original_env
 
 snakemake --cores 6
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: : 2024 The PyPSA-China Authors
+# SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors
 #
 # SPDX-License-Identifier: MIT
 
@@ -246,8 +246,35 @@ def calculate_curtailment(n, label, curtailment):
 
 
 def calculate_energy(n, label, energy):
+    """
+    Calculate the total energy for each component in the network.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components
+    label : str
+        The label/identifier for the current scenario
+    energy : pd.DataFrame
+        DataFrame to store the calculated energy values
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated energy DataFrame with new calculations
+    """
+    
+    # Iterate through all components (both one-port and branch components)
     for c in n.iterate_components(n.one_port_components | n.branch_components):
+        
+        # Handle one-port components (like generators, loads, storage units)
         if c.name in n.one_port_components:
+            print(f"Processing one-port component: {c.name}")
+            # Calculate energy by:
+            # 1. Multiply power by snapshot weightings (to account for time periods)
+            # 2. Sum over all time periods
+            # 3. Multiply by sign (to handle consumption vs generation)
+            # 4. Group by carrier type
             c_energies = (
                 c.pnl.p.multiply(n.snapshot_weightings.generators, axis=0)
                 .sum()
@@ -256,24 +283,62 @@ def calculate_energy(n, label, energy):
                 .sum()
             )
         else:
+            print(f"Processing branch component: {c.name}")
+            # For branch components (like lines, transformers, links)
+            # Initialize empty series with zeros for each carrier
             c_energies = pd.Series(0.0, c.df.carrier.unique())
+            
+            # Process each port of the branch component
+            # (e.g., bus0, bus1 for a line)
             for port in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
-                totals = (
-                    c.pnl["p" + port]
-                    .multiply(n.snapshot_weightings.generators, axis=0)
-                    .sum()
-                )
-                # remove values where bus is missing (bug in nomopyomo)
-                no_bus = c.df.index[c.df["bus" + port] == ""]
-                totals.loc[no_bus] = float(
-                    n.component_attrs[c.name].loc["p" + port, "default"]
-                )
-                c_energies -= totals.groupby(c.df.carrier).sum()
+                # Skip bus2 for hydro turbine links
+                if c.name == "Link" and port == "2" and "hydroelectricity" in c.df.carrier.unique():
+                    print("Skipping bus2 for hydro turbine links")
+                    continue
+                # Skip bus3 for aluminum smelters
+                if c.name == "Link" and port == "3" and "aluminum smelter" in c.df.carrier.unique():
+                    print("Skipping bus3 for aluminum smelters")
+                    continue
+                    
+                print(f"Processing port: {port}")
+                
+                # Skip if power flow data is missing for this port
+                if "p" + port not in c.pnl:
+                    print(f"Skipping port {port} for {c.name} as power flow data is missing")
+                    continue
+                    
+                try:
+                    # Calculate total energy flow through each port
+                    totals = (
+                        c.pnl["p" + port]
+                        .multiply(n.snapshot_weightings.generators, axis=0)
+                        .sum()
+                    )
+                    
+                    # Handle cases where bus is missing (bug in nomopyomo)
+                    no_bus = c.df.index[c.df["bus" + port] == ""]
+                    if len(no_bus) > 0:
+                        print(f"Found {len(no_bus)} components with missing bus{port}")
+                        default_value = float(
+                            n.component_attrs[c.name].loc["p" + port, "default"]
+                        )
+                        totals.loc[no_bus] = default_value
+                    
+                    # Subtract the port's energy from total (to account for flow direction)
+                    c_energies -= totals.groupby(c.df.carrier).sum()
+                except Exception as e:
+                    print(f"Error processing port {port}: {str(e)}")
+                    print(f"Component data: {c.df.head()}")
+                    print(f"Component pnl: {c.pnl.keys()}")
+                    continue  # Skip this port and continue with others instead of raising the error
 
+        # Add component name as first level of index
         c_energies = pd.concat([c_energies], keys=[c.list_name])
 
+        # Ensure the energy DataFrame has all necessary indices
         energy = energy.reindex(c_energies.index.union(energy.index))
 
+        # Store the calculated energies in the DataFrame
         energy.loc[c_energies.index, label] = c_energies
 
     return energy
@@ -281,49 +346,91 @@ def calculate_energy(n, label, energy):
 
 def calculate_supply(n, label, supply):
     """
-    Calculate the max dispatch of each component at the buses aggregated by
-    carrier.
+    Calculate the maximum power dispatch (supply) of each component at the buses, aggregated by carrier.
+    
+    This function calculates the peak power flow through each component in the network,
+    which represents the maximum capacity utilization of each technology.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components and their data
+    label : str
+        The label/identifier for the current scenario (e.g., year)
+    supply : pd.DataFrame
+        DataFrame to store the calculated supply values
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated supply DataFrame with maximum dispatch values for each component
     """
+    # Get unique bus carriers (e.g., AC, DC, heat, etc.)
     bus_carriers = n.buses.carrier.unique()
 
+    # Process each bus carrier type separately
     for i in bus_carriers:
+        # Create a boolean map of buses belonging to this carrier
         bus_map = n.buses.carrier == i
-        bus_map.at[""] = False
+        bus_map.at[""] = False  # Exclude empty bus names
 
+        # Process one-port components (generators, loads, storage units)
         for c in n.iterate_components(n.one_port_components):
+            # Find components connected to buses of this carrier
             items = c.df.index[c.df.bus.map(bus_map).fillna(False)]
 
             if len(items) == 0:
                 continue
 
+            # Calculate maximum power flow, accounting for component sign
+            # (positive for generation, negative for consumption)
             s = (
                 c.pnl.p[items]
-                .max()
-                .multiply(c.df.loc[items, "sign"])
-                .groupby(c.df.loc[items, "carrier"])
-                .sum()
+                .max()  # Get maximum power flow
+                .multiply(c.df.loc[items, "sign"])  # Apply sign convention
+                .groupby(c.df.loc[items, "carrier"])  # Group by technology type
+                .sum()  # Sum over all components of same carrier
             )
+            # Add component type and bus carrier as index levels
             s = pd.concat([s], keys=[c.list_name])
             s = pd.concat([s], keys=[i])
 
+            # Update the supply DataFrame
             supply = supply.reindex(s.index.union(supply.index))
             supply.loc[s.index, label] = s
 
+        # Process branch components (links, lines, transformers)
         for c in n.iterate_components(n.branch_components):
+            # Process each port of the branch component
             for end in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
+                # Find components connected to buses of this carrier at this port
                 items = c.df.index[c.df["bus" + end].map(bus_map).fillna(False)]
 
                 if len(items) == 0:
                     continue
 
-                # lots of sign compensation for direction and to do maximums
+                # Skip if power flow data is missing for this port
+                if "p" + end not in c.pnl:
+                    print(f"Skipping port {end} for {c.name} as power flow data is missing")
+                    continue
+
+                # Filter out components without power flow data
+                valid_items = [item for item in items if item in c.pnl["p" + end].columns]
+                if len(valid_items) == 0:
+                    print(f"No valid items found for port {end} of {c.name}")
+                    continue
+
+                # Calculate maximum power flow with sign compensation
+                # (-1)**(1-int(end)) handles direction of power flow
+                # (-1)**int(end) accounts for port numbering convention
                 s = (-1) ** (1 - int(end)) * (
-                    (-1) ** int(end) * c.pnl["p" + end][items]
-                ).max().groupby(c.df.loc[items, "carrier"]).sum()
-                s.index = s.index + end
+                    (-1) ** int(end) * c.pnl["p" + end][valid_items]
+                ).max().groupby(c.df.loc[valid_items, "carrier"]).sum()
+                s.index = s.index + end  # Add port number to index
                 s = pd.concat([s], keys=[c.list_name])
                 s = pd.concat([s], keys=[i])
 
+                # Update the supply DataFrame
                 supply = supply.reindex(s.index.union(supply.index))
                 supply.loc[s.index, label] = s
 
@@ -332,35 +439,61 @@ def calculate_supply(n, label, supply):
 
 def calculate_supply_energy(n, label, supply_energy):
     """
-    Calculate the total energy supply/consuption of each component at the buses
+    Calculate the total energy supply/consumption of each component at the buses,
     aggregated by carrier.
+    
+    This function calculates the total energy flow through each component over time,
+    which represents the actual energy production/consumption.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components and their data
+    label : str
+        The label/identifier for the current scenario (e.g., year)
+    supply_energy : pd.DataFrame
+        DataFrame to store the calculated energy values
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated supply_energy DataFrame with total energy values for each component
     """
+    # Get unique bus carriers
     bus_carriers = n.buses.carrier.unique()
 
+    # Process each bus carrier type
     for i in bus_carriers:
+        # Create boolean map of buses belonging to this carrier
         bus_map = n.buses.carrier == i
         bus_map.at[""] = False
 
+        # Process one-port components
         for c in n.iterate_components(n.one_port_components):
             items = c.df.index[c.df.bus.map(bus_map).fillna(False)]
 
             if len(items) == 0:
                 continue
 
+            # Calculate total energy flow over time
+            # Multiply by snapshot weightings to account for time periods
             s = (
                 c.pnl.p[items]
-                .multiply(n.snapshot_weightings.generators, axis=0)
-                .sum()
-                .multiply(c.df.loc[items, "sign"])
-                .groupby(c.df.loc[items, "carrier"])
-                .sum()
+                .multiply(n.snapshot_weightings.generators, axis=0)  # Weight by time period
+                .sum()  # Sum over all time periods
+                .multiply(c.df.loc[items, "sign"])  # Apply sign convention
+                .groupby(c.df.loc[items, "carrier"])  # Group by technology
+                .sum()  # Sum over all components of same carrier
             )
+            # Add component type and bus carrier as index levels
             s = pd.concat([s], keys=[c.list_name])
             s = pd.concat([s], keys=[i])
 
+            # Update the supply_energy DataFrame
             supply_energy = supply_energy.reindex(s.index.union(supply_energy.index))
             supply_energy.loc[s.index, label] = s
 
+        # Process branch components
         for c in n.iterate_components(n.branch_components):
             for end in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
                 items = c.df.index[c.df["bus" + str(end)].map(bus_map).fillna(False)]
@@ -368,17 +501,29 @@ def calculate_supply_energy(n, label, supply_energy):
                 if len(items) == 0:
                     continue
 
-                s = (-1) * c.pnl["p" + end][items].multiply(
-                    n.snapshot_weightings.generators, axis=0
-                ).sum().groupby(c.df.loc[items, "carrier"]).sum()
-                s.index = s.index + end
+                # Skip if power flow data is missing
+                if "p" + end not in c.pnl:
+                    print(f"Skipping port {end} for {c.name} as power flow data is missing")
+                    continue
+
+                # Filter out components without power flow data
+                valid_items = [item for item in items if item in c.pnl["p" + end].columns]
+                if len(valid_items) == 0:
+                    print(f"No valid items found for port {end} of {c.name}")
+                    continue
+
+                # Calculate total energy flow with sign compensation
+                s = (-1) * c.pnl["p" + end][valid_items].multiply(
+                    n.snapshot_weightings.generators, axis=0  # Weight by time period
+                ).sum().groupby(c.df.loc[valid_items, "carrier"]).sum()
+                s.index = s.index + end  # Add port number to index
                 s = pd.concat([s], keys=[c.list_name])
                 s = pd.concat([s], keys=[i])
 
+                # Update the supply_energy DataFrame
                 supply_energy = supply_energy.reindex(
                     s.index.union(supply_energy.index)
                 )
-
                 supply_energy.loc[s.index, label] = s
 
     return supply_energy

@@ -38,11 +38,11 @@ if config["foresight"] == "myopic":
                 config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_store-{opts}-{topology}-{pathway}-{planning_horizons}.png',
                 ** config["scenario"]
             ),
-            # expand(
-            #     config['results_dir'] + 'version-' + str(
-            #     config['version']) + '/plots/summary/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_costs.png',
-            #     **config["scenario"]
-            # ),
+            expand(
+                config['results_dir'] + 'version-' + str(
+                config['version']) + '/plots/summary/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_costs.png',
+                **config["scenario"]
+            ),
             expand(
                 config['results_dir'] + 'version-' + str(
                 config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}-cost.pdf',
