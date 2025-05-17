@@ -371,7 +371,7 @@ def prepare_network(config):
         points = df.apply(lambda row: Point(row.Lon, row.Lat), axis=1)
         dams = gpd.GeoDataFrame(df, geometry=points, crs=4236)
 
-        hourly_rng = pd.date_range('1979-01-01', '2017-01-01', freq='1h', inclusive='left')
+        hourly_rng = pd.date_range('1979-01-01', '2017-01-01', freq=config['freq'], inclusive='left')
         inflow = pd.read_pickle('data/hydro/daily_hydro_inflow_per_dam_1979_2016_m3.pickle').reindex(hourly_rng, fill_value=0)
         inflow.columns = dams.index
 
@@ -855,7 +855,7 @@ def prepare_network(config):
                      bus=nodes + " battery",
                      e_cyclic=True,
                      e_nom_extendable=True,
-                     capital_cost=0.01*costs.at['battery storage','capital_cost'],
+                     capital_cost=costs.at['battery storage','capital_cost'],
                      lifetime=costs.at['battery storage','lifetime'])
 
         network.madd("Link",
@@ -863,7 +863,7 @@ def prepare_network(config):
                      bus0=nodes,
                      bus1=nodes + " battery",
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
-                     capital_cost=0.01*costs.at['battery inverter','capital_cost'],
+                     capital_cost=costs.at['battery inverter','capital_cost'],
                      p_nom_extendable=True,
                      carrier="battery",
                      lifetime=costs.at['battery inverter','lifetime'] )
