@@ -2,28 +2,28 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0425.8H.test3
+version: 0520.1H.3
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 8 #78
+threads: 78
 mem_per_thread: 1400
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '24h'
-frequency: 24.
+freq: '1h'
+frequency: 1.
 
 ## add components
 heat_coupling: True
 add_gas: True
 add_coal: True
-add_biomass: True
+add_biomass: False
 add_hydro: True
-add_H2: True
-add_methanation: True
+add_H2: False
+add_methanation: False
 add_aluminum: False
 
 
@@ -80,13 +80,12 @@ scenario:
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
     - 2020
-    - 2025
   co2_reduction:
     exponential175:
-      '2020': 0.0
-      '2025': 0.22623418
-      '2030': 0.41175086
-      '2035': 0.56387834
+      '2020': -1
+      '2025': -1
+      '2030': 0.21175086
+      '2035': 0.46387834
       '2040': 0.688626
       '2045': 0.79092165
       '2050': 0.87480618

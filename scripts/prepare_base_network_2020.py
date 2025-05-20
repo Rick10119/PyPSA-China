@@ -565,7 +565,7 @@ def prepare_network(config):
                      bus=nodes + " battery",
                      e_cyclic=True,
                      e_nom_extendable=True,
-                     capital_cost=costs.at['battery storage','capital_cost'],
+                     capital_cost=0*costs.at['battery storage','capital_cost'],
                      lifetime=costs.at['battery storage','lifetime'])
 
         network.madd("Link",
@@ -573,7 +573,7 @@ def prepare_network(config):
                      bus0=nodes,
                      bus1=nodes + " battery",
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
-                     capital_cost=costs.at['battery inverter','capital_cost'],
+                     capital_cost=0*costs.at['battery inverter','capital_cost'],
                      p_nom_extendable=True,
                      carrier="battery",
                      lifetime=costs.at['battery inverter','lifetime'] )

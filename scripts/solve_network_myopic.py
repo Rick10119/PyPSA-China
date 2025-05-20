@@ -241,6 +241,30 @@ def solve_network(n, config, solving, opts="", **kwargs):
     n.config = config
     n.opts = opts
 
+    # Print existing capacities before solving
+    print("\nExisting capacities before solving:")
+    print("-----------------------------------")
+    
+    # Print generator capacities
+    if not n.generators.empty:
+        print("\nGenerator capacities:")
+        gen_caps = n.generators.groupby('carrier')['p_nom'].sum()
+        print(gen_caps)
+    
+    # Print link capacities
+    if not n.links.empty:
+        print("\nLink capacities:")
+        link_caps = n.links.groupby('carrier')['p_nom'].sum()
+        print(link_caps)
+    
+    # Print storage capacities
+    if not n.storage_units.empty:
+        print("\nStorage unit capacities:")
+        storage_caps = n.storage_units.groupby('carrier')['p_nom'].sum()
+        print(storage_caps)
+    
+    print("\n-----------------------------------")
+
     skip_iterations = cf_solving.get("skip_iterations", False)
     if not n.lines.s_nom_extendable.any():
         skip_iterations = True
