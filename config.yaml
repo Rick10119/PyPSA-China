@@ -37,6 +37,7 @@ solving:
       TimeLimit: 86400
       Threads: 180
       LogToConsole: 1
+      BarHomogeneous: 1
   options:
     track_iterations: false
     min_iterations: 4
