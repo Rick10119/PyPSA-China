@@ -34,11 +34,14 @@ solving:
   solver_options:
     default:
       MIPGap: 0.05
-      TimeLimit: 86400
+      TimeLimit: 10
       Threads: 180
       LogToConsole: 1
-      BarHomogeneous: 1
-      NumericFocus: 3
+      # BarHomogeneous: 1
+      # NumericFocus: 3
+      # FeasibilityTol: 1e-6
+      # IntFeasTol: 1e-6
+      # Method: 2
   options:
     track_iterations: false
     min_iterations: 4
@@ -82,12 +85,6 @@ scenario:
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
     - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
-    - 2050
   co2_reduction:
     exponential175:
       '2020': -1

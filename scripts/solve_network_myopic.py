@@ -97,33 +97,45 @@ def add_chp_constraints(n):
     # output ratio between heat and electricity and top_iso_fuel_line for extendable
     if not electric_ext.empty:
         p_nom = n.model["Link-p_nom"]
-
+        
+        # Scale factors to improve numerical stability
+        scale_factor = 1e-3  # Scale down by 1000
+        
+        # Get efficiency ratios with scaling
+        elec_eff = (n.links.p_nom_ratio * n.links.efficiency)[electric_ext].values * scale_factor
+        heat_eff = n.links.efficiency[heat_ext].values * scale_factor
+        
+        # Add constraint with scaled values
         lhs = (
-            p_nom.loc[electric_ext]
-            * (n.links.p_nom_ratio * n.links.efficiency)[electric_ext].values
-            - p_nom.loc[heat_ext] * n.links.efficiency[heat_ext].values
+            p_nom.loc[electric_ext] * elec_eff
+            - p_nom.loc[heat_ext] * heat_eff
         )
         n.model.add_constraints(lhs == 0, name="chplink-fix_p_nom_ratio")
 
+        # Scale the top_iso_fuel_line constraint
         rename = {"Link-ext": "Link"}
         lhs = (
-            p.loc[:, electric_ext]
-            + p.loc[:, heat_ext]
-            - p_nom.rename(rename).loc[electric_ext]
+            p.loc[:, electric_ext] * scale_factor
+            + p.loc[:, heat_ext] * scale_factor
+            - p_nom.rename(rename).loc[electric_ext] * scale_factor
         )
         n.model.add_constraints(lhs <= 0, name="chplink-top_iso_fuel_line_ext")
 
     # top_iso_fuel_line for fixed
     if not electric_fix.empty:
-        lhs = p.loc[:, electric_fix] + p.loc[:, heat_fix]
-        rhs = n.links.p_nom[electric_fix]
+        # Scale the fixed capacity constraint
+        scale_factor = 1e-3
+        lhs = p.loc[:, electric_fix] * scale_factor + p.loc[:, heat_fix] * scale_factor
+        rhs = n.links.p_nom[electric_fix] * scale_factor
         n.model.add_constraints(lhs <= rhs, name="chplink-top_iso_fuel_line_fix")
 
     # back-pressure
     if not n.links[electric].index.empty:
+        # Scale the back-pressure constraint
+        scale_factor = 1e-3
         lhs = (
-            p.loc[:, heat] * (n.links.efficiency[heat] * n.links.c_b[electric].values)
-            - p.loc[:, electric] * n.links.efficiency[electric]
+            p.loc[:, heat] * (n.links.efficiency[heat] * n.links.c_b[electric].values) * scale_factor
+            - p.loc[:, electric] * n.links.efficiency[electric] * scale_factor
         )
         n.model.add_constraints(lhs <= 0, name="chplink-backpressure")
 
