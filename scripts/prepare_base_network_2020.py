@@ -389,27 +389,27 @@ def prepare_network(config):
         # only feed into hydro stations which are the first of a cascade
         inflow_stations = [dam for dam in range(len(dams.index)) if not dam in bus1s ]
 
-        for inflow_station in inflow_stations:
+        # for inflow_station in inflow_stations:
 
-            # p_nom = 1 and p_max_pu & p_min_pu = p_pu, compulsory inflow
+        #     # p_nom = 1 and p_max_pu & p_min_pu = p_pu, compulsory inflow
 
-            date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
-            date_range = date_range.map(lambda t: t.replace(year=2016))
+        #     date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
+        #     date_range = date_range.map(lambda t: t.replace(year=2016))
 
-            p_nom = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station].max()
-            p_pu = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station] / p_nom
-            p_pu.index = network.snapshots
-            network.add('Generator',
-                       dams.index[inflow_station] + ' inflow',
-                       bus=dam_buses.iloc[inflow_station].name,
-                       carrier='hydro_inflow',
-                       p_max_pu=p_pu.clip(1.e-6),
-                       p_min_pu=p_pu.clip(1.e-6),
-                       p_nom=p_nom)
+        #     p_nom = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station].max()
+        #     p_pu = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station] / p_nom
+        #     p_pu.index = network.snapshots
+        #     network.add('Generator',
+        #                dams.index[inflow_station] + ' inflow',
+        #                bus=dam_buses.iloc[inflow_station].name,
+        #                carrier='hydro_inflow',
+        #                p_max_pu=p_pu.clip(1.e-6),
+        #                p_min_pu=p_pu.clip(1.e-6),
+        #                p_nom=p_nom)
 
-            # p_nom*p_pu = XXX m^3 then use turbines efficiency to convert to power
+        #     # p_nom*p_pu = XXX m^3 then use turbines efficiency to convert to power
 
-        ## add otehr existing hydro power
+        ## add other existing hydro power
         hydro_p_nom = pd.read_hdf("data/p_nom/hydro_p_nom.h5")
         hydro_p_max_pu = pd.read_hdf("data/p_nom/hydro_p_max_pu.h5", key="hydro_p_max_pu")
 
