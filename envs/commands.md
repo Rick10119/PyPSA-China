@@ -31,3 +31,5 @@ git clone https://github.com/Rick10119/PyPSA-China.git
 conda env update -f envs/environment_mac.yaml
 cd Documents/github/PyPSA-China
 conda activate pypsa-linux
+
+% touch scripts/prepare_base_network_2020.py

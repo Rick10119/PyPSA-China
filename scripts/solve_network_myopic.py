@@ -76,28 +76,6 @@ def prepare_network(
 
     return n
 
-def add_battery_constraints(n):
-    """
-    Add constraint ensuring that charger = discharger, i.e.
-    1 * charger_size - efficiency * discharger_size = 0
-    """
-    if not n.links.p_nom_extendable.any():
-        return
-
-    discharger_bool = n.links.index.str.contains("battery discharger")
-    charger_bool = n.links.index.str.contains("battery charger")
-
-    dischargers_ext = n.links[discharger_bool].query("p_nom_extendable").index
-    chargers_ext = n.links[charger_bool].query("p_nom_extendable").index
-
-    eff = n.links.efficiency[dischargers_ext].values
-    lhs = (
-        n.model["Link-p_nom"].loc[chargers_ext]
-        - n.model["Link-p_nom"].loc[dischargers_ext] * eff
-    )
-
-    n.model.add_constraints(lhs == 0, name="Link-charger_ratio")
-
 def add_chp_constraints(n):
     electric = (
         n.links.index.str.contains("CHP")
@@ -222,7 +200,6 @@ def extra_functionality(n, snapshots):
     opts = n.opts
     config = n.config
     add_chp_constraints(n)
-    add_battery_constraints(n)
     add_transimission_constraints(n)
     if snakemake.wildcards.planning_horizons != "2020":
         add_retrofit_constraints(n)
