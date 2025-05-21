@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0520.1H.3
+version: 0520.1H.5
 logging_level: INFO
 foresight: "myopic"
 
@@ -17,12 +17,12 @@ freq: '1h'
 frequency: 1.
 
 ## add components
-heat_coupling: True
+heat_coupling: False
 add_gas: True
 add_coal: True
-add_biomass: False
+add_biomass: True
 add_hydro: True
-add_H2: False
+add_H2: True
 add_methanation: False
 add_aluminum: False
 
@@ -33,8 +33,8 @@ solving:
     options: default
   solver_options:
     default:
-      MIPGap: 0.01
-      TimeLimit: 7200
+      MIPGap: 0.025
+      TimeLimit: 86400
       Threads: 180
       LogToConsole: 1
   options:
@@ -54,7 +54,7 @@ aluminum:
   al_excess_rate: # aluminum excess rate
     '2020': 0.00
     '2025': 0.00
-    '2030': 0.35
+    '2030': 0.30
     '2035': 0.40
     '2040': 0.50
     '2045': 0.60
@@ -76,10 +76,16 @@ aluminum:
 
 scenario:
   line_limits: [ 'opt' ]
-  pathway: ['exponential175']
+  pathway: ['linear175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
     - 2020
+    - 2025
+    - 2030
+    - 2035
+    - 2040
+    - 2045
+    - 2050
   co2_reduction:
     exponential175:
       '2020': -1
@@ -93,11 +99,11 @@ scenario:
       '2060': 1.0
     linear175:
       '2020': 0.
-      '2025': 0.16666667
-      '2030': 0.33333333
-      '2035': 0.5
-      '2040': 0.66666667
-      '2045': 0.83333333
+      '2025': 0.
+      '2030': 0.2
+      '2035': 0.4
+      '2040': 0.6
+      '2045': 0.8
       '2050': 1.0
       '2055': 1.0
       '2060': 1.0
@@ -139,8 +145,6 @@ snapshots:
   start: "2020-01-01"
   end: "2021-01-01"
   inclusive: 'left'
-
-
 
 logging:
   level: INFO
@@ -264,11 +268,6 @@ electricity:
   custom_powerplants: false # use pandas query strings here, e.g. Country in ['Germany']
   conventional_carriers: [nuclear, oil, OCGT, CCGT, coal, lignite, geothermal, biomass]
   renewable_capacities_from_OPSD: [] # onwind, offwind, solar
-
-  # estimate_renewable_capacities_from_capacity_stats:
-  #   # Wind is the Fueltype in ppm.data.Capacity_stats, onwind, offwind-{ac,dc} the carrier in PyPSA-Eur
-  #   Wind: [onwind, offwind-ac, offwind-dc]
-  #   Solar: [solar]
 
 hydro:
   hydro_capital_cost: True
