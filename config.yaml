@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0521.4H.6
+version: 0521.4H.7
 logging_level: INFO
 foresight: "myopic"
 
@@ -37,11 +37,11 @@ solving:
       TimeLimit: 86400
       Threads: 180
       LogToConsole: 1
-      BarHomogeneous: 1
-      NumericFocus: 3
+      # BarHomogeneous: 1
+      # NumericFocus: 3
       FeasibilityTol: 0.01
       IntFeasTol: 0.01
-      Method: 2
+      # Method: 2
   options:
     track_iterations: false
     min_iterations: 4
