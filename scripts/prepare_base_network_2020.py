@@ -585,7 +585,8 @@ def prepare_network(config):
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
                      capital_cost=0.5*costs.at['battery inverter','capital_cost'],
                      carrier="battery discharger",
-                     p_nom_extendable=True)
+                     p_nom_extendable=True,
+                     lifetime=costs.at['battery inverter','lifetime'])
 
     if "PHS" in config["Techs"]["store_techs"]:
         # pure pumped hydro storage, fixed, 6h energy by default, no inflow

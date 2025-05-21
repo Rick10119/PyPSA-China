@@ -863,19 +863,20 @@ def prepare_network(config):
                      bus0=nodes,
                      bus1=nodes + " battery",
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
-                     capital_cost=costs.at['battery inverter','capital_cost'],
+                     capital_cost=0.5*costs.at['battery inverter','capital_cost'],
                      p_nom_extendable=True,
                      carrier="battery",
-                     lifetime=costs.at['battery inverter','lifetime'] )
+                     lifetime=costs.at['battery inverter','lifetime'])
 
         network.madd("Link",
                      nodes + " battery discharger",
                      bus0=nodes + " battery",
                      bus1=nodes,
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
-                     marginal_cost=0.,
+                     capital_cost=0.5*costs.at['battery inverter','capital_cost'],
                      carrier="battery discharger",
-                     p_nom_extendable=True)
+                     p_nom_extendable=True,
+                     lifetime=costs.at['battery inverter','lifetime'])
 
     if "PHS" in config["Techs"]["store_techs"]:
         # pure pumped hydro storage, fixed, 6h energy by default, no inflow
