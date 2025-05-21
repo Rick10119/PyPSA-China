@@ -461,8 +461,12 @@ def prepare_network(config):
             date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
             date_range = date_range.map(lambda t: t.replace(year=2016))
 
-            p_nom = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station].max()
-            p_pu = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station] / p_nom
+            # Resample inflow data to match network frequency
+            resampled_inflow = inflow.resample(config['freq']).sum()
+            resampled_inflow = resampled_inflow.loc[date_range]
+
+            p_nom = (resampled_inflow/water_consumption_factor).iloc[:,inflow_station].max()
+            p_pu = (resampled_inflow/water_consumption_factor).iloc[:,inflow_station] / p_nom
             p_pu.index = network.snapshots
             network.add('Generator',
                        dams.index[inflow_station] + ' inflow',
