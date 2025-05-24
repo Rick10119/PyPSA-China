@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0521.4H.9
+version: 0520.1H.5
 logging_level: INFO
 foresight: "myopic"
 
@@ -13,11 +13,11 @@ mem_per_thread: 1400
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '4h'
-frequency: 4.
+freq: '1h'
+frequency: 1.
 
 ## add components
-heat_coupling: True
+heat_coupling: False
 add_gas: True
 add_coal: True
 add_biomass: True
@@ -33,15 +33,15 @@ solving:
     options: default
   solver_options:
     default:
-      MIPGap: 0.05
-      TimeLimit: 86400
+      MIPGap: 0.01
+      TimeLimit: 186400
       Threads: 180
       LogToConsole: 1
-      # BarHomogeneous: 1
-      # NumericFocus: 3
+      BarHomogeneous: 1
+      NumericFocus: 3
       FeasibilityTol: 0.01
       IntFeasTol: 0.01
-      # Method: 2
+      Method: 2
   options:
     track_iterations: false
     min_iterations: 4
@@ -84,12 +84,6 @@ scenario:
   pathway: ['linear175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
     - 2050
   co2_reduction:
     exponential175:
