@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0520.1H.8
+version: 0520.1H.6
 logging_level: INFO
 foresight: "myopic"
 
@@ -17,7 +17,7 @@ freq: '1h'
 frequency: 1.
 
 ## add components
-heat_coupling: True
+heat_coupling: False
 add_gas: True
 add_coal: True
 add_biomass: True
@@ -84,12 +84,6 @@ scenario:
   pathway: ['linear175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
     - 2050
   co2_reduction:
     exponential175:
