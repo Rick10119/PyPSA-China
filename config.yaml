@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0520.1H.10
+version: 0520.1H.11
 logging_level: INFO
 foresight: "myopic"
 
@@ -17,14 +17,14 @@ freq: '1h'
 frequency: 1.
 
 ## add components
-heat_coupling: False
+heat_coupling: True
 add_gas: True
 add_coal: True
 add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: False
+add_aluminum: True
 
 
 solving:
@@ -34,14 +34,10 @@ solving:
   solver_options:
     default:
       MIPGap: 0.01
-      TimeLimit: 186400
+      TimeLimit: 246400
       Threads: 360
       LogToConsole: 1
       BarHomogeneous: 1
-      # NumericFocus: 3
-      # FeasibilityTol: 0.01
-      # IntFeasTol: 0.01
-      # Method: 2
   options:
     track_iterations: false
     min_iterations: 4
