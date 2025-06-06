@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0520.1H.9
+version: 0520.1H.3
 logging_level: INFO
 foresight: "myopic"
 
@@ -17,7 +17,7 @@ freq: '1h'
 frequency: 1.
 
 ## add components
-heat_coupling: False
+heat_coupling: True
 add_gas: True
 add_coal: True
 add_biomass: True
