@@ -9,6 +9,7 @@ mv ~/Documents/PyPSA-China /scratch/gpfs/rl8728/PyPSA-China-al
 cp -R ~/Documents/PyPSA-China /scratch/gpfs/rl8728/PyPSA-China-1
 
 snakemake --unlock
+git restore .
 git pull
 sbatch job.slurm
 

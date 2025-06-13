@@ -9,7 +9,7 @@ foresight: "myopic"
 results_dir: 'results/'
 summary_dir: 'summary/'
 threads: 100
-mem_per_thread: 1200
+mem_per_thread: 2000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
