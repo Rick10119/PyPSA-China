@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0520.1H.12
+version: 0520.1H.13
 logging_level: INFO
 foresight: "myopic"
 
