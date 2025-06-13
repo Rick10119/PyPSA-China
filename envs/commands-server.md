@@ -8,6 +8,10 @@ conda activate pypsa-linux
 mv ~/Documents/PyPSA-China /scratch/gpfs/rl8728/PyPSA-China-al
 cp -R ~/Documents/PyPSA-China /scratch/gpfs/rl8728/PyPSA-China-1
 
+snakemake --unlock
+git pull
+sbatch job.slurm
+
 cd /scratch/gpfs/rl8728/PyPSA-China
 module load anaconda3/2024.6
 conda activate pypsa-linux
