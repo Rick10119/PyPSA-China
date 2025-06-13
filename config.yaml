@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0520.1H.11
+version: 0520.1H.12
 logging_level: INFO
 foresight: "myopic"
 
@@ -17,14 +17,14 @@ freq: '1h'
 frequency: 1.
 
 ## add components
-heat_coupling: True
+heat_coupling: False
 add_gas: True
 add_coal: True
 add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
-add_aluminum: True
+add_aluminum: False
 
 
 solving:
@@ -37,7 +37,6 @@ solving:
       TimeLimit: 246400
       Threads: 200
       LogToConsole: 1
-      BarHomogeneous: 1
   options:
     track_iterations: false
     min_iterations: 4
@@ -80,6 +79,10 @@ scenario:
   pathway: ['linear175']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
+    - 2020
+    - 2025
+    - 2030
+    - 2035
     - 2040
     - 2045
     - 2050
@@ -169,7 +172,7 @@ Technique:
   offwind: true
 
 coal_cc: true
-hydrogen_lines: false
+hydrogen_lines: true
 
 existing_infrastructure: ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']
 
