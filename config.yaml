@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0520.1H.13
+version: 0520.1H.14
 logging_level: INFO
 foresight: "myopic"
 
@@ -45,7 +45,7 @@ solving:
     max_iterations: 6
     skip_iterations: false
     formulation: kirchhoff
-    load_shedding: true
+    load_shedding: false
     noisy_costs: false
     clip_p_max_pu: 0.01
 
