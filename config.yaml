@@ -2,13 +2,13 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0520.1H.12
+version: 0520.1H.16
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 156
+threads: 78
 mem_per_thread: 1400
 
 tmin: '-01-01 00:00'
@@ -35,7 +35,7 @@ solving:
     default:
       MIPGap: 0.01
       TimeLimit: 246400
-      Threads: 192
+      Threads: 156
       LogToConsole: 1
       BarHomogeneous: 1
       Method: 2
@@ -49,7 +49,7 @@ solving:
     noisy_costs: false
     clip_p_max_pu: 0.01
 
-  mem: 110000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+  mem: 100000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
