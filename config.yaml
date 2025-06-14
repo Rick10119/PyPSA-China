@@ -35,7 +35,7 @@ solving:
     default:
       MIPGap: 0.01
       TimeLimit: 246400
-      Threads: 156
+      Threads: 92
       LogToConsole: 1
       BarHomogeneous: 1
       Method: 2
