@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0614.1H.2
+version: 0614.1H.3
 logging_level: INFO
 foresight: "myopic"
 
@@ -40,6 +40,7 @@ solving:
       BarHomogeneous: 1
       Crossover: 0
       Method: 2
+      NumericFocus: 3
   options:
     track_iterations: false
     min_iterations: 4
