@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0520.1H.16
+version: 0520.1H.17
 logging_level: INFO
 foresight: "myopic"
 
@@ -38,6 +38,7 @@ solving:
       Threads: 92
       LogToConsole: 1
       BarHomogeneous: 1
+      Crossover: 0
       Method: 2
   options:
     track_iterations: false
@@ -83,11 +84,6 @@ scenario:
   planning_horizons:
     - 2020
     - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
-    - 2050
   co2_reduction:
     exponential175:
       '2020': -1
