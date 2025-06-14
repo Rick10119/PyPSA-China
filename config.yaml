@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0614.1H.1
+version: 0614.1H.2
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 80
-mem_per_thread: 3000
+threads: 160
+mem_per_thread: 1500
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
@@ -35,7 +35,7 @@ solving:
     default:
       MIPGap: 0.01
       TimeLimit: 266400
-      Threads: 192
+      Threads: 384
       LogToConsole: 1
       BarHomogeneous: 1
       Crossover: 0
