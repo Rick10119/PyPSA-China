@@ -8,8 +8,8 @@ foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 160
-mem_per_thread: 2000
+threads: 80
+mem_per_thread: 4000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
@@ -35,7 +35,7 @@ solving:
     default:
       MIPGap: 0.01
       TimeLimit: 266400
-      Threads: 384
+      Threads: 192
       LogToConsole: 1
       BarHomogeneous: 1
       Crossover: 0
