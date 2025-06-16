@@ -209,6 +209,8 @@ def extra_functionality(n, snapshots):
     If you want to enforce additional custom constraints, this is a good location to add them.
     The arguments ``opts`` and ``snakemake.config`` are expected to be attached to the network.
     """
+    opts = n.opts
+    config = n.config
     add_chp_constraints(n)
     add_transimission_constraints(n)
     if snakemake.wildcards.planning_horizons != "2020":
