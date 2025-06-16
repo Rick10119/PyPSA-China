@@ -13,6 +13,6 @@ git restore .
 git pull
 sbatch job.slurm
 
-cd /scratch/gpfs/rl8728/PyPSA-China
+cd /scratch/gpfs/rl8728/PyPSA-China-1
 module load anaconda3/2024.6
 conda activate pypsa-linux
