@@ -22,3 +22,5 @@ PyPSA-China.code-workspace
 /dag.pdf
 /envs/commands.md
 /envs/commands-server.md
+/.vscode
+/.cursor

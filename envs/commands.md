@@ -21,6 +21,8 @@ snakemake --cores 6
 
 snakemake --dag | dot -Tpdf > dag.pdf
 
+snakemake --dag | grep -v "Set parameter" | grep -v "Academic license" | dot -Tpng > dag.png
+
 snakemake -s Snakefile-network --cores 6
 
 snakemake --unlock
