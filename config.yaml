@@ -33,11 +33,15 @@ solving:
     options: default
   solver_options:
     default:
-      MIPGap: 0.01
-      TimeLimit: 266400
       Threads: 192
-      LogToConsole: 1
       Crossover: 0
+      Method: 2 # barrier
+      BarConvTol: 1.e-5
+      FeasibilityTol: 1.e-6
+      AggFill: 0
+      PreDual: 0
+      GURO_PAR_BARDENSETHRESH: 200
+      DualReductions: 0
   options:
     track_iterations: false
     min_iterations: 4
