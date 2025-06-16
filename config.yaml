@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0616.24H.3
+version: 0616.1H.7
 logging_level: INFO
 foresight: "myopic"
 
@@ -13,8 +13,8 @@ mem_per_thread: 4000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '24h'
-frequency: 24.
+freq: '1h'
+frequency: 1.
 
 ## add components
 heat_coupling: True
