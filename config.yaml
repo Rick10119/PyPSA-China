@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0616.1H.6
+version: 0616.4H.1
 logging_level: INFO
 foresight: "myopic"
 
@@ -13,8 +13,8 @@ mem_per_thread: 4000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1h'
-frequency: 1.
+freq: '4h'
+frequency: 4.
 
 ## add components
 heat_coupling: True
@@ -98,8 +98,8 @@ scenario:
       '2055': 0.94359322
       '2060': 1.0
     linear175:
-      '2020': 0.
-      '2025': 0.
+      '2020': -1
+      '2025': -1
       '2030': 0.2
       '2035': 0.4
       '2040': 0.6
