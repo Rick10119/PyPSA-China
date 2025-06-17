@@ -149,16 +149,19 @@ def calculate_costs(n, label, costs):
     for c in n.iterate_components(
         n.branch_components | n.controllable_one_port_components ^ {"Load"}
     ):
+        # Calculate capital costs
         capital_costs = c.df.capital_cost * c.df[opt_name.get(c.name, "p") + "_nom_opt"]
         capital_costs_grouped = capital_costs.groupby(c.df.carrier).sum()
-
+        
+        # Add component type and cost type as index levels
         capital_costs_grouped = pd.concat([capital_costs_grouped], keys=["capital"])
         capital_costs_grouped = pd.concat([capital_costs_grouped], keys=[c.list_name])
-
+        
+        # Update costs DataFrame
         costs = costs.reindex(capital_costs_grouped.index.union(costs.index))
-
         costs.loc[capital_costs_grouped.index, label] = capital_costs_grouped
 
+        # Calculate marginal costs based on component type
         if c.name == "Link":
             p = c.pnl.p0.multiply(n.snapshot_weightings.generators, axis=0).sum()
         elif c.name == "Line":
@@ -170,22 +173,23 @@ def calculate_costs(n, label, costs):
         else:
             p = c.pnl.p.multiply(n.snapshot_weightings.generators, axis=0).sum()
 
-        # correct sequestration cost
+        # Special case for CO2 storage
         if c.name == "Store":
             items = c.df.index[
                 (c.df.carrier == "co2 stored") & (c.df.marginal_cost <= -100.0)
             ]
             c.df.loc[items, "marginal_cost"] = -20.0
 
+        # Calculate marginal costs
         marginal_costs = p * c.df.marginal_cost
-
         marginal_costs_grouped = marginal_costs.groupby(c.df.carrier).sum()
-
+        
+        # Add component type and cost type as index levels
         marginal_costs_grouped = pd.concat([marginal_costs_grouped], keys=["marginal"])
         marginal_costs_grouped = pd.concat([marginal_costs_grouped], keys=[c.list_name])
-
+        
+        # Update costs DataFrame
         costs = costs.reindex(marginal_costs_grouped.index.union(costs.index))
-
         costs.loc[marginal_costs_grouped.index, label] = marginal_costs_grouped
 
     # add back in all hydro
