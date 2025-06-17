@@ -72,7 +72,13 @@ def add_brownfield(n, n_p, year):
         )
 
         # copy over assets but fix their capacity
-        c.df[attr + "_nom"] = c.df[attr + "_nom_opt"]
+        if c.name == "Generator" and (c.df.carrier.isin(["nuclear", "solar thermal"]).any()):
+            # For nuclear and solar thermal, add optimized capacity to existing capacity
+            c.df[attr + "_nom"] = c.df[attr + "_nom"] + c.df[attr + "_nom_opt"]
+        else:
+            # For other components, use only the optimized capacity
+            c.df[attr + "_nom"] = c.df[attr + "_nom_opt"]
+            
         c.df[attr + "_nom_extendable"] = False
         c.df[attr + "_nom_max"] = np.inf
 
