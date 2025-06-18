@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0616.1H.7
+version: 0618.1H.1
 logging_level: INFO
 foresight: "myopic"
 
@@ -16,16 +16,46 @@ tmax: '-12-31 23:00'
 freq: '1h'
 frequency: 1.
 
-## add components
-heat_coupling: True
-add_gas: True
-add_coal: True
-add_biomass: True
-add_hydro: True
-add_H2: True
-add_methanation: True
 add_aluminum: False
 
+scenario:
+  line_limits: [ 'opt' ]
+  pathway: ['linear2050']
+  topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
+  planning_horizons:
+    - 2020
+    - 2025
+    - 2030
+    - 2035
+    - 2040
+    - 2045
+    - 2050
+    - 2055
+    - 2060
+  co2_reduction:
+    linear2060:
+      '2020': -1.
+      '2025': -1.
+      '2030': 0.143
+      '2035': 0.286
+      '2040': 0.429
+      '2045': 0.571
+      '2050': 0.714
+      '2055': 0.857
+      '2060': 1.0
+    linear2050:
+      '2020': -1.
+      '2025': -1.
+      '2030': 0.2
+      '2035': 0.4
+      '2040': 0.6
+      '2045': 0.8
+      '2050': 1.0
+      '2055': 1.0
+      '2060': 1.0
+  opts: ['ll']
+  attr: 'p_nom'
+  heating_demand: ['positive']
 
 solving:
   solver:
@@ -48,7 +78,7 @@ solving:
     max_iterations: 6
     skip_iterations: false
     formulation: kirchhoff
-    load_shedding: true
+    load_shedding: false
     noisy_costs: false
     clip_p_max_pu: 0.01
 
@@ -78,68 +108,6 @@ aluminum:
   # Electrolyzer startup costs 16000 * 7.3 / 7.55  # euro/MW
   al_start_up_cost: 15470
   al_p_min_pu: 0.1
-
-scenario:
-  line_limits: [ 'opt' ]
-  pathway: ['linear175']
-  topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
-  planning_horizons:
-    - 2020
-    - 2025
-  co2_reduction:
-    exponential175:
-      '2020': -1
-      '2025': -1
-      '2030': 0.21175086
-      '2035': 0.46387834
-      '2040': 0.688626
-      '2045': 0.79092165
-      '2050': 0.87480618
-      '2055': 0.94359322
-      '2060': 1.0
-    linear175:
-      '2020': -1
-      '2025': -1
-      '2030': 0.2
-      '2035': 0.4
-      '2040': 0.6
-      '2045': 0.8
-      '2050': 1.0
-      '2055': 1.0
-      '2060': 1.0
-    beta05175:
-      '2020': 0.
-      '2025': 0.41489656
-      '2030': 0.5139467
-      '2035': 0.58764476
-      '2040': 0.65150003
-      '2045': 0.71196579
-      '2050': 0.77403968
-      '2055': 0.84573191
-      '2060': 1.0
-    beta25175:
-      '2020': 0.0 #0.
-      '2025': 0.05096974 #0.06949544
-      '2030': 0.23251132 #0.27330722
-      '2035': 0.5 #0.52741596
-      '2040': 0.76748868 #0.75163934
-      '2045': 0.94903026 #0.90276156
-      '2050': 1.0 #0.97687314
-      '2055': 1.0 #0.99829624
-      '2060': 1.0 #1.0
-    mean175:
-      '2020': 0.
-      '2025': 0.12193339
-      '2030': 0.29252381
-      '2035': 0.53193917
-      '2040': 0.75766462
-      '2045': 0.88664452
-      '2050': 0.93740309
-      '2055': 0.97179661
-      '2060': 1.0
-  opts: ['ll']
-  attr: 'p_nom'
-  heating_demand: ['positive']
 
 snapshots:
   start: "2020-01-01"
@@ -173,6 +141,14 @@ Technique:
 
 coal_cc: true
 hydrogen_lines: true
+## add components
+heat_coupling: True
+add_gas: True
+add_coal: True
+add_biomass: True
+add_hydro: True
+add_H2: True
+add_methanation: True
 
 existing_infrastructure: ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']
 
