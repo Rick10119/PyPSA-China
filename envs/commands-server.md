@@ -8,6 +8,9 @@ conda activate pypsa-linux
 mv ~/Documents/PyPSA-China /scratch/gpfs/rl8728/PyPSA-China-al
 cp -R ~/Documents/PyPSA-China /scratch/gpfs/rl8728/PyPSA-China-1
 
+conda deactivate
+conda activate pypsa-plot
+
 cd /scratch/gpfs/rl8728/PyPSA-China-4
 module load anaconda3/2024.6
 conda activate pypsa-linux

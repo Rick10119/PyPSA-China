@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0618.1H.4
+version: 0618.1H.5
 logging_level: INFO
 foresight: "myopic"
 
@@ -20,7 +20,7 @@ add_aluminum: True
 
 scenario:
   line_limits: [ 'opt' ]
-  pathway: ['linear2060']
+  pathway: ['linear2050']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
     - 2020
@@ -30,8 +30,6 @@ scenario:
     - 2040
     - 2045
     - 2050
-    - 2055
-    - 2060
   co2_reduction:
     linear2060:
       '2020': -1.

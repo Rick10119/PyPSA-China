@@ -30,12 +30,12 @@ if config["foresight"] == "myopic":
         input:
             # expand(
             #     config['results_dir'] + 'version-' + str(
-            #     config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_tank-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+            #     config['version']) + '/plots/heatmap/water_tank/water_tank-{opts}-{topology}-{pathway}-{planning_horizons}.png',
             #     ** config["scenario"]
             # ),
             # expand(
             #     config['results_dir'] + 'version-' + str(
-            #     config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_store-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+            #     config['version']) + '/plots/heatmap/water_tank/water_store-{opts}-{topology}-{pathway}-{planning_horizons}.png',
             #     ** config["scenario"]
             # ),
             expand(
@@ -43,28 +43,28 @@ if config["foresight"] == "myopic":
                 config['version']) + '/plots/summary/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_costs.png',
                 **config["scenario"]
             ),
-            expand(
-                config['results_dir'] + 'version-' + str(
-                config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}-cost.pdf',
-                **config["scenario"]
-            )
+            # expand(
+            #     config['results_dir'] + 'version-' + str(
+            #     config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}-cost.pdf',
+            #     **config["scenario"]
+            # ),
             # expand(
             #     config['results_dir'] + 'version-' + str(
             #     config['version']) + '/plots/network/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext_heat.pdf',
             #     **config["scenario"]
             # )
 
-    # rule solve_all_networks:
-    #     input:
-    #         expand(
-    #             config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-    #             **config["scenario"]
-    #         ),
+    rule solve_all_networks:
+        input:
+            expand(
+                config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+                **config["scenario"]
+            ),
 
-    #         expand(
-    #             config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-    #             **config["scenario"]
-    #         )
+            expand(
+                config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+                **config["scenario"]
+            )
 
 
 
@@ -205,35 +205,35 @@ if config["foresight"] == "myopic":
 #     script: "scripts/build_biomass_potential.py"
 
 
-# if config["foresight"] == "non-pathway":
-#     rule prepare_networks:
-#         input:
-#             population_name="data/population/population.h5",
-#             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
-#             heat_demand_name="data/heating/daily_heat_demand.h5",
-#             cop_name="data/heating/cop.h5",
-#             energy_totals_name="data/energy_totals_{planning_horizons}.h5",
-#             co2_totals_name="data/co2_totals.h5",
-#             temp="data/heating/temp.h5",
-#             tech_costs = "data/costs_{planning_horizons}.csv",
-#             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
-#                for tech in config['renewable']}
-#         output:
-#             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-#         threads: config['threads']
-#         resources: mem_mb=config['mem_per_thread'] * config['threads']
-#         script: "scripts/prepare_network_test.py"
+if config["foresight"] == "non-pathway":
+    rule prepare_networks:
+        input:
+            population_name="data/population/population.h5",
+            solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
+            heat_demand_name="data/heating/daily_heat_demand.h5",
+            cop_name="data/heating/cop.h5",
+            energy_totals_name="data/energy_totals_{planning_horizons}.h5",
+            co2_totals_name="data/co2_totals.h5",
+            temp="data/heating/temp.h5",
+            tech_costs = "data/costs_{planning_horizons}.csv",
+            **{f"profile_{tech}": f"resources/profile_{tech}.nc"
+               for tech in config['renewable']}
+        output:
+            network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
+        script: "scripts/prepare_network_test.py"
 
-#     rule solve_networks:
-#         input:
-#             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-#         output:
-#             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc'
-#         log:
-#             solver=normpath("logs/solve_operations_network/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log")
-#         threads: config['threads']
-#         resources: mem_mb=config['mem_per_thread'] * config['threads']
-#         script: "scripts/solve_network.py"
+    rule solve_networks:
+        input:
+            network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/prenetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
+        output:
+            network_name=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc'
+        log:
+            solver=normpath("logs/solve_operations_network/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log")
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
+        script: "scripts/solve_network.py"
     #
     # rule plot_network:
     #     input:
@@ -265,110 +265,110 @@ if config["foresight"] == "myopic":
     #     log: "logs/plot/summary/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log"
     #     script: "scripts/plot_summary.py"
 
-# if config["foresight"] == "myopic":
-#     rule prepare_base_networks_2020:
-#         input:
-#             overrides = "data/override_component_attrs",
-#             edges= "data/grids/edges.txt",
-#             edges_ext = "data/grids/edges_current.csv",
-#             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
-#             cop_name="data/heating/cop.h5",
-#             province_shape="data/province_shapes/CHN_adm1.shp",
-#             elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
-#             aluminum_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
-#             aluminum_production_ratio="data/p_nom/al_production_ratio.csv",
-#             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
-#             central_fraction="data/heating/DH_city:town_2020.h5",
-#             tech_costs= "data/costs/costs_{planning_horizons}.csv",
-#             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
-#                for tech in config['renewable']}
-#         output:
-#             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-#         wildcard_constraints:
-#             planning_horizons=2020 #only applies to baseyear
-#         threads: config['threads']
-#         resources: mem_mb=config['mem_per_thread'] * config['threads']
-#         script: "scripts/prepare_base_network_2020.py"
+if config["foresight"] == "myopic":
+    rule prepare_base_networks_2020:
+        input:
+            overrides = "data/override_component_attrs",
+            edges= "data/grids/edges.txt",
+            edges_ext = "data/grids/edges_current.csv",
+            solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
+            cop_name="data/heating/cop.h5",
+            province_shape="data/province_shapes/CHN_adm1.shp",
+            elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            aluminum_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            aluminum_production_ratio="data/p_nom/al_production_ratio.csv",
+            heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
+            central_fraction="data/heating/DH_city:town_2020.h5",
+            tech_costs= "data/costs/costs_{planning_horizons}.csv",
+            **{f"profile_{tech}": f"resources/profile_{tech}.nc"
+               for tech in config['renewable']}
+        output:
+            network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+        wildcard_constraints:
+            planning_horizons=2020 #only applies to baseyear
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
+        script: "scripts/prepare_base_network_2020.py"
 
-#     rule prepare_base_networks:
-#         input:
-#             overrides = "data/override_component_attrs",
-#             edges = "data/grids/edges.txt",
-#             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
-#             cop_name="data/heating/cop.h5",
-#             province_shape="data/province_shapes/CHN_adm1.shp",
-#             elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
-#             aluminum_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
-#             aluminum_production_ratio="data/p_nom/al_production_ratio.csv",
-#             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
-#             central_fraction="data/heating/DH_city:town_2020.h5",
-#             tech_costs= "data/costs/costs_{planning_horizons}.csv",
-#             biomass_potental = "data/p_nom/biomass_potential.h5",
-#             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
-#                for tech in config['renewable']}
-#         output:
-#             network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-#         threads: config['threads']
-#         resources: mem_mb=config['mem_per_thread'] * config['threads']
-#         script: "scripts/prepare_base_network.py"
+    rule prepare_base_networks:
+        input:
+            overrides = "data/override_component_attrs",
+            edges = "data/grids/edges.txt",
+            solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
+            cop_name="data/heating/cop.h5",
+            province_shape="data/province_shapes/CHN_adm1.shp",
+            elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            aluminum_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
+            aluminum_production_ratio="data/p_nom/al_production_ratio.csv",
+            heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
+            central_fraction="data/heating/DH_city:town_2020.h5",
+            tech_costs= "data/costs/costs_{planning_horizons}.csv",
+            biomass_potental = "data/p_nom/biomass_potential.h5",
+            **{f"profile_{tech}": f"resources/profile_{tech}.nc"
+               for tech in config['renewable']}
+        output:
+            network_name=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
+        script: "scripts/prepare_base_network.py"
 
-#     ruleorder: prepare_base_networks_2020 > prepare_base_networks
+    ruleorder: prepare_base_networks_2020 > prepare_base_networks
 
-#     rule add_existing_baseyear:
-#         input:
-#             overrides="data/override_component_attrs",
-#             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-#             tech_costs="data/costs/costs_{planning_horizons}.csv",
-#             cop_name="data/heating/cop.h5",
-#             **{f"existing_{tech}": f"data/existing_infrastructure/{tech} capacity.csv"
-#                for tech in config['existing_infrastructure']},
-#         output: config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
-#         wildcard_constraints:
-#             planning_horizons=config['scenario']['planning_horizons'][0] #only applies to baseyear
-#         threads: config['threads']
-#         resources: mem_mb=config['mem_per_thread'] * config['threads']
-#         script: "scripts/add_existing_baseyear.py"
+    rule add_existing_baseyear:
+        input:
+            overrides="data/override_component_attrs",
+            network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+            tech_costs="data/costs/costs_{planning_horizons}.csv",
+            cop_name="data/heating/cop.h5",
+            **{f"existing_{tech}": f"data/existing_infrastructure/{tech} capacity.csv"
+               for tech in config['existing_infrastructure']},
+        output: config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
+        wildcard_constraints:
+            planning_horizons=config['scenario']['planning_horizons'][0] #only applies to baseyear
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
+        script: "scripts/add_existing_baseyear.py"
 
-#     def solved_previous_horizon(wildcards):
-#         planning_horizons = config["scenario"]["planning_horizons"]
-#         i = planning_horizons.index(int(wildcards.planning_horizons))
-#         planning_horizon_p = str(planning_horizons[i-1])
-#         return config['results_dir'] + 'version-' + str(config['version']) + "/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-" + planning_horizon_p + ".nc"
+    def solved_previous_horizon(wildcards):
+        planning_horizons = config["scenario"]["planning_horizons"]
+        i = planning_horizons.index(int(wildcards.planning_horizons))
+        planning_horizon_p = str(planning_horizons[i-1])
+        return config['results_dir'] + 'version-' + str(config['version']) + "/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-" + planning_horizon_p + ".nc"
 
-#     rule add_brownfield:
-#         input:
-#             overrides="data/override_component_attrs",
-#             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-#             network_p=solved_previous_horizon,#solved network at previous time step
-#             costs="data/costs/costs_{planning_horizons}.csv",
-#             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
-#                 for tech in config['renewable']}
-#         output:
-#             network_name = config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-#         threads: config['threads']
-#         resources: mem_mb=config['mem_per_thread'] * config['threads']
-#         script: "scripts/add_brownfield.py"
+    rule add_brownfield:
+        input:
+            overrides="data/override_component_attrs",
+            network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+            network_p=solved_previous_horizon,#solved network at previous time step
+            costs="data/costs/costs_{planning_horizons}.csv",
+            **{f"profile_{tech}": f"resources/profile_{tech}.nc"
+                for tech in config['renewable']}
+        output:
+            network_name = config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+        threads: config['threads']
+        resources: mem_mb=config['mem_per_thread'] * config['threads']
+        script: "scripts/add_brownfield.py"
 
-#     ruleorder: add_existing_baseyear > add_brownfield
+    ruleorder: add_existing_baseyear > add_brownfield
 
-#     rule solve_network_myopic:
-#         params:
-#             solving = config["solving"],
-#             planning_horizons=config["scenario"]["planning_horizons"]
-#         input:
-#             overrides = "data/override_component_attrs",
-#             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-#             costs="data/costs/costs_{planning_horizons}.csv",
-#             biomass_potental= "data/p_nom/biomass_potential.h5",
-#         output:
-#             network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
-#         log:
-#             solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log")
-#         threads: config['threads']
-#         resources: mem_mb = config['mem_per_thread'] * config['threads']
-#         script: "scripts/solve_network_myopic.py"
+    rule solve_network_myopic:
+        params:
+            solving = config["solving"],
+            planning_horizons=config["scenario"]["planning_horizons"]
+        input:
+            overrides = "data/override_component_attrs",
+            network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+            costs="data/costs/costs_{planning_horizons}.csv",
+            biomass_potental= "data/p_nom/biomass_potential.h5",
+        output:
+            network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
+        log:
+            solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log")
+        threads: config['threads']
+        resources: mem_mb = config['mem_per_thread'] * config['threads']
+        script: "scripts/solve_network_myopic.py"
 
-#     ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
+    ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
 
 if config["plot"]:
 

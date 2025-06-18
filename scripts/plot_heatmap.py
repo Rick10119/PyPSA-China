@@ -1,10 +1,10 @@
 """
-This script generates heatmap visualizations for energy storage technologies in the PyPSA-China model.
+This script generates heatmap visualizations for energy storage technologies and aluminum smelters in the PyPSA-China model.
 It creates two types of plots:
-1. Heatmaps showing the temporal patterns of storage operation for H2, battery, and water storage
+1. Heatmaps showing the temporal patterns of storage operation for H2, battery, water storage, and aluminum smelters
 2. A time series plot showing the water tank storage level over time
 
-The heatmaps show how storage technologies are used throughout the year, with hours on the y-axis
+The heatmaps show how storage technologies and aluminum smelters are used throughout the year, with hours on the y-axis
 and days on the x-axis. The color intensity represents the normalized power output/input.
 """
 
@@ -67,9 +67,58 @@ def creat_df(n, tech):
     summary = summary.fillna(0)
     return summary, base
 
+def creat_aluminum_df(n):
+    """
+    Creates a DataFrame for heatmap visualization of aluminum smelter operation.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The PyPSA network object containing the simulation results
+    
+    Returns:
+    --------
+    tuple
+        (summary DataFrame for heatmap, base power value in MW)
+    """
+    # Get aluminum smelter links (input power from electricity bus)
+    aluminum_links = n.links_t.p0.filter(like='aluminum smelter')
+    
+    if aluminum_links.empty:
+        # If no aluminum smelters found, return empty DataFrame
+        print("Warning: No aluminum smelter links found in the network")
+        return pd.DataFrame(), 0
+    
+    # Calculate the maximum power as the base value for normalization
+    base = abs(aluminum_links.sum(axis=1)).max()
+    
+    if base == 0:
+        print("Warning: Aluminum smelter power is zero, cannot create heatmap")
+        return pd.DataFrame(), 0
+    
+    # Normalize the power values by the base value
+    df = (aluminum_links.sum(axis=1))/base
+    df = df.to_frame()
+    df.reset_index(inplace=True)
+    renames = {0: 'p_smelter'}
+    df.rename(columns=renames, inplace=True)
+    
+    # Convert timestamps to local time (Asia/Shanghai) and extract hour and day
+    date = aluminum_links.index
+    if date.tz is None:
+        date = date.tz_localize('utc')
+    date = date.tz_convert("Asia/Shanghai")
+    df['Hour'] = date.hour
+    df['Day'] = date.strftime('%m-%d')
+    
+    # Create pivot table for heatmap visualization
+    summary = pd.pivot_table(data=df,index='Hour',columns='Day',values='p_smelter')
+    summary = summary.fillna(0)
+    return summary, base
+
 def plot_heatmap(n, config):
     """
-    Generates heatmap plots for all storage technologies.
+    Generates heatmap plots for all storage technologies and aluminum smelters.
     
     Parameters:
     -----------
@@ -82,15 +131,31 @@ def plot_heatmap(n, config):
     freq = config["freq"]
     planning_horizon = snakemake.wildcards.planning_horizons
     
+    # Plot storage technologies
     for tech in techs:
         fig, ax = plt.subplots(figsize=map_figsize)
         df, base = creat_df(n, tech)
-        base = str(int(base / 1e3))  # Convert to GW for display
-        
-        # Create heatmap with coolwarm colormap and normalized values
-        sns.heatmap(df, ax=ax, cmap='coolwarm', cbar_kws={'label': 'pu'},vmin=-1.0, vmax=1.0)
-        ax.set_title(tech + ' heatmap with ' + freq + ' resolution in ' + planning_horizon + ' P_base = ' + base + ' GW')
-        fig.savefig(snakemake.output[tech], dpi=150, bbox_inches='tight')
+        if not df.empty and base > 0:
+            base = str(int(base / 1e3))  # Convert to GW for display
+            
+            # Create heatmap with coolwarm colormap and normalized values
+            sns.heatmap(df, ax=ax, cmap='coolwarm', cbar_kws={'label': 'pu'},vmin=-1.0, vmax=1.0)
+            ax.set_title(tech + ' heatmap with ' + freq + ' resolution in ' + planning_horizon + ' P_base = ' + base + ' GW')
+            fig.savefig(snakemake.output[tech], dpi=150, bbox_inches='tight')
+        plt.close()
+    
+    # Plot aluminum smelter heatmap
+    if config.get("add_aluminum", False):
+        fig, ax = plt.subplots(figsize=map_figsize)
+        df, base = creat_aluminum_df(n)
+        if not df.empty and base > 0:
+            base = str(int(base / 1e3))  # Convert to GW for display
+            
+            # Create heatmap with coolwarm colormap and normalized values
+            sns.heatmap(df, ax=ax, cmap='coolwarm', cbar_kws={'label': 'pu'},vmin=0.0, vmax=1.0)
+            ax.set_title('Aluminum Smelter heatmap with ' + freq + ' resolution in ' + planning_horizon + ' P_base = ' + base + ' GW')
+            fig.savefig(snakemake.output["aluminum"], dpi=150, bbox_inches='tight')
+        plt.close()
 
 def plot_water_store(n):
     """
