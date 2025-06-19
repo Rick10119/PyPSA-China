@@ -11,11 +11,11 @@ cp -R ~/Documents/PyPSA-China /scratch/gpfs/rl8728/PyPSA-China-1
 conda deactivate
 conda activate pypsa-plot
 
-cd /scratch/gpfs/rl8728/PyPSA-China-4
+cd /scratch/gpfs/rl8728/PyPSA-China-3
 module load anaconda3/2024.6
 conda activate pypsa-linux
 
-snakemake --unlock
 git restore .
 git pull
+snakemake --unlock
 sbatch job.slurm
