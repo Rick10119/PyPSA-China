@@ -8,6 +8,26 @@ rule plot_network:
     log: "logs/plot_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log"
     script: "../scripts/plot_network.py"
 
+rule plot_network_heat:
+    """
+    Create comprehensive network heat map visualizations including:
+    - Geographic map of transmission lines and power plants
+    - Energy mix pie chart
+    - Cost breakdown bar chart
+    """
+    input:
+        network=config['results_dir'] + 'version-' + str(
+            config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+        tech_costs="data/costs/costs_{planning_horizons}.csv"
+    output:
+        only_map=config['results_dir'] + 'version-' + str(
+            config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_map_only.pdf',
+        ext=config['results_dir'] + 'version-' + str(
+            config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext_heat.pdf'
+    log: "logs/plot_network_heat/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log"
+    resources: mem_mb=4000
+    script: "../scripts/plot_network_heat.py"
+
 rule make_summary:
     input:
         network=config['results_dir'] + 'version-' + str(
