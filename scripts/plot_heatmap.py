@@ -144,8 +144,8 @@ def plot_heatmap(n, config):
             fig.savefig(snakemake.output[tech], dpi=150, bbox_inches='tight')
         plt.close()
     
-    # Plot aluminum smelter heatmap
-    if config.get("add_aluminum", False):
+    # Plot aluminum smelter heatmap only for planning horizons later than 2030
+    if config.get("add_aluminum", False) and int(planning_horizon) > 2030:
         fig, ax = plt.subplots(figsize=map_figsize)
         df, base = creat_aluminum_df(n)
         if not df.empty and base > 0:
