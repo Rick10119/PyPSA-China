@@ -2,13 +2,13 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0618.1H.4
+version: 0618.1H.3
 logging_level: INFO
 foresight: "myopic"
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 60
+threads: 50
 mem_per_thread: 8000
 
 tmin: '-01-01 00:00'
@@ -16,7 +16,7 @@ tmax: '-12-31 23:00'
 freq: '1h'
 frequency: 1.
 
-add_aluminum: True
+add_aluminum: False
 
 scenario:
   line_limits: [ 'opt' ]
