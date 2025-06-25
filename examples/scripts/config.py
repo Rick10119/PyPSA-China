@@ -10,6 +10,11 @@ CONFIG = {
     # "al_excess_rate": [0, 0.05, 0.1, 0.15, 0.2],  # 铝过剩率
     "al_excess_rate": 0.3,  # 铝过剩率
     
+    # 切负荷设置
+    "enable_load_shedding": True,  # 是否启用切负荷
+    "load_shedding_cost": 1e3,  # 普通负荷切负荷成本（欧元/MWh）
+    "al_load_shedding_cost": 1e4,  # 铝负荷切负荷成本（欧元/MWh）
+    
     # 电解槽成本
     "al_capital_cost": 0 * 6210,  # 电解槽年准化资本成本（$/MW/年）
     
@@ -27,7 +32,7 @@ CONFIG = {
     # 电解槽启动成本, 计算方式：
     # $65M ~ 450,000 mt per year
     "al_start_up_cost": 16000 * 7.3 / 7.55 * 6.8, # euro/MW
-    "al_p_min_pu": [0.1],  # 改回列表以支持pmin脚本
+    "al_p_min_pu": [0.99],  # 改回列表以支持pmin脚本
     # 启动时间
     # "al_start_up_time": 24, # 小时
     
