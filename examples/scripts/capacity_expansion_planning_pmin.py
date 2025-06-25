@@ -3,16 +3,24 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import pypsa
-from config import CONFIG  # 导入配置
+import sys
 import os
+import argparse
+
+# 添加scripts目录到Python路径
+sys.path.append(os.path.join(os.path.dirname(__file__)))
+
+from config import CONFIG  # 导入配置
 from analyze_startups import analyze_startups
 # 导入排放分析模块
 from analyze_emissions import analyze_emissions, plot_emissions, compare_scenarios
+# 导入_helpers模块
+from _helpers import override_component_attrs
 plt.style.use("bmh")
 
 def process_cost_data(year):
     """处理成本数据"""
-    costs = pd.read_csv(f"data/costs/costs_{year}.csv", index_col=[0, 1])
+    costs = pd.read_csv(f"examples/data/costs/costs_{year}.csv", index_col=[0, 1])
     
     # 单位转换
     costs.loc[costs.unit.str.contains("/kW"), "value"] *= 1e3
@@ -45,27 +53,40 @@ def process_time_series():
     ts.aluminum *= 1e3 # 铝需求单位转换为MW
     return ts.resample(f"{CONFIG['resolution']}h").first()
 
-def create_network(costs, ts, p_min_pu, excess_rate):
+def create_network(costs, ts, p_min_pu, excess_rate, override_file=None):
     """创建和配置网络"""
-    n = pypsa.Network()
+    # 检查是否有override文件
+    if override_file and os.path.exists(override_file):
+        overrides = override_component_attrs(override_file)
+        n = pypsa.Network(override_component_attrs=overrides)
+    else:
+        n = pypsa.Network()
     
     # 计算电解槽容量
     al_p_nom = CONFIG["al_demand"] * (1 + excess_rate) * 1e3  # MW
     
     # 添加基础节点
     n.add("Bus", "electricity")
-    n.add("Bus", "aluminum", carrier="AL")
+    n.add("Bus", "aluminum", carrier="aluminum")
     n.set_snapshots(ts.index)
     n.snapshot_weightings.loc[:, :] = CONFIG["resolution"]
     
     # 添加carriers
     carriers = ["onwind", "offwind", "solar", "OCGT", "hydrogen storage underground", "battery storage"]
-    n.add(
-        "Carrier",
-        carriers,
-        color=["dodgerblue", "aquamarine", "gold", "indianred", "magenta", "yellowgreen"],
-        co2_emissions=[costs.at[c, "CO2 intensity"] for c in carriers],
-    )
+    colors = ["dodgerblue", "aquamarine", "gold", "indianred", "magenta", "yellowgreen"]
+    
+    for i, carrier in enumerate(carriers):
+        n.add(
+            "Carrier",
+            carrier,
+            color=colors[i],
+            co2_emissions=costs.at[carrier, "CO2 intensity"],
+        )
+    
+    # 添加铝相关的carriers
+    n.add("Carrier", "aluminum")
+    n.add("Carrier", "aluminum smelter")
+    n.add("Carrier", "aluminum storage")
     
     # 添加负载
     n.add("Load", "demand", bus="electricity", p_set=ts.load)
@@ -156,12 +177,18 @@ def add_other_components(n, al_p_nom, p_min_pu):
         "smelter", 
         bus0="electricity", 
         bus1="aluminum", 
+        carrier="aluminum smelter",
         p_nom=al_p_nom,  # 使用计算得到的容量, MW
         efficiency=1, 
         # capital_cost=CONFIG["al_capital_cost"] * al_p_nom, # $  
         start_up_cost=CONFIG["al_start_up_cost"] * al_p_nom, # $
+        start_up_time=24,  # 设置为24小时，使每24小时共享一个启停决策变量
         committable=True,
         p_min_pu=p_min_pu,
+        ramp_limit_up=1.0,  # 添加爬坡限制
+        ramp_limit_down=1.0,  # 添加爬坡限制
+        ramp_limit_start_up=1.0,  # 添加爬坡限制
+        ramp_limit_shut_down=1.0,  # 添加爬坡限制
     )
     
     # 添加铝存储
@@ -169,6 +196,7 @@ def add_other_components(n, al_p_nom, p_min_pu):
         "Store", 
         "aluminum storage", 
         bus="aluminum", 
+        carrier="aluminum storage",
         e_nom=CONFIG["al_storage_limit"] * al_p_nom,  
         e_cyclic=True, 
         marginal_cost_storage=CONFIG["al_marginal_cost_storage"]
@@ -289,7 +317,7 @@ def analyze_ramp_constraints(n):
     plt.show()
     plt.close()
 
-def main():
+def main(override_file="data/override_component_attrs"):
     """主运行函数"""
     # 创建结果保存目录
     os.makedirs("examples/results", exist_ok=True)
@@ -310,13 +338,12 @@ def main():
         # 对每个p_min_pu进行计算
         for p_min_pu in CONFIG["al_p_min_pu"]:
             # 创建并优化网络
-            n = create_network(costs, ts, p_min_pu, CONFIG["al_excess_rate"])
+            n = create_network(costs, ts, p_min_pu, CONFIG["al_excess_rate"], override_file)
             # 最大求解时间2分钟
             # 设置求解器, 不显示求解信息
-            n.optimize(solver_name="gurobi", solver_options={
-                "OutputFlag": 0,  # 不显示求解过程
-                "IntFeasTol": 1e-5  # 整数可行性容差
-            })
+            n.optimize(solver_name="gurobi", 
+                      OutputFlag=0,  # 不显示求解过程
+                      IntFeasTol=1e-5)  # 整数可行性容差
             
             # 在优化后调用启动分析
             # analyze_startups(n)
@@ -384,5 +411,10 @@ def main():
     # analyze_ramp_constraints(n)
 
 if __name__ == "__main__":
-    main()
+    # 可以通过命令行参数指定override文件
+    parser = argparse.ArgumentParser(description='Capacity expansion planning with aluminum smelter')
+    parser.add_argument('--override', type=str, default="data/override_component_attrs", help='Path to override file (default: data/override_component_attrs)')
+    args = parser.parse_args()
+    
+    main(override_file=args.override)
 
