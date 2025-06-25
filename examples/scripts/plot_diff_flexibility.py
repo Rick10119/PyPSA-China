@@ -31,7 +31,7 @@ for bars in [bars1, bars2]:
                 ha='center', va='bottom')
 
 # Adjust layout and save
-plt.show()
-plt.tight_layout()
-plt.savefig('examples/plots/flexibility_impact.png', dpi=300, bbox_inches='tight')
-plt.close() 
+# plt.show()
+# plt.tight_layout()
+# plt.savefig('examples/plots/flexibility_impact.png', dpi=300, bbox_inches='tight')
+# plt.close() 

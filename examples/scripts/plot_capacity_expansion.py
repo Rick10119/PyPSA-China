@@ -7,30 +7,39 @@ import pypsa
 import os
 
 def plot_results(n, p_min_pu, save_path="examples/results"):
-    """绘制电解槽用电情况结果"""
+    """绘制电解槽用电情况结果（仅2月数据）"""
     # 获取电解槽用电数据
     smelter_p = n.links_t.p0['smelter']  # 电解槽每小时用电量
+    
+    # 筛选4月数据
+    month_data = smelter_p[smelter_p.index.month == 2]
+    
+    if len(month_data) == 0:
+        print("警告: 没有找到4月的数据")
+        return
     
     # 创建图形
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
     
-    # 绘制小时级数据
-    ax1.plot(smelter_p, label='Hourly Usage')
-    ax1.set_title('Aluminum Smelter Hourly Electricity Usage')
-    ax1.set_xlabel('Time')
+    # 绘制4月小时级数据
+    ax1.plot(month_data, label='April Hourly Usage', color='blue', linewidth=1)
+    ax1.set_title('Aluminum Smelter April Hourly Electricity Usage')
+    ax1.set_xlabel('Time (April)')
     ax1.set_ylabel('Power (MW)')
     ax1.legend()
+    ax1.grid(True, alpha=0.3)
     
-    # 计算并绘制月度数据
-    monthly_usage = smelter_p.resample('M').mean()
-    ax2.bar(range(len(monthly_usage)), monthly_usage, label='Monthly Average')
-    ax2.set_title('Aluminum Smelter Monthly Average Electricity Usage')
-    ax2.set_xlabel('Month')
+    # 计算并绘制4月日平均数据
+    daily_usage = month_data.resample('D').mean()
+    ax2.bar(range(len(daily_usage)), daily_usage, label='April Daily Average', color='orange', alpha=0.7)
+    ax2.set_title('Aluminum Smelter April Daily Average Electricity Usage')
+    ax2.set_xlabel('Day of April')
     ax2.set_ylabel('Power (MW)')
-    ax2.set_xticks(range(len(monthly_usage)))
-    ax2.set_xticklabels([d.strftime('%Y-%m') for d in monthly_usage.index])
+    ax2.set_xticks(range(len(daily_usage)))
+    ax2.set_xticklabels([d.strftime('%m-%d') for d in daily_usage.index])
     ax2.tick_params(axis='x', rotation=45)
     ax2.legend()
+    ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
     
@@ -38,7 +47,7 @@ def plot_results(n, p_min_pu, save_path="examples/results"):
     os.makedirs(save_path, exist_ok=True)
     
     # 保存图像
-    plt.savefig(f"{save_path}/aluminum_smelter_usage_{p_min_pu}.png")
+    plt.savefig(f"{save_path}/aluminum_smelter_usage_april_{p_min_pu}.png")
     # 显示图像
     plt.show()
     # 关闭图形，释放内存
@@ -239,9 +248,9 @@ def plot_time_series_analysis(n, p_min_pu, save_path="examples/results"):
     # 确保保存目录存在
     os.makedirs(save_path, exist_ok=True)
     
-    plt.savefig(f'{save_path}/time_series_analysis_{p_min_pu}.png', dpi=300, bbox_inches='tight')
-    plt.show()
-    plt.close()
+    # plt.savefig(f'{save_path}/time_series_analysis_{p_min_pu}.png', dpi=300, bbox_inches='tight')
+    # plt.show()
+    # plt.close()
 
 def create_summary_plots(results, config, save_path="examples/results"):
     """创建所有汇总图表"""

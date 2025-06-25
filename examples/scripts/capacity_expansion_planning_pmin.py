@@ -115,14 +115,35 @@ def create_network(costs, ts, p_min_pu, excess_rate, override_file=None):
     n.add("Carrier", "aluminum storage")
     
     # 添加负载
+    n.add("Load", "demand", bus="electricity", p_set=ts.load)
+    n.add("Load", "al demand", bus="aluminum", p_set=ts.aluminum)
+    
+    # 添加切负荷发电机（如果启用）
     if CONFIG["enable_load_shedding"]:
-        # 启用切负荷
-        n.add("Load", "demand", bus="electricity", p_set=ts.load, p_set_extendable=True, marginal_cost=CONFIG["load_shedding_cost"])  # 允许切负荷
-        n.add("Load", "al demand", bus="aluminum", p_set=ts.aluminum, p_set_extendable=True, marginal_cost=CONFIG["al_load_shedding_cost"])  # 允许切负荷
-    else:
-        # 不启用切负荷
-        n.add("Load", "demand", bus="electricity", p_set=ts.load)
-        n.add("Load", "al demand", bus="aluminum", p_set=ts.aluminum)
+        # 添加切负荷carrier
+        n.add("Carrier", "load", color="#dd2e23", nice_name="Load shedding")
+        
+        # 为电力负荷添加切负荷发电机
+        n.add(
+            "Generator",
+            "demand load",
+            bus="electricity",
+            carrier="load",
+            sign=1e-3,  # 调整单位，p和p_nom以kW为单位而不是MW
+            marginal_cost=CONFIG["load_shedding_cost"],  # 欧元/kWh
+            p_nom=1e9,  # kW，设置一个很大的容量
+        )
+        
+        # 为铝负荷添加切负荷发电机
+        n.add(
+            "Generator",
+            "al demand load",
+            bus="aluminum",
+            carrier="load",
+            sign=1e-3,  # 调整单位，p和p_nom以kW为单位而不是MW
+            marginal_cost=CONFIG["al_load_shedding_cost"],  # 欧元/kWh
+            p_nom=1e9,  # kW，设置一个很大的容量
+        )
     
     # 添加发电机组
     add_generators(n, costs, ts)
@@ -222,6 +243,8 @@ def add_other_components(n, al_p_nom, p_min_pu):
         ramp_limit_start_up=1.0,  # 添加爬坡限制
         ramp_limit_shut_down=1.0,  # 添加爬坡限制
     )
+    print(CONFIG["al_start_up_cost"] * al_p_nom)
+    print(CONFIG["al_start_up_cost"], al_p_nom)
     
     # 添加铝存储
     n.add(
@@ -311,7 +334,7 @@ def main(override_file="data/override_component_attrs", config_file="config.yaml
             n.optimize(solver_name=solver_name, **solver_options)
             
             # 在优化后调用启动分析
-            # analyze_startups(n)
+            analyze_startups(n)
             
             # 分析排放情况
             scenario_name = f"Min Power {p_min_pu*100:.0f}%"
@@ -326,9 +349,13 @@ def main(override_file="data/override_component_attrs", config_file="config.yaml
             load_shedding_data = {}
             if CONFIG["enable_load_shedding"]:
                 # 计算切负荷量（GWh）
+                # 由于使用了sign=1e-3，切负荷发电机的出力需要乘以1e3来转换为MW
+                demand_load_shed = n.generators_t.p['demand load'].sum() * 1e3 if 'demand load' in n.generators_t.p.columns else 0
+                al_demand_load_shed = n.generators_t.p['al demand load'].sum() * 1e3 if 'al demand load' in n.generators_t.p.columns else 0
+                
                 load_shedding_data = {
-                    'demand': n.loads_t.p_set['demand'].sum() - n.loads_t.p['demand'].sum(),
-                    'al demand': n.loads_t.p_set['al demand'].sum() - n.loads_t.p['al demand'].sum()
+                    'demand': demand_load_shed,
+                    'al demand': al_demand_load_shed
                 }
                 # 转换为GWh
                 load_shedding_data = {k: v * CONFIG["resolution"] / 1e3 for k, v in load_shedding_data.items()}
@@ -359,7 +386,7 @@ def main(override_file="data/override_component_attrs", config_file="config.yaml
     # compare_scenarios(emission_results, scenario_names)
     
     # 创建汇总图表
-    create_summary_plots(results, CONFIG)
+    # create_summary_plots(results, CONFIG)
     
     # 打印结果表格
     print_results_table(results)
