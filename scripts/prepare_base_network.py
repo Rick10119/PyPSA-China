@@ -195,6 +195,14 @@ def prepare_network(config):
                     p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
                     p_nom_extendable=False,
                     efficiency=1.0,  # Scalar value
+                    start_up_cost=config['aluminum']['al_start_up_cost'],
+                    start_up_time=1,
+                    committable=True,
+                    p_min_pu=config['aluminum']['al_p_min_pu'],
+                    ramp_limit_up=1.0,  # 添加爬坡限制
+                    ramp_limit_down=1.0,  # 添加爬坡限制
+                    ramp_limit_start_up=1.0,  # 添加爬坡限制
+                    ramp_limit_shut_down=1.0,  # 添加爬坡限制
                     )
 
         # Add aluminum storage only for provinces with production ratio > 0.01

@@ -662,6 +662,12 @@ def calculate_market_values(n, label, market_values):
     carrier = "AC"
 
     buses = n.buses.index[n.buses.carrier == carrier]
+    
+    # Only use buses that exist in marginal_price data
+    available_buses = buses.intersection(n.buses_t.marginal_price.columns)
+    
+    if available_buses.empty:
+        return market_values
 
     ## First do market value of generators ##
 
@@ -678,10 +684,10 @@ def calculate_market_values(n, label, market_values):
             n.generators_t.p[gens]
             .groupby(n.generators.loc[gens, "bus"], axis=1)
             .sum()
-            .reindex(columns=buses, fill_value=0.0)
+            .reindex(columns=available_buses, fill_value=0.0)
         )
 
-        revenue = dispatch * n.buses_t.marginal_price[buses]
+        revenue = dispatch * n.buses_t.marginal_price[available_buses]
 
         market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
 
@@ -701,10 +707,10 @@ def calculate_market_values(n, label, market_values):
                 n.links_t["p" + i][links]
                 .groupby(n.links.loc[links, "bus" + i], axis=1)
                 .sum()
-                .reindex(columns=buses, fill_value=0.0)
+                .reindex(columns=available_buses, fill_value=0.0)
             )
 
-            revenue = dispatch * n.buses_t.marginal_price[buses]
+            revenue = dispatch * n.buses_t.marginal_price[available_buses]
 
             market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
 
@@ -719,23 +725,33 @@ def calculate_price_statistics(n, label, price_statistics):
     )
 
     buses = n.buses.index[n.buses.carrier == "AC"]
+    
+    # Only use buses that exist in marginal_price data
+    available_buses = buses.intersection(n.buses_t.marginal_price.columns)
+    
+    if available_buses.empty:
+        # If no buses available, set default values
+        price_statistics.at["zero_hours", label] = 0.0
+        price_statistics.at["mean", label] = 0.0
+        price_statistics.at["standard_deviation", label] = 0.0
+        return price_statistics
 
     threshold = 0.1  # higher than phoney marginal_cost of wind/solar
 
-    df = pd.DataFrame(data=0.0, columns=buses, index=n.snapshots)
+    df = pd.DataFrame(data=0.0, columns=available_buses, index=n.snapshots)
 
-    df[n.buses_t.marginal_price[buses] < threshold] = 1.0
+    df[n.buses_t.marginal_price[available_buses] < threshold] = 1.0
 
     price_statistics.at["zero_hours", label] = df.sum().sum() / (
         df.shape[0] * df.shape[1]
     )
 
     price_statistics.at["mean", label] = (
-        n.buses_t.marginal_price[buses].unstack().mean()
+        n.buses_t.marginal_price[available_buses].unstack().mean()
     )
 
     price_statistics.at["standard_deviation", label] = (
-        n.buses_t.marginal_price[buses].unstack().std()
+        n.buses_t.marginal_price[available_buses].unstack().std()
     )
 
     return price_statistics

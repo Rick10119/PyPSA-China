@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0618.1H.2
+version: 0618.1H.23
 logging_level: INFO
 foresight: "myopic"
 
@@ -13,25 +13,17 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1h'
-frequency: 1.
+freq: '24h'
+frequency: 24.
 
 add_aluminum: True
 
 scenario:
   line_limits: [ 'opt' ]
-  pathway: ['linear2060']
+  pathway: ['linear2050']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
     - 2050
-    - 2055
-    - 2060
   co2_reduction:
     linear2060:
       '2020': -1.
@@ -66,6 +58,7 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2 # barrier
+      MIPGap: 0.01
       BarConvTol: 1.e-5
       FeasibilityTol: 1.e-6
       AggFill: 0
@@ -107,7 +100,7 @@ aluminum:
   
   # Electrolyzer startup costs 16000 * 7.3 / 7.55  # euro/MW
   al_start_up_cost: 15470
-  al_p_min_pu: 0.1
+  al_p_min_pu: 0.9
 
 snapshots:
   start: "2020-01-01"
