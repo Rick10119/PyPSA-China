@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0625.24H.1
+version: 0625.24H.2
 logging_level: INFO
 foresight: "myopic"
 
@@ -104,7 +104,7 @@ aluminum:
   
   # Electrolyzer startup costs 16000 * 7.3 / 7.55  # euro/MW
   al_start_up_cost: 15470
-  al_p_min_pu: 0.9
+  al_p_min_pu: 1.0
 
 snapshots:
   start: "2020-01-01"
