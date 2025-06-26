@@ -3,7 +3,7 @@
 # 配置参数
 CONFIG = {
     "years": [2025],
-    "resolution": 4,  # 4小时
+    "resolution": 8,  # 8小时
     "original_cost": 64.09, # 原始成本
     "al_co2_limit": 10 * 1e6 * 1.0, # kgCO2/year, 200百万吨（2023） * 碳排放目标
     "al_demand": 5.5,  # 铝需求，10%负荷
@@ -11,7 +11,7 @@ CONFIG = {
     "al_excess_rate": 0.3,  # 铝过剩率
     
     # 切负荷设置
-    "enable_load_shedding": True,  # 是否启用切负荷
+    "enable_load_shedding": False,  # 是否启用切负荷
     "load_shedding_cost": 1e2,  # 普通负荷切负荷成本（欧元/kWh）
     "al_load_shedding_cost": 1e3,  # 铝负荷切负荷成本（欧元/kWh）
     

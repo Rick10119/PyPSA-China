@@ -2,7 +2,7 @@ conda install -c conda-forge pandas=1.4.0
 conda install -c gurobi gurobi
 
 # 安装命令
-# conda env update -f envs/environment.yaml
+# conda env update -f envs/environment_plot.yaml
 
 # # 核心依赖
 # conda install -c conda-forge pypsa=0.21.3 atlite=0.2.14 dask

@@ -1,47 +1,20 @@
-# capacity_expansion_planning_pmin_fixed.py
-# 修复版本兼容性问题的脚本
+# capacity_expansion_planning.py
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import pypsa
 import sys
 import os
-import argparse
-import yaml
 
 # 添加scripts目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 from config import CONFIG  # 导入配置
+
 from analyze_startups import analyze_startups
 # 导入排放分析模块
 from analyze_emissions import analyze_emissions, plot_emissions, compare_scenarios
-# 导入绘图模块
-from plot_capacity_expansion import (
-    plot_results, 
-    analyze_ramp_constraints, 
-    plot_capacity_comparison,
-    plot_network_summary,
-    plot_time_series_analysis,
-    create_summary_plots
-)
-
 plt.style.use("bmh")
-
-def load_config(config_file="config.yaml"):
-    """加载配置文件"""
-    with open(config_file, 'r', encoding='utf-8') as file:
-        config = yaml.safe_load(file)
-    return config
-
-def get_solver_options(config):
-    """从配置文件中获取求解器选项"""
-    solving_config = config.get('solving', {})
-    solver_name = solving_config.get('solver', {}).get('name', 'gurobi')
-    solver_options_name = solving_config.get('solver', {}).get('options', 'default')
-    solver_options = solving_config.get('solver_options', {}).get(solver_options_name, {})
-    
-    return solver_name, solver_options
 
 def process_cost_data(year):
     """处理成本数据"""
@@ -87,7 +60,7 @@ def create_network(costs, ts, p_min_pu, excess_rate):
     
     # 添加基础节点
     n.add("Bus", "electricity")
-    n.add("Bus", "aluminum", carrier="aluminum")
+    n.add("Bus", "aluminum", carrier="AL")
     n.set_snapshots(ts.index)
     n.snapshot_weightings.loc[:, :] = CONFIG["resolution"]
     
@@ -103,41 +76,9 @@ def create_network(costs, ts, p_min_pu, excess_rate):
             co2_emissions=costs.at[carrier, "CO2 intensity"],
         )
     
-    # 添加铝相关的carriers
-    n.add("Carrier", "aluminum")
-    n.add("Carrier", "aluminum smelter")
-    n.add("Carrier", "aluminum storage")
-    
     # 添加负载
     n.add("Load", "demand", bus="electricity", p_set=ts.load)
     n.add("Load", "al demand", bus="aluminum", p_set=ts.aluminum)
-    
-    # 添加切负荷发电机（如果启用）
-    if CONFIG["enable_load_shedding"]:
-        # 添加切负荷carrier
-        n.add("Carrier", "load", color="#dd2e23", nice_name="Load shedding")
-        
-        # 为电力负荷添加切负荷发电机
-        n.add(
-            "Generator",
-            "demand load",
-            bus="electricity",
-            carrier="load",
-            sign=1e-3,  # 调整单位，p和p_nom以kW为单位而不是MW
-            marginal_cost=CONFIG["load_shedding_cost"],  # 欧元/kWh
-            p_nom=1e9,  # kW，设置一个很大的容量
-        )
-        
-        # 为铝负荷添加切负荷发电机
-        n.add(
-            "Generator",
-            "al demand load",
-            bus="aluminum",
-            carrier="load",
-            sign=1e-3,  # 调整单位，p和p_nom以kW为单位而不是MW
-            marginal_cost=CONFIG["al_load_shedding_cost"],  # 欧元/kWh
-            p_nom=1e9,  # kW，设置一个很大的容量
-        )
     
     # 添加发电机组
     add_generators(n, costs, ts)
@@ -224,7 +165,6 @@ def add_other_components(n, al_p_nom, p_min_pu):
         "smelter", 
         bus0="electricity", 
         bus1="aluminum", 
-        carrier="aluminum smelter",
         p_nom=al_p_nom,  # 使用计算得到的容量, MW
         efficiency=1, 
         # capital_cost=CONFIG["al_capital_cost"] * al_p_nom, # $  
@@ -232,15 +172,12 @@ def add_other_components(n, al_p_nom, p_min_pu):
         committable=True,
         p_min_pu=p_min_pu,
     )
-    print(CONFIG["al_start_up_cost"] * al_p_nom)
-    print(CONFIG["al_start_up_cost"], al_p_nom)
     
     # 添加铝存储
     n.add(
         "Store", 
         "aluminum storage", 
         bus="aluminum", 
-        carrier="aluminum storage",
         e_nom=CONFIG["al_storage_limit"] * al_p_nom,  
         e_cyclic=True, 
         marginal_cost_storage=CONFIG["al_marginal_cost_storage"]
@@ -255,8 +192,13 @@ def add_other_components(n, al_p_nom, p_min_pu):
         constant=CONFIG["al_co2_limit"], # kgCO2/MW/year -> kgCO2/MW/hour
     )
 
-def safe_optimize(n, solver_name, solver_options):
+def safe_optimize(n, solver_name="gurobi", solver_options=None):
     """安全地执行优化，处理版本兼容性问题"""
+    if solver_options is None:
+        solver_options = {
+            "IntFeasTol": 1e-5  # 整数可行性容差
+        }
+    
     try:
         # 尝试使用新版本的优化方法
         n.optimize(solver_name=solver_name, **solver_options)
@@ -283,13 +225,17 @@ def safe_optimize(n, solver_name, solver_options):
                 n.objective = 0.0
         else:
             raise e
+    except Exception as e:
+        print(f"优化过程中出现错误: {e}")
+        # 设置默认目标值
+        n.objective = 0.0
 
 def print_results_table(results):
     """将结果整理成表格形式输出"""
     # 创建表头
     print("\n=== System Results Summary ===")
-    print(f"{'Excess Rate':^12} | {'Al Capacity':^12} | {'Saved Cost':^12} | {'CO2 Emissions':^12} | {'Load Shed':^10} | {'Al Load Shed':^12} | {'OCGT':^10} | {'Wind':^10} | {'Solar':^10} | {'Battery':^10} | {'H2 Store':^10}")
-    print("-" * 140)
+    print(f"{'Excess Rate':^12} | {'Al Capacity':^12} | {'Saved Cost':^12} | {'CO2 Emissions':^12} | {'OCGT':^10} | {'Wind':^10} | {'Solar':^10} | {'Battery':^10} | {'H2 Store':^10}")
+    print("-" * 120)
     
     # 获取第一年的结果（因为只有一年）
     year_results = results[CONFIG["years"][0]]
@@ -311,22 +257,87 @@ def print_results_table(results):
         battery_cap = result['storage_capacities']['battery storage']
         h2_cap = result['storage_capacities']['hydrogen storage underground']
         
-        # 获取切负荷信息
-        load_shed = result.get('load_shedding', {}).get('demand', 0) if result.get('load_shedding') else 0
-        al_load_shed = result.get('load_shedding', {}).get('al demand', 0) if result.get('load_shedding') else 0
-        
         # 格式化输出
         print(f"{rate * 10:^12.1f} | {result['al_capacity']:^12.2f} | {result['system_cost']:^12.2f} | "
-              f"{co2_emissions:^12.2f} | {load_shed:^10.2f} | {al_load_shed:^12.2f} | {ocgt_cap:^10.2f} | {wind_cap:^10.2f} | {solar_cap:^10.2f} | {battery_cap:^10.2f} | {h2_cap:^10.2f}")
+              f"{co2_emissions:^12.2f} | {ocgt_cap:^10.2f} | {wind_cap:^10.2f} | {solar_cap:^10.2f} | {battery_cap:^10.2f} | {h2_cap:^10.2f}")
 
-def main(config_file="config.yaml"):
+def plot_results(n, p_min_pu):
+    """绘制结果"""
+    # 获取电解槽用电数据
+    smelter_p = n.links_t.p0['smelter']  # 电解槽每小时用电量
+    
+    # 创建图形
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+    
+    # 绘制小时级数据
+    ax1.plot(smelter_p, label='Hourly Usage')
+    ax1.set_title('Aluminum Smelter Hourly Electricity Usage')
+    ax1.set_xlabel('Time')
+    ax1.set_ylabel('Power (MW)')
+    ax1.legend()
+    
+    # 计算并绘制月度数据
+    monthly_usage = smelter_p.resample('M').mean()
+    ax2.bar(range(len(monthly_usage)), monthly_usage, label='Monthly Average')
+    ax2.set_title('Aluminum Smelter Monthly Average Electricity Usage')
+    ax2.set_xlabel('Month')
+    ax2.set_ylabel('Power (MW)')
+    ax2.set_xticks(range(len(monthly_usage)))
+    ax2.set_xticklabels([d.strftime('%Y-%m') for d in monthly_usage.index])
+    ax2.tick_params(axis='x', rotation=45)
+    ax2.legend()
+    
+    plt.tight_layout()
+    # 先保存图像
+    plt.savefig(f"examples/results/aluminum_smelter_usage_{p_min_pu}.png")
+    # 然后显示
+    plt.show()
+    # 关闭图形，释放内存
+    plt.close()
+
+def analyze_ramp_constraints(n):
+    """分析爬坡约束对电解槽运行的影响"""
+    
+    if 'p0' not in n.links_t:
+        print("警告: 找不到链接的时间序列结果")
+        return
+    
+    # 获取电解槽输入功率时间序列
+    p = n.links_t.p0['smelter']
+    
+    # 计算每个时间步的功率变化
+    p_diff = p.diff()
+    
+    # 计算最大爬坡率（上升和下降）
+    max_ramp_up = p_diff[p_diff > 0].max()
+    max_ramp_down = abs(p_diff[p_diff < 0].min())
+    
+    # 计算相对于额定功率的百分比
+    p_nom = n.links.at['smelter', 'p_nom']
+    max_ramp_up_pu = max_ramp_up / p_nom
+    max_ramp_down_pu = max_ramp_down / p_nom
+    
+    print(f"\n爬坡约束分析:")
+    print(f"最大上升爬坡率: {max_ramp_up:.2f} MW ({max_ramp_up_pu:.3f} p.u.)")
+    print(f"最大下降爬坡率: {max_ramp_down:.2f} MW ({max_ramp_down_pu:.3f} p.u.)")
+    print(f"设定的爬坡限制: {1/CONFIG['al_start_up_time']:.3f} p.u.")
+    
+    # 绘制功率变化图
+    plt.figure(figsize=(12, 6))
+    plt.plot(p_diff, 'b-', label='Power Change')
+    plt.axhline(y=p_nom / CONFIG['al_start_up_time'], color='r', linestyle='--', label='Ramp Up Limit')
+    plt.axhline(y=-p_nom / CONFIG['al_start_up_time'], color='r', linestyle='--', label='Ramp Down Limit')
+    plt.title('Aluminum Smelter Power Changes')
+    plt.xlabel('Time')
+    plt.ylabel('Power Change (MW)')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('examples/results/smelter_ramp_analysis.png', dpi=300)
+    plt.show()
+    plt.close()
+
+def main():
     """主运行函数"""
-    # 加载配置文件
-    config = load_config(config_file)
-    
-    # 获取求解器设置
-    solver_name, solver_options = get_solver_options(config)
-    
     # 创建结果保存目录
     os.makedirs("examples/results", exist_ok=True)
     
@@ -347,12 +358,12 @@ def main(config_file="config.yaml"):
         for p_min_pu in CONFIG["al_p_min_pu"]:
             # 创建并优化网络
             n = create_network(costs, ts, p_min_pu, CONFIG["al_excess_rate"])
-            
-            # 使用安全优化函数
-            safe_optimize(n, solver_name, solver_options)
+            # 最大求解时间2分钟
+            # 设置求解器, 不显示求解信息
+            safe_optimize(n)
             
             # 在优化后调用启动分析
-            analyze_startups(n)
+            # analyze_startups(n)
             
             # 分析排放情况
             scenario_name = f"Min Power {p_min_pu*100:.0f}%"
@@ -363,65 +374,59 @@ def main(config_file="config.yaml"):
             # 记录总排放量（百万吨）用于结果表格
             co2_emissions = emission_result['total_emissions'] / 1e6 if emission_result else 0
             
-            # 收集切负荷数据
-            load_shedding_data = {}
-            if CONFIG["enable_load_shedding"]:
-                # 计算切负荷量（GWh）
-                # 由于使用了sign=1e-3，切负荷发电机的出力需要乘以1e3来转换为MW
-                demand_load_shed = n.generators_t.p['demand load'].sum() * 1e3 if 'demand load' in n.generators_t.p.columns else 0
-                al_demand_load_shed = n.generators_t.p['al demand load'].sum() * 1e3 if 'al demand load' in n.generators_t.p.columns else 0
-                
-                load_shedding_data = {
-                    'demand': demand_load_shed,
-                    'al demand': al_demand_load_shed
-                }
-                # 转换为GWh
-                load_shedding_data = {k: v * CONFIG["resolution"] / 1e3 for k, v in load_shedding_data.items()}
-            
-            # 安全获取目标值
-            try:
-                objective_value = n.objective if hasattr(n, 'objective') else 0.0
-            except:
-                objective_value = 0.0
-            
             # 保存结果
             year_results[p_min_pu] = {
                 'p_min_pu': p_min_pu,
-                'system_cost': CONFIG["original_cost"] - objective_value * 1e-9, # Billion
+                'system_cost': CONFIG["original_cost"] - n.objective * 1e-9, # Billion
                 'generator_capacities': n.generators.p_nom_opt * 1e-3, # GW
                 'storage_capacities': n.storage_units.p_nom_opt * 1e-3, # GW
                 'al_capacity': CONFIG["al_demand"] * (1 + CONFIG["al_excess_rate"]),
-                'co2_emissions': co2_emissions,  # 添加CO2排放结果
-                'load_shedding': load_shedding_data  # 添加切负荷数据
+                'co2_emissions': co2_emissions  # 添加CO2排放结果
             }
             
             # 绘制该过剩率下的用电情况
             plot_results(n, p_min_pu)
-            
-            # 可选：绘制网络概览图
-            # plot_network_summary(n, p_min_pu)
-            
-            # 可选：绘制时间序列分析图
-            # plot_time_series_analysis(n, p_min_pu)
         
         results[year] = year_results
     
     # 比较不同情景的排放结果
     # compare_scenarios(emission_results, scenario_names)
     
-    # 创建汇总图表
-    # create_summary_plots(results, CONFIG)
+    # 输出结果表格到excel
+    # 创建更详细的Excel结果
+    writer = pd.ExcelWriter("examples/results/capacity_expansion_planning.xlsx", engine='openpyxl')
+    
+    # # 创建一个汇总结果的数据框
+    # summary_data = []
+    # for year in results:
+    #     for p_min in results[year]:
+    #         result = results[year][p_min]
+    #         row = {
+    #             'Year': year,
+    #             'Min Power (%)': p_min * 100,
+    #             'System Cost (B€)': result['system_cost'],
+    #             'CO2 Emissions (Mt)': result['co2_emissions'],
+    #             'Al Capacity (GW)': result['al_capacity'],
+    #             'Wind (GW)': result['generator_capacities']['onwind'] + result['generator_capacities']['offwind'],
+    #             'Solar (GW)': result['generator_capacities']['solar'],
+    #             'OCGT (GW)': result['generator_capacities']['OCGT'],
+    #             'Battery (GW)': result['storage_capacities']['battery storage'],
+    #             'H2 Storage (GW)': result['storage_capacities']['hydrogen storage underground']
+    #         }
+    #         summary_data.append(row)
+    
+    # summary_df = pd.DataFrame(summary_data)
+    # summary_df.to_excel(writer, sheet_name='Summary', index=False)
+    
+    # 保存并关闭Excel
+    # writer.save()
     
     # 打印结果表格
     print_results_table(results)
-    
+
     # 分析爬坡约束
-    # analyze_ramp_constraints(n, CONFIG)
+    # analyze_ramp_constraints(n)
 
 if __name__ == "__main__":
-    # 可以通过命令行参数指定config文件
-    parser = argparse.ArgumentParser(description='Capacity expansion planning with aluminum smelter (Fixed Version)')
-    parser.add_argument('--config', type=str, default="config.yaml", help='Path to config file (default: config.yaml)')
-    args = parser.parse_args()
-    
-    main(config_file=args.config) 
+    main()
+
