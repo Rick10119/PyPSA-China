@@ -35,3 +35,6 @@ cd Documents/github/PyPSA-China
 conda activate pypsa-linux
 
 % touch scripts/prepare_base_network_2020.py
+
+conda deactivate
+conda activate pypsa-plot

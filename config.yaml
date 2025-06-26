@@ -228,7 +228,7 @@ electricity:
     Generator: []
     StorageUnit: [] # battery, H2
     Store: [battery, H2]
-    Link: []
+    Link: [battery]
 
   max_hours:
     battery: 6
