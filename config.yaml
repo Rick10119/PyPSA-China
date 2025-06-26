@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0626.1H.5
+version: 0626.1H.4
 logging_level: INFO
 foresight: "myopic"
 
@@ -16,7 +16,7 @@ tmax: '-12-31 23:00'
 freq: '1h'
 frequency: 1.
 
-add_aluminum: False
+add_aluminum: True
 
 scenario:
   line_limits: [ 'opt' ]
@@ -55,6 +55,7 @@ solving:
     options: default
   solver_options:
     default:
+      Threads: 192
       MIPGap: 0.01
       BarConvTol: 1.e-5
       FeasibilityTol: 1.e-5
