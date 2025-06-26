@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-name: pypsa-new
+name: pypsa-plot
 channels:
   - conda-forge
   - bioconda
