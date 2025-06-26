@@ -60,7 +60,7 @@ solving:
       BarConvTol: 1.e-5
       FeasibilityTol: 1.e-5
       Presolve: 2
-      Method: 2
+      Method: -1
       Crossover: 0
       CrossoverBasis: 0
       AggFill: 0
