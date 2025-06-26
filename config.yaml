@@ -67,7 +67,7 @@ solving:
     max_iterations: 6
     skip_iterations: false
     formulation: kirchhoff
-    load_shedding: true
+    load_shedding: false
     noisy_costs: false
     clip_p_max_pu: 0.01
 
