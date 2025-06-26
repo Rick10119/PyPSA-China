@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0626.1H.4
+version: 0626.1H.6
 logging_level: INFO
 foresight: "myopic"
 
@@ -59,14 +59,17 @@ solving:
       MIPGap: 0.01
       BarConvTol: 1.e-5
       FeasibilityTol: 1.e-5
-      Presolve: 2
-      Method: -1
+      Presolve: 1
+      Method: 2
       Crossover: 0
       CrossoverBasis: 0
-      AggFill: 0
+      AggFill: 10
       PreDual: 0
       GURO_PAR_BARDENSETHRESH: 200
       DualReductions: 0
+      PresolveTimeLimit: 300
+      PresolvePasses: 5
+      PrePasses: 8
   options:
     track_iterations: false
     min_iterations: 4
