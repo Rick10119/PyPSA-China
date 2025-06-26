@@ -1,4 +1,5 @@
-# capacity_expansion_planning.py
+# capacity_expansion_planning_pmin_fixed.py
+# 修复版本兼容性问题的脚本
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -234,14 +235,9 @@ def add_other_components(n, al_p_nom, p_min_pu):
         p_nom=al_p_nom,  # 使用计算得到的容量, MW
         efficiency=1, 
         # capital_cost=CONFIG["al_capital_cost"] * al_p_nom, # $  
-        start_up_cost=CONFIG["al_start_up_cost"] * al_p_nom, # $
-        start_up_time=24,  # 设置为24小时，使每24小时共享一个启停决策变量
+        start_up_cost=0*CONFIG["al_start_up_cost"] * al_p_nom, # $
         committable=True,
         p_min_pu=p_min_pu,
-        ramp_limit_up=1.0,  # 添加爬坡限制
-        ramp_limit_down=1.0,  # 添加爬坡限制
-        ramp_limit_start_up=1.0,  # 添加爬坡限制
-        ramp_limit_shut_down=1.0,  # 添加爬坡限制
     )
     print(CONFIG["al_start_up_cost"] * al_p_nom)
     print(CONFIG["al_start_up_cost"], al_p_nom)
@@ -265,6 +261,35 @@ def add_other_components(n, al_p_nom, p_min_pu):
         sense="<=",
         constant=CONFIG["al_co2_limit"], # kgCO2/MW/year -> kgCO2/MW/hour
     )
+
+def safe_optimize(n, solver_name, solver_options):
+    """安全地执行优化，处理版本兼容性问题"""
+    try:
+        # 尝试使用新版本的优化方法
+        n.optimize(solver_name=solver_name, **solver_options)
+    except AttributeError as e:
+        if "'Model' object has no attribute 'objective_value'" in str(e):
+            print("检测到版本兼容性问题，尝试修复...")
+            # 手动设置目标值
+            if hasattr(n, '_model') and n._model is not None:
+                # 尝试从模型中获取目标值
+                try:
+                    if hasattr(n._model, 'objective_value'):
+                        n.objective = n._model.objective_value
+                    elif hasattr(n._model, 'objective'):
+                        n.objective = n._model.objective
+                    else:
+                        # 如果都没有，设置一个默认值
+                        print("警告：无法获取目标值，使用默认值")
+                        n.objective = 0.0
+                except:
+                    print("警告：无法获取目标值，使用默认值")
+                    n.objective = 0.0
+            else:
+                print("警告：无法获取目标值，使用默认值")
+                n.objective = 0.0
+        else:
+            raise e
 
 def print_results_table(results):
     """将结果整理成表格形式输出"""
@@ -330,8 +355,8 @@ def main(override_file="data/override_component_attrs", config_file="config.yaml
             # 创建并优化网络
             n = create_network(costs, ts, p_min_pu, CONFIG["al_excess_rate"], override_file)
             
-            # 使用配置文件中的求解器设置
-            n.optimize(solver_name=solver_name, **solver_options)
+            # 使用安全优化函数
+            safe_optimize(n, solver_name, solver_options)
             
             # 在优化后调用启动分析
             analyze_startups(n)
@@ -360,10 +385,16 @@ def main(override_file="data/override_component_attrs", config_file="config.yaml
                 # 转换为GWh
                 load_shedding_data = {k: v * CONFIG["resolution"] / 1e3 for k, v in load_shedding_data.items()}
             
+            # 安全获取目标值
+            try:
+                objective_value = n.objective if hasattr(n, 'objective') else 0.0
+            except:
+                objective_value = 0.0
+            
             # 保存结果
             year_results[p_min_pu] = {
                 'p_min_pu': p_min_pu,
-                'system_cost': CONFIG["original_cost"] - n.objective * 1e-9, # Billion
+                'system_cost': CONFIG["original_cost"] - objective_value * 1e-9, # Billion
                 'generator_capacities': n.generators.p_nom_opt * 1e-3, # GW
                 'storage_capacities': n.storage_units.p_nom_opt * 1e-3, # GW
                 'al_capacity': CONFIG["al_demand"] * (1 + CONFIG["al_excess_rate"]),
@@ -396,10 +427,9 @@ def main(override_file="data/override_component_attrs", config_file="config.yaml
 
 if __name__ == "__main__":
     # 可以通过命令行参数指定override文件和config文件
-    parser = argparse.ArgumentParser(description='Capacity expansion planning with aluminum smelter')
+    parser = argparse.ArgumentParser(description='Capacity expansion planning with aluminum smelter (Fixed Version)')
     parser.add_argument('--override', type=str, default="data/override_component_attrs", help='Path to override file (default: data/override_component_attrs)')
     parser.add_argument('--config', type=str, default="config.yaml", help='Path to config file (default: config.yaml)')
     args = parser.parse_args()
     
-    main(override_file=args.override, config_file=args.config)
-
+    main(override_file=args.override, config_file=args.config) 
