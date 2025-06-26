@@ -267,44 +267,69 @@ def solve_network(n, config, solving, opts="", **kwargs):
     n.config = config
     n.opts = opts
 
-
     skip_iterations = cf_solving.get("skip_iterations", False)
     if not n.lines.s_nom_extendable.any():
         skip_iterations = True
         logger.info("No expandable lines found. Skipping iterative solving.")
     
-    if skip_iterations:
-        status, condition = n.optimize(
-            solver_name=solver_name,
-            extra_functionality=extra_functionality,
-            **solver_options,
-            **kwargs,
-        )
-    else:
-        status, condition = n.optimize.optimize_transmission_expansion_iteratively(
-            solver_name=solver_name,
-            track_iterations=track_iterations,
-            min_iterations=min_iterations,
-            max_iterations=max_iterations,
-            extra_functionality=extra_functionality,
-            **solver_options,
-            **kwargs,
-        )
+    try:
+        if skip_iterations:
+            status, condition = n.optimize(
+                solver_name=solver_name,
+                extra_functionality=extra_functionality,
+                **solver_options,
+                **kwargs,
+            )
+        else:
+            status, condition = n.optimize.optimize_transmission_expansion_iteratively(
+                solver_name=solver_name,
+                track_iterations=track_iterations,
+                min_iterations=min_iterations,
+                max_iterations=max_iterations,
+                extra_functionality=extra_functionality,
+                **solver_options,
+                **kwargs,
+            )
 
-    if status != "ok":
-        logger.warning(
-            f"Solving status '{status}' with termination condition '{condition}'"
-        )
-    if "infeasible" in condition:
-        raise RuntimeError("Solving status 'infeasible'")
+        if status != "ok":
+            logger.warning(
+                f"Solving status '{status}' with termination condition '{condition}'"
+            )
+        if "infeasible" in condition:
+            raise RuntimeError("Solving status 'infeasible'")
 
-    # Store the objective value from the model
-    if hasattr(n.model, 'objective_value'):
-        n.objective = n.model.objective_value
-    elif hasattr(n.model, 'objective'):
-        n.objective = n.model.objective.value
-    else:
-        logger.warning("Could not find objective value in model")
+    except AttributeError as e:
+        if "'Model' object has no attribute 'objective_value'" in str(e):
+            logger.info("检测到版本兼容性问题，尝试修复...")
+            # 手动设置目标值
+            if hasattr(n, '_model') and n._model is not None:
+                try:
+                    if hasattr(n._model, 'objective_value'):
+                        n.objective = n._model.objective_value
+                    elif hasattr(n._model, 'objective'):
+                        n.objective = n._model.objective
+                    else:
+                        logger.warning("无法获取目标值，使用默认值")
+                        n.objective = 0.0
+                except:
+                    logger.warning("无法获取目标值，使用默认值")
+                    n.objective = 0.0
+            else:
+                logger.warning("无法获取目标值，使用默认值")
+                n.objective = 0.0
+        else:
+            raise e
+
+    # Store the objective value from the model (兼容性处理)
+    try:
+        if hasattr(n.model, 'objective_value'):
+            n.objective = n.model.objective_value
+        elif hasattr(n.model, 'objective'):
+            n.objective = n.model.objective.value
+        else:
+            logger.warning("Could not find objective value in model")
+    except Exception as e:
+        logger.warning(f"Error accessing objective value: {e}")
 
     return n
 

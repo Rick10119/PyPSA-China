@@ -273,21 +273,37 @@ def calculate_energy(n, label, energy):
         
         # Handle one-port components (like generators, loads, storage units)
         if c.name in n.one_port_components:
-            print(f"Processing one-port component: {c.name}")
+            logger.debug(f"Processing one-port component: {c.name}")
+            
+            # Check if pnl data exists and has the expected columns
+            if not hasattr(c, 'pnl') or 'p' not in c.pnl:
+                logger.warning(f"No pnl data found for {c.name}")
+                continue
+                
+            # Filter out components that don't exist in pnl data
+            valid_components = c.df.index.intersection(c.pnl.p.columns)
+            if len(valid_components) == 0:
+                logger.warning(f"No valid components found for {c.name} in pnl data")
+                continue
+                
             # Calculate energy by:
             # 1. Multiply power by snapshot weightings (to account for time periods)
             # 2. Sum over all time periods
             # 3. Multiply by sign (to handle consumption vs generation)
             # 4. Group by carrier type
-            c_energies = (
-                c.pnl.p.multiply(n.snapshot_weightings.generators, axis=0)
-                .sum()
-                .multiply(c.df.sign)
-                .groupby(c.df.carrier)
-                .sum()
-            )
+            try:
+                c_energies = (
+                    c.pnl.p[valid_components].multiply(n.snapshot_weightings.generators, axis=0)
+                    .sum()
+                    .multiply(c.df.loc[valid_components, "sign"])
+                    .groupby(c.df.loc[valid_components, "carrier"])
+                    .sum()
+                )
+            except Exception as e:
+                logger.warning(f"Error calculating energy for {c.name}: {str(e)}")
+                continue
         else:
-            print(f"Processing branch component: {c.name}")
+            logger.debug(f"Processing branch component: {c.name}")
             # For branch components (like lines, transformers, links)
             # Initialize empty series with zeros for each carrier
             c_energies = pd.Series(0.0, c.df.carrier.unique())
@@ -297,18 +313,18 @@ def calculate_energy(n, label, energy):
             for port in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
                 # Skip bus2 for hydro turbine links
                 if c.name == "Link" and port == "2" and "hydroelectricity" in c.df.carrier.unique():
-                    print("Skipping bus2 for hydro turbine links")
+                    logger.debug("Skipping bus2 for hydro turbine links")
                     continue
                 # Skip bus3 for aluminum smelters
                 if c.name == "Link" and port == "3" and "aluminum smelter" in c.df.carrier.unique():
-                    print("Skipping bus3 for aluminum smelters")
+                    logger.debug("Skipping bus3 for aluminum smelters")
                     continue
                     
-                print(f"Processing port: {port}")
+                logger.debug(f"Processing port: {port}")
                 
                 # Skip if power flow data is missing for this port
                 if "p" + port not in c.pnl:
-                    print(f"Skipping port {port} for {c.name} as power flow data is missing")
+                    logger.warning(f"Skipping port {port} for {c.name} as power flow data is missing")
                     continue
                     
                 try:
@@ -330,9 +346,7 @@ def calculate_energy(n, label, energy):
                     # Subtract the port's energy from total (to account for flow direction)
                     c_energies -= totals.groupby(c.df.carrier).sum()
                 except Exception as e:
-                    print(f"Error processing port {port}: {str(e)}")
-                    print(f"Component data: {c.df.head()}")
-                    print(f"Component pnl: {c.pnl.keys()}")
+                    logger.warning(f"Error processing port {port} for {c.name}: {str(e)}")
                     continue  # Skip this port and continue with others instead of raising the error
 
         # Add component name as first level of index
@@ -385,13 +399,19 @@ def calculate_supply(n, label, supply):
             if len(items) == 0:
                 continue
 
+            # Filter out components that don't exist in pnl data
+            valid_items = items.intersection(c.pnl.p.columns)
+            if len(valid_items) == 0:
+                logger.warning(f"No valid items found for {c.name} in pnl data")
+                continue
+
             # Calculate maximum power flow, accounting for component sign
             # (positive for generation, negative for consumption)
             s = (
-                c.pnl.p[items]
+                c.pnl.p[valid_items]
                 .max()  # Get maximum power flow
-                .multiply(c.df.loc[items, "sign"])  # Apply sign convention
-                .groupby(c.df.loc[items, "carrier"])  # Group by technology type
+                .multiply(c.df.loc[valid_items, "sign"])  # Apply sign convention
+                .groupby(c.df.loc[valid_items, "carrier"])  # Group by technology type
                 .sum()  # Sum over all components of same carrier
             )
             # Add component type and bus carrier as index levels
@@ -414,28 +434,25 @@ def calculate_supply(n, label, supply):
 
                 # Skip if power flow data is missing for this port
                 if "p" + end not in c.pnl:
-                    print(f"Skipping port {end} for {c.name} as power flow data is missing")
+                    logger.warning(f"Skipping port {end} for {c.name} as power flow data is missing")
                     continue
 
                 # Filter out components without power flow data
-                valid_items = [item for item in items if item in c.pnl["p" + end].columns]
+                valid_items = items.intersection(c.pnl["p" + end].columns)
                 if len(valid_items) == 0:
-                    print(f"No valid items found for port {end} of {c.name}")
+                    logger.warning(f"No valid items found for port {end} of {c.name}")
                     continue
 
                 # Calculate maximum power flow with sign compensation
-                # Only process items that exist in the pnl DataFrame
-                valid_items = items.intersection(c.pnl["p" + end].columns)
-                if not valid_items.empty:
-                    s = (-1) ** (1 - int(end)) * (
-                        (-1) ** int(end) * c.pnl["p" + end][valid_items]
-                    ).max().groupby(c.df.loc[valid_items, "carrier"]).sum()
-                    s.index = s.index + end
-                    s = pd.concat([s], keys=[c.list_name])
-                    s = pd.concat([s], keys=[i])
+                s = (-1) ** (1 - int(end)) * (
+                    (-1) ** int(end) * c.pnl["p" + end][valid_items]
+                ).max().groupby(c.df.loc[valid_items, "carrier"]).sum()
+                s.index = s.index + end
+                s = pd.concat([s], keys=[c.list_name])
+                s = pd.concat([s], keys=[i])
 
-                    supply = supply.reindex(s.index.union(supply.index))
-                    supply.loc[s.index, label] = s
+                supply = supply.reindex(s.index.union(supply.index))
+                supply.loc[s.index, label] = s
 
     return supply
 
@@ -478,14 +495,20 @@ def calculate_supply_energy(n, label, supply_energy):
             if len(items) == 0:
                 continue
 
+            # Filter out components that don't exist in pnl data
+            valid_items = items.intersection(c.pnl.p.columns)
+            if len(valid_items) == 0:
+                logger.warning(f"No valid items found for {c.name} in pnl data")
+                continue
+
             # Calculate total energy flow over time
             # Multiply by snapshot weightings to account for time periods
             s = (
-                c.pnl.p[items]
+                c.pnl.p[valid_items]
                 .multiply(n.snapshot_weightings.generators, axis=0)  # Weight by time period
                 .sum()  # Sum over all time periods
-                .multiply(c.df.loc[items, "sign"])  # Apply sign convention
-                .groupby(c.df.loc[items, "carrier"])  # Group by technology
+                .multiply(c.df.loc[valid_items, "sign"])  # Apply sign convention
+                .groupby(c.df.loc[valid_items, "carrier"])  # Group by technology
                 .sum()  # Sum over all components of same carrier
             )
             # Add component type and bus carrier as index levels
@@ -506,13 +529,13 @@ def calculate_supply_energy(n, label, supply_energy):
 
                 # Skip if power flow data is missing
                 if "p" + end not in c.pnl:
-                    print(f"Skipping port {end} for {c.name} as power flow data is missing")
+                    logger.warning(f"Skipping port {end} for {c.name} as power flow data is missing")
                     continue
 
                 # Filter out components without power flow data
-                valid_items = [item for item in items if item in c.pnl["p" + end].columns]
+                valid_items = items.intersection(c.pnl["p" + end].columns)
                 if len(valid_items) == 0:
-                    print(f"No valid items found for port {end} of {c.name}")
+                    logger.warning(f"No valid items found for port {end} of {c.name}")
                     continue
 
                 # Calculate total energy flow with sign compensation
@@ -667,52 +690,72 @@ def calculate_market_values(n, label, market_values):
     available_buses = buses.intersection(n.buses_t.marginal_price.columns)
     
     if available_buses.empty:
+        logger.warning("No available buses found for market value calculation")
         return market_values
 
     ## First do market value of generators ##
 
     generators = n.generators.index[n.buses.loc[n.generators.bus, "carrier"] == carrier]
 
-    techs = n.generators.loc[generators, "carrier"].value_counts().index
+    # Filter out generators that don't exist in pnl data
+    valid_generators = generators.intersection(n.generators_t.p.columns)
+    if len(valid_generators) == 0:
+        logger.warning("No valid generators found for market value calculation")
+    else:
+        techs = n.generators.loc[valid_generators, "carrier"].value_counts().index
 
-    market_values = market_values.reindex(market_values.index.union(techs))
+        market_values = market_values.reindex(market_values.index.union(techs))
 
-    for tech in techs:
-        gens = generators[n.generators.loc[generators, "carrier"] == tech]
+        for tech in techs:
+            gens = valid_generators[n.generators.loc[valid_generators, "carrier"] == tech]
 
-        dispatch = (
-            n.generators_t.p[gens]
-            .groupby(n.generators.loc[gens, "bus"], axis=1)
-            .sum()
-            .reindex(columns=available_buses, fill_value=0.0)
-        )
+            try:
+                dispatch = (
+                    n.generators_t.p[gens]
+                    .groupby(n.generators.loc[gens, "bus"], axis=1)
+                    .sum()
+                    .reindex(columns=available_buses, fill_value=0.0)
+                )
 
-        revenue = dispatch * n.buses_t.marginal_price[available_buses]
+                revenue = dispatch * n.buses_t.marginal_price[available_buses]
 
-        market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
+                market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
+            except Exception as e:
+                logger.warning(f"Error calculating market value for generator tech {tech}: {str(e)}")
+                continue
 
     ## Now do market value of links ##
 
     for i in ["0", "1"]:
         all_links = n.links.index[n.buses.loc[n.links["bus" + i], "carrier"] == carrier]
 
-        techs = n.links.loc[all_links, "carrier"].value_counts().index
+        # Filter out links that don't exist in pnl data
+        valid_links = all_links.intersection(n.links_t["p" + i].columns)
+        if len(valid_links) == 0:
+            logger.warning(f"No valid links found for port {i} in market value calculation")
+            continue
+
+        techs = n.links.loc[valid_links, "carrier"].value_counts().index
 
         market_values = market_values.reindex(market_values.index.union(techs))
 
         for tech in techs:
-            links = all_links[n.links.loc[all_links, "carrier"] == tech]
+            links = valid_links[n.links.loc[valid_links, "carrier"] == tech]
 
-            dispatch = (
-                n.links_t["p" + i][links]
-                .groupby(n.links.loc[links, "bus" + i], axis=1)
-                .sum()
-                .reindex(columns=available_buses, fill_value=0.0)
-            )
+            try:
+                dispatch = (
+                    n.links_t["p" + i][links]
+                    .groupby(n.links.loc[links, "bus" + i], axis=1)
+                    .sum()
+                    .reindex(columns=available_buses, fill_value=0.0)
+                )
 
-            revenue = dispatch * n.buses_t.marginal_price[available_buses]
+                revenue = dispatch * n.buses_t.marginal_price[available_buses]
 
-            market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
+                market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
+            except Exception as e:
+                logger.warning(f"Error calculating market value for link tech {tech} port {i}: {str(e)}")
+                continue
 
     return market_values
 

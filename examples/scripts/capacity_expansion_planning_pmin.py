@@ -1,6 +1,3 @@
-# capacity_expansion_planning_pmin_fixed.py
-# 修复版本兼容性问题的脚本
-
 import matplotlib.pyplot as plt
 import pandas as pd
 import pypsa

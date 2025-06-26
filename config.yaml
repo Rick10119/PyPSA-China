@@ -55,20 +55,12 @@ solving:
     options: default
   solver_options:
     default:
-      Threads: 192
-      Crossover: 0
       MIPGap: 0.01
       BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-6
-      AggFill: 0
-      PreDual: 0
-      GURO_PAR_BARDENSETHRESH: 200
-      DualReductions: 0
-      MIPFocus: 1
-      Heuristics: 0.5
-      NodefileStart: 0.5
+      FeasibilityTol: 1.e-5
       Presolve: 2
       Method: -1
+      crossover: 0
   options:
     track_iterations: false
     min_iterations: 4
@@ -104,7 +96,7 @@ aluminum:
   
   # Electrolyzer startup costs 16000 * 7.3 / 7.55  # euro/MW
   al_start_up_cost: 15470
-  al_p_min_pu: 1.0
+  al_p_min_pu: 0.9
 
 snapshots:
   start: "2020-01-01"
