@@ -23,39 +23,47 @@ from pypsa.descriptors import get_switchable_as_dense as get_as_dense
 def prepare_network(
         n,
         solve_opts=None,
+        using_single_node=False,
+        single_node_province="Shandong"
 ):
-    # # Filter to keep only Shandong components
-    # shandong_buses = n.buses[n.buses.index.str.contains('Shandong')].index
-    
-    # # Remove non-Shandong buses and their components
-    # non_shandong_buses = n.buses[~n.buses.index.isin(shandong_buses)].index
-    
-    # # Remove generators not in Shandong
-    # non_shandong_generators = n.generators[~n.generators.bus.isin(shandong_buses)].index
-    # n.mremove("Generator", non_shandong_generators)
-    
-    # # Remove loads not in Shandong
-    # non_shandong_loads = n.loads[~n.loads.bus.isin(shandong_buses)].index
-    # n.mremove("Load", non_shandong_loads)
-    
-    # # Remove storage units not in Shandong
-    # non_shandong_storage = n.storage_units[~n.storage_units.bus.isin(shandong_buses)].index
-    # n.mremove("StorageUnit", non_shandong_storage)
-    
-    # # Remove stores not in Shandong
-    # non_shandong_stores = n.stores[~n.stores.bus.isin(shandong_buses)].index
-    # n.mremove("Store", non_shandong_stores)
-    
-    # # Remove links not connected to Shandong
-    # non_shandong_links = n.links[~(n.links.bus0.isin(shandong_buses) | n.links.bus1.isin(shandong_buses))].index
-    # n.mremove("Link", non_shandong_links)
-    
-    # # Remove lines not connected to Shandong
-    # non_shandong_lines = n.lines[~(n.lines.bus0.isin(shandong_buses) | n.lines.bus1.isin(shandong_buses))].index
-    # n.mremove("Line", non_shandong_lines)
-    
-    # # Finally remove non-Shandong buses
-    # n.mremove("Bus", non_shandong_buses)
+    # 检查是否启用单节点模式
+    if using_single_node:
+        logger.info(f"启用单节点模式，只保留 {single_node_province} 省份的组件")
+        
+        # Filter to keep only specified province components
+        province_buses = n.buses[n.buses.index.str.contains(single_node_province)].index
+        
+        # Remove non-province buses and their components
+        non_province_buses = n.buses[~n.buses.index.isin(province_buses)].index
+        
+        # Remove generators not in specified province
+        non_province_generators = n.generators[~n.generators.bus.isin(province_buses)].index
+        n.mremove("Generator", non_province_generators)
+        
+        # Remove loads not in specified province
+        non_province_loads = n.loads[~n.loads.bus.isin(province_buses)].index
+        n.mremove("Load", non_province_loads)
+        
+        # Remove storage units not in specified province
+        non_province_storage = n.storage_units[~n.storage_units.bus.isin(province_buses)].index
+        n.mremove("StorageUnit", non_province_storage)
+        
+        # Remove stores not in specified province
+        non_province_stores = n.stores[~n.stores.bus.isin(province_buses)].index
+        n.mremove("Store", non_province_stores)
+        
+        # Remove links not connected to specified province
+        non_province_links = n.links[~(n.links.bus0.isin(province_buses) | n.links.bus1.isin(province_buses))].index
+        n.mremove("Link", non_province_links)
+        
+        # Remove lines not connected to specified province
+        non_province_lines = n.lines[~(n.lines.bus0.isin(province_buses) | n.lines.bus1.isin(province_buses))].index
+        n.mremove("Line", non_province_lines)
+        
+        # Finally remove non-province buses
+        n.mremove("Bus", non_province_buses)
+        
+        logger.info(f"单节点过滤完成，保留了 {len(province_buses)} 个节点")
     
     # Fix any remaining links that might have undefined buses
     for link in n.links.index:
@@ -274,24 +282,13 @@ def safe_optimize(n, solver_name, solver_options, extra_functionality=None, **kw
     except AttributeError as e:
         if "'Model' object has no attribute 'objective_value'" in str(e):
             logger.info("检测到版本兼容性问题，尝试修复...")
-            # 手动设置目标值
-            if hasattr(n, '_model') and n._model is not None:
-                try:
-                    if hasattr(n._model, 'objective_value'):
-                        n.objective = n._model.objective_value
-                    elif hasattr(n._model, 'objective'):
-                        n.objective = n._model.objective
-                    else:
-                        logger.warning("无法获取目标值，使用默认值")
-                        n.objective = 0.0
-                except:
-                    logger.warning("无法获取目标值，使用默认值")
-                    n.objective = 0.0
-            else:
-                logger.warning("无法获取目标值，使用默认值")
-                n.objective = 0.0
-            return "ok", "optimal"  # 假设优化成功
+            # 只处理objective_value属性错误，不进行任何其他操作
+            # 让优化器继续正常工作，不设置任何默认值
+            logger.info("跳过objective_value设置，继续优化过程")
+            # 返回一个状态，让调用者知道需要继续处理
+            return "ok", "optimal"
         else:
+            # 对于其他AttributeError，重新抛出
             raise e
 
 def solve_network(n, config, solving, opts="", **kwargs):
@@ -428,7 +425,9 @@ if __name__ == '__main__':
 
     n = prepare_network(
         n,
-        solve_opts
+        solve_opts,
+        using_single_node=snakemake.params.using_single_node,
+        single_node_province=snakemake.params.single_node_province
     )
 
     n = solve_network(

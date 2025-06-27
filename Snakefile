@@ -354,7 +354,9 @@ if config["foresight"] == "myopic":
     rule solve_network_myopic:
         params:
             solving = config["solving"],
-            planning_horizons=config["scenario"]["planning_horizons"]
+            planning_horizons=config["scenario"]["planning_horizons"],
+            using_single_node = config["single_node"],
+            single_node_province = config["single_node_province"]
         input:
             overrides = "data/override_component_attrs",
             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
