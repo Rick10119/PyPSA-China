@@ -186,19 +186,32 @@ def prepare_network(config):
         )
 
         # Add aluminum smelters only for provinces with production ratio > 0.01
-        network.madd("Link",
-                    production_ratio.index,  # Only add for filtered provinces
-                    suffix=" aluminum smelter",
-                    bus0=production_ratio.index,
-                    bus1=production_ratio.index + " aluminum",
-                    carrier="aluminum smelter",
-                    p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
-                    p_nom_extendable=False,
-                    efficiency=1.0,  # Scalar value
-                    start_up_cost=config['aluminum']['al_start_up_cost'] * 1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),
-                    committable=True,
-                    p_min_pu=config['aluminum']['al_p_min_pu'],
-                    )
+        if config['aluminum_commitment']:
+            network.madd("Link",
+                        production_ratio.index,  # Only add for filtered provinces
+                        suffix=" aluminum smelter",
+                        bus0=production_ratio.index,
+                        bus1=production_ratio.index + " aluminum",
+                        carrier="aluminum smelter",
+                        p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
+                        p_nom_extendable=False,
+                        efficiency=1.0,  # Scalar value
+                        start_up_cost=config['aluminum']['al_start_up_cost'] * 1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),
+                        committable=True,
+                        p_min_pu=config['aluminum']['al_p_min_pu'],
+                        )
+        else:
+            network.madd("Link",
+                        production_ratio.index,  # Only add for filtered provinces
+                        suffix=" aluminum smelter",
+                        bus0=production_ratio.index,
+                        bus1=production_ratio.index + " aluminum",
+                        carrier="aluminum smelter",
+                        p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
+                        p_nom_extendable=False,
+                        efficiency=1.0,  # Scalar value
+                        committable=False,
+                        )
 
         # Add aluminum storage only for provinces with production ratio > 0.01
         network.madd("Store",
