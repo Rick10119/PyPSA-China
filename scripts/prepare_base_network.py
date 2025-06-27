@@ -195,10 +195,12 @@ def prepare_network(config):
                     p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
                     p_nom_extendable=False,
                     efficiency=1.0,  # Scalar value
-                    start_up_cost=config['aluminum']['al_start_up_cost'],
+                    start_up_cost=config['aluminum']['al_start_up_cost'] * 1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),
                     committable=True,
                     p_min_pu=config['aluminum']['al_p_min_pu'],
                     )
+        print(config['aluminum']['al_start_up_cost'] * 1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max())
+        print(1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max())
 
         # Add aluminum storage only for provinces with production ratio > 0.01
         network.madd("Store",
