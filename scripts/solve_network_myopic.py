@@ -24,38 +24,38 @@ def prepare_network(
         n,
         solve_opts=None,
 ):
-    # Filter to keep only Shandong components
-    shandong_buses = n.buses[n.buses.index.str.contains('Shandong')].index
+    # # Filter to keep only Shandong components
+    # shandong_buses = n.buses[n.buses.index.str.contains('Shandong')].index
     
-    # Remove non-Shandong buses and their components
-    non_shandong_buses = n.buses[~n.buses.index.isin(shandong_buses)].index
+    # # Remove non-Shandong buses and their components
+    # non_shandong_buses = n.buses[~n.buses.index.isin(shandong_buses)].index
     
-    # Remove generators not in Shandong
-    non_shandong_generators = n.generators[~n.generators.bus.isin(shandong_buses)].index
-    n.mremove("Generator", non_shandong_generators)
+    # # Remove generators not in Shandong
+    # non_shandong_generators = n.generators[~n.generators.bus.isin(shandong_buses)].index
+    # n.mremove("Generator", non_shandong_generators)
     
-    # Remove loads not in Shandong
-    non_shandong_loads = n.loads[~n.loads.bus.isin(shandong_buses)].index
-    n.mremove("Load", non_shandong_loads)
+    # # Remove loads not in Shandong
+    # non_shandong_loads = n.loads[~n.loads.bus.isin(shandong_buses)].index
+    # n.mremove("Load", non_shandong_loads)
     
-    # Remove storage units not in Shandong
-    non_shandong_storage = n.storage_units[~n.storage_units.bus.isin(shandong_buses)].index
-    n.mremove("StorageUnit", non_shandong_storage)
+    # # Remove storage units not in Shandong
+    # non_shandong_storage = n.storage_units[~n.storage_units.bus.isin(shandong_buses)].index
+    # n.mremove("StorageUnit", non_shandong_storage)
     
-    # Remove stores not in Shandong
-    non_shandong_stores = n.stores[~n.stores.bus.isin(shandong_buses)].index
-    n.mremove("Store", non_shandong_stores)
+    # # Remove stores not in Shandong
+    # non_shandong_stores = n.stores[~n.stores.bus.isin(shandong_buses)].index
+    # n.mremove("Store", non_shandong_stores)
     
-    # Remove links not connected to Shandong
-    non_shandong_links = n.links[~(n.links.bus0.isin(shandong_buses) | n.links.bus1.isin(shandong_buses))].index
-    n.mremove("Link", non_shandong_links)
+    # # Remove links not connected to Shandong
+    # non_shandong_links = n.links[~(n.links.bus0.isin(shandong_buses) | n.links.bus1.isin(shandong_buses))].index
+    # n.mremove("Link", non_shandong_links)
     
-    # Remove lines not connected to Shandong
-    non_shandong_lines = n.lines[~(n.lines.bus0.isin(shandong_buses) | n.lines.bus1.isin(shandong_buses))].index
-    n.mremove("Line", non_shandong_lines)
+    # # Remove lines not connected to Shandong
+    # non_shandong_lines = n.lines[~(n.lines.bus0.isin(shandong_buses) | n.lines.bus1.isin(shandong_buses))].index
+    # n.mremove("Line", non_shandong_lines)
     
-    # Finally remove non-Shandong buses
-    n.mremove("Bus", non_shandong_buses)
+    # # Finally remove non-Shandong buses
+    # n.mremove("Bus", non_shandong_buses)
     
     # Fix any remaining links that might have undefined buses
     for link in n.links.index:
