@@ -199,8 +199,6 @@ def prepare_network(config):
                     committable=True,
                     p_min_pu=config['aluminum']['al_p_min_pu'],
                     )
-        print(config['aluminum']['al_start_up_cost'] * 1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max())
-        print(1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max())
 
         # Add aluminum storage only for provinces with production ratio > 0.01
         network.madd("Store",
