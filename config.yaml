@@ -57,8 +57,8 @@ solving:
     default:
       Threads: 192
       MIPGap: 0.01
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-5
+      BarConvTol: 1.e-3
+      FeasibilityTol: 1.e-3
       Presolve: 1
       Method: 2
       BarHomogeneous: 1

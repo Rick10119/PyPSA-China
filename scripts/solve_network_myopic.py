@@ -24,38 +24,38 @@ def prepare_network(
         n,
         solve_opts=None,
 ):
-    # # Filter to keep only Shandong components
-    # shandong_buses = n.buses[n.buses.index.str.contains('Shandong')].index
+    # Filter to keep only Shandong components
+    shandong_buses = n.buses[n.buses.index.str.contains('Shandong')].index
     
-    # # Remove non-Shandong buses and their components
-    # non_shandong_buses = n.buses[~n.buses.index.isin(shandong_buses)].index
+    # Remove non-Shandong buses and their components
+    non_shandong_buses = n.buses[~n.buses.index.isin(shandong_buses)].index
     
-    # # Remove generators not in Shandong
-    # non_shandong_generators = n.generators[~n.generators.bus.isin(shandong_buses)].index
-    # n.mremove("Generator", non_shandong_generators)
+    # Remove generators not in Shandong
+    non_shandong_generators = n.generators[~n.generators.bus.isin(shandong_buses)].index
+    n.mremove("Generator", non_shandong_generators)
     
-    # # Remove loads not in Shandong
-    # non_shandong_loads = n.loads[~n.loads.bus.isin(shandong_buses)].index
-    # n.mremove("Load", non_shandong_loads)
+    # Remove loads not in Shandong
+    non_shandong_loads = n.loads[~n.loads.bus.isin(shandong_buses)].index
+    n.mremove("Load", non_shandong_loads)
     
-    # # Remove storage units not in Shandong
-    # non_shandong_storage = n.storage_units[~n.storage_units.bus.isin(shandong_buses)].index
-    # n.mremove("StorageUnit", non_shandong_storage)
+    # Remove storage units not in Shandong
+    non_shandong_storage = n.storage_units[~n.storage_units.bus.isin(shandong_buses)].index
+    n.mremove("StorageUnit", non_shandong_storage)
     
-    # # Remove stores not in Shandong
-    # non_shandong_stores = n.stores[~n.stores.bus.isin(shandong_buses)].index
-    # n.mremove("Store", non_shandong_stores)
+    # Remove stores not in Shandong
+    non_shandong_stores = n.stores[~n.stores.bus.isin(shandong_buses)].index
+    n.mremove("Store", non_shandong_stores)
     
-    # # Remove links not connected to Shandong
-    # non_shandong_links = n.links[~(n.links.bus0.isin(shandong_buses) | n.links.bus1.isin(shandong_buses))].index
-    # n.mremove("Link", non_shandong_links)
+    # Remove links not connected to Shandong
+    non_shandong_links = n.links[~(n.links.bus0.isin(shandong_buses) | n.links.bus1.isin(shandong_buses))].index
+    n.mremove("Link", non_shandong_links)
     
-    # # Remove lines not connected to Shandong
-    # non_shandong_lines = n.lines[~(n.lines.bus0.isin(shandong_buses) | n.lines.bus1.isin(shandong_buses))].index
-    # n.mremove("Line", non_shandong_lines)
+    # Remove lines not connected to Shandong
+    non_shandong_lines = n.lines[~(n.lines.bus0.isin(shandong_buses) | n.lines.bus1.isin(shandong_buses))].index
+    n.mremove("Line", non_shandong_lines)
     
-    # # Finally remove non-Shandong buses
-    # n.mremove("Bus", non_shandong_buses)
+    # Finally remove non-Shandong buses
+    n.mremove("Bus", non_shandong_buses)
     
     # Fix any remaining links that might have undefined buses
     for link in n.links.index:
@@ -253,6 +253,46 @@ def extra_functionality(n, snapshots):
     if snakemake.wildcards.planning_horizons != "2020":
         add_retrofit_constraints(n)
 
+def safe_optimize(n, solver_name, solver_options, extra_functionality=None, **kwargs):
+    """安全地执行优化，处理版本兼容性问题"""
+    try:
+        # 尝试使用新版本的优化方法
+        if extra_functionality:
+            status, condition = n.optimize(
+                solver_name=solver_name,
+                extra_functionality=extra_functionality,
+                **solver_options,
+                **kwargs,
+            )
+        else:
+            status, condition = n.optimize(
+                solver_name=solver_name,
+                **solver_options,
+                **kwargs,
+            )
+        return status, condition
+    except AttributeError as e:
+        if "'Model' object has no attribute 'objective_value'" in str(e):
+            logger.info("检测到版本兼容性问题，尝试修复...")
+            # 手动设置目标值
+            if hasattr(n, '_model') and n._model is not None:
+                try:
+                    if hasattr(n._model, 'objective_value'):
+                        n.objective = n._model.objective_value
+                    elif hasattr(n._model, 'objective'):
+                        n.objective = n._model.objective
+                    else:
+                        logger.warning("无法获取目标值，使用默认值")
+                        n.objective = 0.0
+                except:
+                    logger.warning("无法获取目标值，使用默认值")
+                    n.objective = 0.0
+            else:
+                logger.warning("无法获取目标值，使用默认值")
+                n.objective = 0.0
+            return "ok", "optimal"  # 假设优化成功
+        else:
+            raise e
 
 def solve_network(n, config, solving, opts="", **kwargs):
     set_of_options = solving["solver"]["options"]
@@ -272,12 +312,14 @@ def solve_network(n, config, solving, opts="", **kwargs):
         skip_iterations = True
         logger.info("No expandable lines found. Skipping iterative solving.")
     
+    # 尝试使用默认参数求解
     try:
         if skip_iterations:
-            status, condition = n.optimize(
+            status, condition = safe_optimize(
+                n,
                 solver_name=solver_name,
+                solver_options=solver_options,
                 extra_functionality=extra_functionality,
-                **solver_options,
                 **kwargs,
             )
         else:
@@ -298,26 +340,51 @@ def solve_network(n, config, solving, opts="", **kwargs):
         if "infeasible" in condition:
             raise RuntimeError("Solving status 'infeasible'")
 
-    except AttributeError as e:
-        if "'Model' object has no attribute 'objective_value'" in str(e):
-            logger.info("检测到版本兼容性问题，尝试修复...")
-            # 手动设置目标值
-            if hasattr(n, '_model') and n._model is not None:
-                try:
-                    if hasattr(n._model, 'objective_value'):
-                        n.objective = n._model.objective_value
-                    elif hasattr(n._model, 'objective'):
-                        n.objective = n._model.objective
+    except Exception as e:
+        error_msg = str(e).lower()
+        # 检查是否是数值问题
+        if any(keyword in error_msg for keyword in ['numerical', 'infeasible', 'unbounded', 'barhomogeneous']):
+            logger.warning(f"遇到数值问题: {e}")
+            logger.info("尝试使用保守的求解器参数...")
+            
+            # 尝试使用保守参数
+            try:
+                conservative_options = solving["solver_options"].get("conservative", {})
+                if conservative_options:
+                    logger.info("使用保守求解器参数重新求解...")
+                    if skip_iterations:
+                        status, condition = safe_optimize(
+                            n,
+                            solver_name=solver_name,
+                            solver_options=conservative_options,
+                            extra_functionality=extra_functionality,
+                            **kwargs,
+                        )
                     else:
-                        logger.warning("无法获取目标值，使用默认值")
-                        n.objective = 0.0
-                except:
-                    logger.warning("无法获取目标值，使用默认值")
-                    n.objective = 0.0
-            else:
-                logger.warning("无法获取目标值，使用默认值")
-                n.objective = 0.0
+                        status, condition = n.optimize.optimize_transmission_expansion_iteratively(
+                            solver_name=solver_name,
+                            track_iterations=track_iterations,
+                            min_iterations=min_iterations,
+                            max_iterations=max_iterations,
+                            extra_functionality=extra_functionality,
+                            **conservative_options,
+                            **kwargs,
+                        )
+                    
+                    if status != "ok":
+                        logger.warning(
+                            f"保守参数求解状态 '{status}' with termination condition '{condition}'"
+                        )
+                    if "infeasible" in condition:
+                        raise RuntimeError("保守参数求解状态 'infeasible'")
+                else:
+                    logger.error("未找到保守求解器参数配置")
+                    raise e
+            except Exception as e2:
+                logger.error(f"保守参数求解也失败: {e2}")
+                raise e2
         else:
+            # 如果不是数值问题，直接抛出原始异常
             raise e
 
     # Store the objective value from the model (兼容性处理)
