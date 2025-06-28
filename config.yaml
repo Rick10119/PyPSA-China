@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0626.1H.9
+version: 0628.24H.1
 logging_level: INFO
 foresight: "myopic"
 
@@ -17,11 +17,11 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1h'
-frequency: 1.
+freq: '24h'
+frequency: 24.
 
-add_aluminum: True
-aluminum_commitment: True
+add_aluminum: False
+aluminum_commitment: False
 
 scenario:
   line_limits: [ 'opt' ]
