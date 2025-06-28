@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0626.1H.8
+version: 0626.1H.7
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-single_node: True
+single_node: False
 single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
@@ -64,12 +64,14 @@ solving:
       Crossover: 0
       Method: 2 # barrier
       MIPGap: 0.01
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-6
+      BarConvTol: 1.e-3
+      FeasibilityTol: 1.e-3
       AggFill: 0
       PreDual: 0
       GURO_PAR_BARDENSETHRESH: 200
       DualReductions: 0
+      ScaleFlag: 2
+      ObjScale: 1.e-3
     conservative:
       Threads: 192
       MIPGap: 0.01
@@ -85,7 +87,25 @@ solving:
       DualReductions: 0
       ScaleFlag: 2
       ObjScale: 1.e-3
-      TimeLimit: 14400
+      TimeLimit: 14400  # 4小时时间限制
+      OutputFlag: 1     # 启用输出以便监控进度
+    timeout_fallback:
+      Threads: 192
+      MIPGap: 0.05      # 放宽MIP间隙以加快收敛
+      BarConvTol: 1.e-2 # 放宽收敛容差
+      FeasibilityTol: 1.e-2
+      Method: 2
+      BarHomogeneous: 1
+      Crossover: 0
+      CrossoverBasis: 0
+      AggFill: 10
+      PreDual: 0
+      GURO_PAR_BARDENSETHRESH: 200
+      DualReductions: 0
+      ScaleFlag: 2
+      ObjScale: 1.e-2
+      TimeLimit: 7200   # 2小时时间限制
+      OutputFlag: 1
   options:
     track_iterations: false
     min_iterations: 4
