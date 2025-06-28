@@ -63,6 +63,7 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2 # barrier
+      BarHomogeneous: 1
       MIPGap: 0.01
       BarConvTol: 1.e-3
       FeasibilityTol: 1.e-3
