@@ -21,7 +21,7 @@ freq: '1h'
 frequency: 1.
 
 add_aluminum: True
-aluminum_commitment: False
+aluminum_commitment: True
 
 scenario:
   line_limits: [ 'opt' ]
