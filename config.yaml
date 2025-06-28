@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0626.1H.7
+version: 0626.1H.6
 logging_level: INFO
 foresight: "myopic"
 
@@ -70,8 +70,8 @@ solving:
       PreDual: 0
       GURO_PAR_BARDENSETHRESH: 200
       DualReductions: 0
-      ScaleFlag: 2
-      ObjScale: 1.e-3
+      # ScaleFlag: 2
+      # ObjScale: 1.e-3
     conservative:
       Threads: 192
       MIPGap: 0.01
