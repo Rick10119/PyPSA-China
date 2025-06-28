@@ -31,7 +31,7 @@ CONFIG = {
     
     # 电解槽启动成本, 计算方式：
     # $65M ~ 450,000 mt per year
-    "al_start_up_cost": 16000 * 7.3 / 7.55 * 6.8, # euro/MW
+    "al_start_up_cost": 0 * 16000 * 7.3 / 7.55 * 6.8, # euro/MW
     "al_p_min_pu": [0.9],  # 改回列表以支持pmin脚本
     # 启动时间
     # "al_start_up_time": 24, # 小时

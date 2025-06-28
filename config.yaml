@@ -7,7 +7,7 @@ logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-single_node: False
+single_node: True
 single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
@@ -17,10 +17,10 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '24h'
-frequency: 24.
+freq: '1h'
+frequency: 1.
 
-add_aluminum: False
+add_aluminum: True
 aluminum_commitment: False
 
 scenario:
