@@ -198,18 +198,18 @@ if config["foresight"] == "myopic":
 #     resources: mem_mb=ATLITE_NPROCESSES * 5000
 #     script: "scripts/build_renewable_potential.py"
 
-# rule build_load_profiles:
-#     input:
-#         population = "data/population/population.h5",
-#         population_map = "data/population/population_gridcell_map.h5",
-#         cutout = "cutouts/China-2020.nc",
-#         intraday_profiles="data/heating/heat_load_profile_DK_AdamJensen.csv",
-#         space_heat_demand="data/heating/SPH_2020.csv"
-#     output:
-#         heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5"
-#     threads: ATLITE_NPROCESSES
-#     resources: mem_mb = ATLITE_NPROCESSES * 5000
-#     script: "scripts/build_load_profiles.py"
+rule build_load_profiles:
+    input:
+        population = "data/population/population.h5",
+        population_map = "data/population/population_gridcell_map.h5",
+        cutout = "cutouts/China-2020.nc",
+        intraday_profiles="data/heating/heat_load_profile_DK_AdamJensen.csv",
+        space_heat_demand="data/heating/SPH_2020.csv"
+    output:
+        heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5"
+    threads: ATLITE_NPROCESSES
+    resources: mem_mb = ATLITE_NPROCESSES * 5000
+    script: "scripts/build_load_profiles.py"
 
 # rule build_biomass_potential:
 #     input:
@@ -358,7 +358,27 @@ if config["foresight"] == "myopic":
         resources: mem_mb = config['mem_per_thread'] * config['threads']
         script: "scripts/solve_network_myopic.py"
 
-    ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
+    # 电解铝迭代优化求解规则
+    rule solve_network_aluminum_iterative:
+        params:
+            solving = config["solving"],
+            planning_horizons=config["scenario"]["planning_horizons"],
+            using_single_node = config["single_node"],
+            single_node_province = config["single_node_province"]
+        input:
+            overrides = "data/override_component_attrs",
+            network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+            costs="data/costs/costs_{planning_horizons}.csv",
+            biomass_potental= "data/p_nom/biomass_potential.h5",
+        output:
+            network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}-iterative.nc'
+        log:
+            solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}-iterative.log")
+        threads: config['threads']
+        resources: mem_mb = config['mem_per_thread'] * config['threads']
+        script: "scripts/solve_network_aluminum_iterative.py"
+
+    ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic > solve_network_aluminum_iterative
 
 if config["plot"]:
 

@@ -12,7 +12,7 @@ dependencies:
   - pip
 
   # Core dependencies - main versions only
-  - pypsa=0.27.1
+  - pypsa=0.29.0
   - atlite
   - dask
   - gurobi

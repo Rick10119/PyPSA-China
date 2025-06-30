@@ -26,7 +26,9 @@ def generate_periodic_profiles(dt_index=None,col_tzs=pd.Series(index=pro_names, 
 
     week_df = pd.DataFrame(index=dt_index,columns=col_tzs.index)
     for ct in col_tzs.index:
-        week_df[ct] = [24*dt.weekday()+dt.hour for dt in dt_index.tz_convert(pytz.timezone("Asia/{}".format(col_tzs[ct])))]
+        # First localize naive timestamps to UTC, then convert to target timezone
+        dt_index_localized = dt_index.tz_localize('UTC').tz_convert(pytz.timezone("Asia/{}".format(col_tzs[ct])))
+        week_df[ct] = [24*dt.weekday()+dt.hour for dt in dt_index_localized]
         week_df[ct] = week_df[ct].map(weekly_profile)
     return week_df
 
@@ -98,8 +100,7 @@ def build_hot_water_per_day(planning_horizons):
 def build_heat_demand_profile(daily_hd,hot_water_per_day,date_range,planning_horizons):
     h = daily_hd
     h_n = h[~h.index.duplicated(keep='first')].iloc[:-1, :]
-    h_n.index = h_n.index.tz_localize('Asia/shanghai')
-    date_range_2020 = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq="1H",tz='Asia/shanghai')
+    date_range_2020 = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq="1h")
     date_range_2020 = date_range_2020.map(lambda t: t.replace(year=int(2020)))
     heat_demand_hdh = h_n.reindex(index=date_range_2020, method="ffill")
     heat_demand_hdh.index = date_range
@@ -140,7 +141,8 @@ def build_heat_demand_profile(daily_hd,hot_water_per_day,date_range,planning_hor
         popt, pcov = curve_fit(func, x, y)
         factor = (func(int(planning_horizons), *popt)/func(2020, *popt) + 1.0)/2
 
-    space_heating_per_hdd = (space_heat_demand_total * factor)  / (heat_demand_hdh.sum() * snakemake.config['frequency'])
+    # 1 is the default frequency
+    space_heating_per_hdd = (space_heat_demand_total * factor)  / (heat_demand_hdh.sum() * 1)
 
     space_heat_demand = intraday_year_profiles.mul(heat_demand_hdh).mul(space_heating_per_hdd)
     water_heat_demand = intraday_year_profiles.mul(hot_water_per_day/24.)
@@ -164,7 +166,7 @@ if __name__ == '__main__':
     planning_horizons = snakemake.wildcards['planning_horizons']
     hot_water_per_day = build_hot_water_per_day(planning_horizons)
 
-    date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq="1H",tz='Asia/shanghai')
+    date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq="1h")
     date_range = date_range.map(lambda t: t.replace(year=int(planning_horizons)))
 
     heat_demand, space_heat_demand, water_heat_demand = build_heat_demand_profile(daily_hd,hot_water_per_day,date_range,planning_horizons)
