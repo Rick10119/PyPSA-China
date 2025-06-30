@@ -11,7 +11,7 @@ CONFIG = {
     "al_excess_rate": 0.3,  # 铝过剩率
     
     # 切负荷设置
-    "enable_load_shedding": False,  # 是否启用切负荷
+    "enable_load_shedding": True,  # 是否启用切负荷
     "load_shedding_cost": 1e2,  # 普通负荷切负荷成本（欧元/kWh）
     "al_load_shedding_cost": 1e3,  # 铝负荷切负荷成本（欧元/kWh）
     
@@ -39,7 +39,7 @@ CONFIG = {
     
     # 迭代优化参数
     "max_iterations": 10,
-    "convergence_tolerance": 10,
+    "convergence_tolerance": 0.01,  # 目标函数相对变化收敛阈值（1%）
     "verbose": True,
     
     # 默认成本

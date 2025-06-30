@@ -190,7 +190,7 @@ def add_aluminum_components(n, al_p_nom, p_min_pu, aluminum_commitment=False, in
             carrier="aluminum storage",
             e_nom=CONFIG["al_storage_limit"] * al_p_nom,  
             e_cyclic=True, 
-            marginal_cost_storage=CONFIG["al_marginal_cost_storage"]
+            # marginal_cost_storage=CONFIG["al_marginal_cost_storage"]
         )
     
     # 添加CO2约束（可选）
@@ -232,6 +232,33 @@ def create_network(costs, ts, p_min_pu, excess_rate, aluminum_commitment=False):
     
     # 添加电解铝相关组件
     add_aluminum_components(n, al_p_nom, p_min_pu, aluminum_commitment, verbose=True)
+    
+    # 添加切负荷发电机（如果启用）
+    if CONFIG["enable_load_shedding"]:
+        # 添加切负荷carrier
+        n.add("Carrier", "load", color="#dd2e23", nice_name="Load shedding")
+        
+        # 为电力负荷添加切负荷发电机
+        n.add(
+            "Generator",
+            "demand load",
+            bus="electricity",
+            carrier="load",
+            sign=1e-3,  # 调整单位，p和p_nom以kW为单位而不是MW
+            marginal_cost=CONFIG["load_shedding_cost"],  # 欧元/kWh
+            p_nom=1e9,  # kW，设置一个很大的容量
+        )
+        
+        # 为铝负荷添加切负荷发电机
+        n.add(
+            "Generator",
+            "al demand load",
+            bus="aluminum",
+            carrier="load",
+            sign=1e-3,  # 调整单位，p和p_nom以kW为单位而不是MW
+            marginal_cost=CONFIG["al_load_shedding_cost"],  # 欧元/kWh
+            p_nom=1e9,  # kW，设置一个很大的容量
+        )
     
     return n
 
@@ -355,7 +382,7 @@ def solve_aluminum_optimization(n, costs, ts, p_min_pu, excess_rate, nodal_price
     aluminum_usage = n_al.links_t.p0[['smelter']].copy()
     return aluminum_usage
 
-def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10, convergence_tolerance=1e-6, verbose=True):
+def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10, convergence_tolerance=0.01, verbose=True):
     """
     电解铝迭代优化算法
     1. 使用连续化电解铝模型求解，得到节点电价
@@ -363,7 +390,7 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
     3. 固定电解铝用能，求解剩下的优化问题
     4. 重复2-3，直到收敛
     
-    收敛条件：全年电价变化的绝对值的平均值小于convergence_tolerance
+    收敛条件：目标函数变化的相对值小于convergence_tolerance（默认1%）
     
     参数:
     verbose: 是否输出详细信息
@@ -374,9 +401,9 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
     # 记录总开始时间
     total_start_time = time.time()
     
-    # 初始化电解铝用能模式和电价
+    # 初始化电解铝用能模式和目标函数值
     aluminum_usage = None
-    previous_nodal_prices = None
+    previous_objective = None
     iteration = 0
     final_network = None
     final_aluminum_usage = None
@@ -413,9 +440,9 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
         if verbose:
             print("求解网络...")
         # 使用安全的优化函数，确保计算边际价格
-        safe_optimize(n, "gurobi", {})
+        current_objective = safe_optimize(n, "gurobi", {})
         
-        # 提取当前迭代的节点电价
+        # 提取当前迭代的节点电价（用于电解铝优化）
         current_nodal_prices = None
         if hasattr(n, 'buses_t') and hasattr(n.buses_t, 'marginal_price'):
             electricity_buses = [bus for bus in n.buses.index if bus == "electricity"]
@@ -425,51 +452,38 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
                 if verbose:
                     print(f"提取节点电价: {price_bus}")
         
-        # 在每次迭代后绘制当前的电价和电解铝用能
-        if aluminum_usage is not None:
-            x=1
-            # plot_iteration_results(n, aluminum_usage, ts, p_min_pu, iteration, "Fixed Aluminum Usage")
-        else:
-            # 第一次迭代，从优化结果中读取电解槽功率
-            aluminum_usage = n.links_t.p0[['smelter']].copy()
-            # plot_iteration_results(n, aluminum_usage, ts, p_min_pu, iteration, "Initial")
-        
         # 步骤2: 基于节点电价，运行电解铝最优运行问题
         new_aluminum_usage = solve_aluminum_optimization(n, costs, ts, p_min_pu, excess_rate, current_nodal_prices, verbose)
         
-        if new_aluminum_usage is None:
-            if verbose:
-                print("电解铝优化问题求解失败")
-            break
-        
-        # 步骤3: 检查收敛性 - 基于电价变化的绝对值的平均值
-        if previous_nodal_prices is not None and current_nodal_prices is not None:
-            # 计算电价变化的绝对值的平均值
-            price_change = np.abs(current_nodal_prices - previous_nodal_prices)
-            avg_price_change = price_change.mean()
-            max_price_change = price_change.max()
+        # 步骤3: 检查收敛性 - 基于目标函数变化的相对值
+        if previous_objective is not None and current_objective is not None:
+            # 计算目标函数变化的相对值
+            objective_change = abs(current_objective - previous_objective)
+            relative_change = objective_change / abs(previous_objective) if abs(previous_objective) > 1e-10 else float('inf')
             
             if verbose:
-                print(f"电价变化统计:")
-                print(f"  平均变化: {avg_price_change:.6f}")
-                print(f"  最大变化: {max_price_change:.6f}")
-                print(f"  收敛阈值: {convergence_tolerance:.6f}")
+                print(f"目标函数变化统计:")
+                print(f"  当前目标函数值: {current_objective:.6e}")
+                print(f"  上次目标函数值: {previous_objective:.6e}")
+                print(f"  绝对变化: {objective_change:.6e}")
+                print(f"  相对变化: {relative_change:.6f} ({relative_change*100:.2f}%)")
+                print(f"  收敛阈值: {convergence_tolerance:.6f} ({convergence_tolerance*100:.2f}%)")
             
-            if avg_price_change < convergence_tolerance:
+            if relative_change < convergence_tolerance:
                 if verbose:
                     print(f"算法收敛，在第 {iteration} 次迭代后停止")
-                    print(f"电价平均变化 {avg_price_change:.6f} < 收敛阈值 {convergence_tolerance:.6f}")
+                    print(f"目标函数相对变化 {relative_change:.6f} ({relative_change*100:.2f}%) < 收敛阈值 {convergence_tolerance:.6f} ({convergence_tolerance*100:.2f}%)")
                 final_network = n
                 final_aluminum_usage = new_aluminum_usage
                 break
         else:
-            # 第一次迭代，保存电价用于下次比较
-            if current_nodal_prices is not None:
-                previous_nodal_prices = current_nodal_prices.copy()
+            # 第一次迭代，保存目标函数值用于下次比较
+            if current_objective is not None:
+                previous_objective = current_objective
         
-        # 更新电解铝用能和电价
+        # 更新电解铝用能和目标函数值
         aluminum_usage = new_aluminum_usage
-        previous_nodal_prices = current_nodal_prices.copy() if current_nodal_prices is not None else None
+        previous_objective = current_objective
         final_network = n
         final_aluminum_usage = new_aluminum_usage
         
@@ -560,11 +574,7 @@ def print_results_table(results):
     
     if total_times:
         print(f"总计算时间: {sum(total_times):.2f} 秒 ({sum(total_times)/60:.2f} 分钟)")
-        print(f"平均每次优化时间: {np.mean(total_times):.2f} 秒")
-        print(f"最快优化时间: {np.min(total_times):.2f} 秒")
-        print(f"最慢优化时间: {np.max(total_times):.2f} 秒")
         print(f"总迭代次数: {sum(total_iterations)}")
-        print(f"平均迭代次数: {np.mean(total_iterations):.1f}")
 
 def main(config_file="config.yaml"):
     """主运行函数"""
