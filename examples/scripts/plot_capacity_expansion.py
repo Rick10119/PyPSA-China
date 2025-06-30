@@ -6,6 +6,34 @@ import pandas as pd
 import pypsa
 import os
 
+"""
+容量扩展规划绘图模块
+
+本模块包含所有与电解铝迭代优化算法相关的绘图函数：
+
+基础绘图函数：
+- plot_aluminum_usage(): 绘制电解铝用能模式
+- plot_nodal_prices(): 绘制节点电价时间序列
+- save_and_show_plot(): 统一处理图片保存和显示
+
+迭代优化绘图函数：
+- plot_iteration_results(): 绘制每次迭代的结果
+- plot_iterative_results(): 绘制最终迭代结果
+
+传统绘图函数：
+- plot_results(): 绘制电解槽用电情况结果
+- analyze_ramp_constraints(): 分析爬坡约束
+- plot_capacity_comparison(): 绘制容量对比图
+- plot_network_summary(): 绘制网络概览图
+- plot_time_series_analysis(): 绘制时间序列分析图
+- create_summary_plots(): 创建所有汇总图表
+
+模块化设计：
+- 所有绘图函数集中在一个模块中，便于维护和复用
+- 支持不同的绘图需求（迭代过程、结果分析、网络展示等）
+- 统一的图片保存和显示机制
+"""
+
 def plot_results(n, p_min_pu, save_path="examples/results"):
     """绘制电解槽用电情况结果（仅2月数据）"""
     # 获取电解槽用电数据
@@ -261,4 +289,186 @@ def create_summary_plots(results, config, save_path="examples/results"):
     # 创建容量对比图
     plot_capacity_comparison(results, config, save_path)
     
-    print(f"所有图表已保存到 {save_path} 目录") 
+    print(f"所有图表已保存到 {save_path} 目录")
+
+def plot_aluminum_usage(ax, aluminum_usage, ts, title_suffix=""):
+    """
+    绘制电解铝用能模式
+    ax: matplotlib轴对象
+    aluminum_usage: 电解铝用能数据
+    ts: 时间序列数据
+    title_suffix: 标题后缀
+    """
+    if 'smelter' in aluminum_usage.columns:
+        ax.plot(aluminum_usage.index, aluminum_usage['smelter'], 
+                label='Aluminum Smelter Power', linewidth=2, color='red')
+        print(f"电解铝用能范围: {aluminum_usage['smelter'].min():.2f} - {aluminum_usage['smelter'].max():.2f} MW")
+    else:
+        print("警告：电解铝用能数据中没有'smelter'列")
+        print(f"可用列: {list(aluminum_usage.columns)}")
+    
+    ax.plot(ts.index, ts.aluminum, label='Aluminum Demand', linewidth=2, color='blue', linestyle='--')
+    ax.set_title(f'Aluminum Smelter Power Pattern{title_suffix}', fontsize=14)
+    ax.set_ylabel('Power (MW)', fontsize=12)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+def plot_nodal_prices(ax, network, title_suffix=""):
+    """
+    绘制节点电价
+    ax: matplotlib轴对象
+    network: PyPSA网络对象
+    title_suffix: 标题后缀
+    """
+    # 检查是否有边际价格数据
+    if hasattr(network, 'buses_t') and hasattr(network.buses_t, 'marginal_price'):
+        print(f"找到边际价格数据，列数: {len(network.buses_t.marginal_price.columns)}")
+        print(f"边际价格列名: {list(network.buses_t.marginal_price.columns)}")
+        
+        # 获取电力节点（通过节点名称识别）
+        electricity_buses = [bus for bus in network.buses.index if bus == "electricity"]
+        print(f"电力节点: {electricity_buses}")
+        
+        if len(electricity_buses) > 0:
+            price_bus = electricity_buses[0]
+            if price_bus in network.buses_t.marginal_price.columns:
+                prices = network.buses_t.marginal_price[price_bus]
+                ax.plot(prices.index, prices, 
+                        label=f'Nodal Price ({price_bus})', linewidth=2, color='green')
+                print(f"绘制节点电价: {price_bus}, 价格范围: {prices.min():.2f} - {prices.max():.2f} €/MWh")
+            else:
+                # 如果没有找到特定节点，绘制所有电力节点的平均电价
+                available_buses = [bus for bus in electricity_buses if bus in network.buses_t.marginal_price.columns]
+                if len(available_buses) > 0:
+                    elec_prices = network.buses_t.marginal_price[available_buses]
+                    avg_price = elec_prices.mean(axis=1)
+                    ax.plot(avg_price.index, avg_price, 
+                            label='Average Nodal Price', linewidth=2, color='green')
+                    print(f"绘制平均节点电价，使用节点: {available_buses}, 价格范围: {avg_price.min():.2f} - {avg_price.max():.2f} €/MWh")
+                else:
+                    # 如果没有任何电力节点，使用第一个可用的节点
+                    if len(network.buses_t.marginal_price.columns) > 0:
+                        first_bus = network.buses_t.marginal_price.columns[0]
+                        prices = network.buses_t.marginal_price[first_bus]
+                        ax.plot(prices.index, prices, 
+                                label=f'Nodal Price ({first_bus})', linewidth=2, color='green')
+                        print(f"绘制节点电价: {first_bus} (备选), 价格范围: {prices.min():.2f} - {prices.max():.2f} €/MWh")
+                    else:
+                        ax.text(0.5, 0.5, 'No Marginal Price Data Available', 
+                                transform=ax.transAxes, ha='center', va='center', fontsize=12)
+        else:
+            # 如果没有电力节点，尝试其他方法
+            if len(network.buses_t.marginal_price.columns) > 0:
+                first_bus = network.buses_t.marginal_price.columns[0]
+                prices = network.buses_t.marginal_price[first_bus]
+                ax.plot(prices.index, prices, 
+                        label=f'Nodal Price ({first_bus})', linewidth=2, color='green')
+                print(f"绘制节点电价: {first_bus} (无电力节点), 价格范围: {prices.min():.2f} - {prices.max():.2f} €/MWh")
+            else:
+                ax.text(0.5, 0.5, 'No Marginal Price Data Available', 
+                        transform=ax.transAxes, ha='center', va='center', fontsize=12)
+    else:
+        # 如果没有边际价格数据，显示提示
+        print("未找到边际价格数据")
+        ax.text(0.5, 0.5, 'Marginal Price Data Not Available', 
+                transform=ax.transAxes, ha='center', va='center', fontsize=12)
+    
+    ax.set_title(f'Electricity Price Time Series{title_suffix}', fontsize=14)
+    ax.set_ylabel('Price (€/MWh)', fontsize=12)
+    ax.set_xlabel('Time', fontsize=12)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+def save_and_show_plot(fig, filename, output_dir="examples/results"):
+    """
+    保存和显示图片
+    fig: matplotlib图形对象
+    filename: 文件名
+    output_dir: 输出目录
+    """
+    # 调整布局
+    plt.tight_layout()
+    
+    # 创建输出目录
+    os.makedirs(output_dir, exist_ok=True)
+    filepath = os.path.join(output_dir, filename)
+    
+    # 保存图片
+    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+    print(f"图片已保存到: {filepath}")
+    
+    # 显示图片
+    plt.show()
+
+def plot_iteration_results(network, aluminum_usage, ts, p_min_pu, iteration, stage):
+    """
+    绘制每次迭代的结果：电解槽用能和节点电价
+    """
+    print(f"绘制第 {iteration} 次迭代 {stage} 阶段结果...")
+    
+    # 创建图形
+    fig, axes = plt.subplots(2, 1, figsize=(15, 10))
+    
+    # 绘制电解槽用能
+    title_suffix = f" (Iteration {iteration}, {stage}, p_min_pu={p_min_pu})"
+    plot_aluminum_usage(axes[0], aluminum_usage, ts, title_suffix)
+    
+    # 绘制节点电价
+    plot_nodal_prices(axes[1], network, title_suffix)
+    
+    # 保存和显示图片
+    filename = f"iteration_{iteration}_{stage}_pmin_{p_min_pu}.png"
+    save_and_show_plot(fig, filename)
+
+def plot_iterative_results(network, aluminum_usage, ts, p_min_pu, iteration):
+    """
+    绘制迭代优化结果：电解槽用能和节点电价
+    """
+    print(f"绘制第 {iteration} 次迭代结果...")
+    print(f"电解铝用能数据形状: {aluminum_usage.shape}")
+    print(f"电解铝用能列名: {list(aluminum_usage.columns)}")
+    
+    # 创建图形
+    fig, axes = plt.subplots(2, 1, figsize=(15, 10))
+    
+    # 绘制电解槽用能
+    title_suffix = f" (Iteration {iteration}, p_min_pu={p_min_pu})"
+    plot_aluminum_usage(axes[0], aluminum_usage, ts, title_suffix)
+    
+    # 绘制节点电价
+    plot_nodal_prices(axes[1], network, title_suffix)
+    
+    # 保存和显示图片
+    filename = f"iterative_result_{iteration}_pmin_{p_min_pu}.png"
+    save_and_show_plot(fig, filename)
+    
+    # 打印统计信息
+    print("\n=== Iterative Optimization Results Statistics ===")
+    if 'smelter' in aluminum_usage.columns:
+        print(f"Average Aluminum Smelter Power: {aluminum_usage['smelter'].mean():.2f} MW")
+        print(f"Maximum Aluminum Smelter Power: {aluminum_usage['smelter'].max():.2f} MW")
+        print(f"Minimum Aluminum Smelter Power: {aluminum_usage['smelter'].min():.2f} MW")
+        print(f"Aluminum Smelter Power Std Dev: {aluminum_usage['smelter'].std():.2f} MW")
+    
+    # 获取电价统计信息
+    if hasattr(network, 'buses_t') and hasattr(network.buses_t, 'marginal_price'):
+        electricity_buses = network.buses[network.buses.carrier == "AC"].index
+        if len(electricity_buses) > 0:
+            available_buses = [bus for bus in electricity_buses if bus in network.buses_t.marginal_price.columns]
+            if len(available_buses) > 0:
+                elec_prices = network.buses_t.marginal_price[available_buses]
+                avg_price = elec_prices.mean(axis=1)
+                print(f"Average Nodal Price: {avg_price.mean():.2f} €/MWh")
+                print(f"Maximum Nodal Price: {avg_price.max():.2f} €/MWh")
+                print(f"Minimum Nodal Price: {avg_price.min():.2f} €/MWh")
+            else:
+                # 使用第一个可用的节点
+                if len(network.buses_t.marginal_price.columns) > 0:
+                    first_bus = network.buses_t.marginal_price.columns[0]
+                    prices = network.buses_t.marginal_price[first_bus]
+                    print(f"Average Nodal Price ({first_bus}): {prices.mean():.2f} €/MWh")
+                    print(f"Maximum Nodal Price ({first_bus}): {prices.max():.2f} €/MWh")
+                    print(f"Minimum Nodal Price ({first_bus}): {prices.min():.2f} €/MWh")
+    
+    print(f"Number of Iterations: {iteration}")
+    print("=" * 50) 

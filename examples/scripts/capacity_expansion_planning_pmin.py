@@ -320,7 +320,8 @@ def main(config_file="config.yaml"):
             n.optimize(solver_name=solver_name, **solver_options)
             
             # 在优化后调用启动分析
-            analyze_startups(n)
+            if CONFIG["al_committable"]:
+                analyze_startups(n)
             
             # 分析排放情况
             scenario_name = f"Min Power {p_min_pu*100:.0f}%"
