@@ -226,8 +226,8 @@ def add_other_components(n, al_p_nom, p_min_pu):
         efficiency=1, 
         # capital_cost=CONFIG["al_capital_cost"] * al_p_nom, # $  
         start_up_cost=CONFIG["al_start_up_cost"] * al_p_nom, # $
-        committable=True,
-        p_min_pu=p_min_pu,
+        committable=CONFIG["al_committable"],
+        p_min_pu=p_min_pu if CONFIG["al_committable"] else 0,
     )
     print(CONFIG["al_start_up_cost"] * al_p_nom)
     print(CONFIG["al_start_up_cost"], al_p_nom)
@@ -251,35 +251,6 @@ def add_other_components(n, al_p_nom, p_min_pu):
         sense="<=",
         constant=CONFIG["al_co2_limit"], # kgCO2/MW/year -> kgCO2/MW/hour
     )
-
-def safe_optimize(n, solver_name, solver_options):
-    """安全地执行优化，处理版本兼容性问题"""
-    try:
-        # 尝试使用新版本的优化方法
-        n.optimize(solver_name=solver_name, **solver_options)
-    except AttributeError as e:
-        if "'Model' object has no attribute 'objective_value'" in str(e):
-            print("检测到版本兼容性问题，尝试修复...")
-            # 手动设置目标值
-            if hasattr(n, '_model') and n._model is not None:
-                # 尝试从模型中获取目标值
-                try:
-                    if hasattr(n._model, 'objective_value'):
-                        n.objective = n._model.objective_value
-                    elif hasattr(n._model, 'objective'):
-                        n.objective = n._model.objective
-                    else:
-                        # 如果都没有，设置一个默认值
-                        print("警告：无法获取目标值，使用默认值")
-                        n.objective = 0.0
-                except:
-                    print("警告：无法获取目标值，使用默认值")
-                    n.objective = 0.0
-            else:
-                print("警告：无法获取目标值，使用默认值")
-                n.objective = 0.0
-        else:
-            raise e
 
 def print_results_table(results):
     """将结果整理成表格形式输出"""
@@ -345,8 +316,8 @@ def main(config_file="config.yaml"):
             # 创建并优化网络
             n = create_network(costs, ts, p_min_pu, CONFIG["al_excess_rate"])
             
-            # 使用安全优化函数
-            safe_optimize(n, solver_name, solver_options)
+            # 使用优化函数
+            n.optimize(solver_name=solver_name, **solver_options)
             
             # 在优化后调用启动分析
             analyze_startups(n)

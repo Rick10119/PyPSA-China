@@ -261,101 +261,6 @@ def extra_functionality(n, snapshots):
     if snakemake.wildcards.planning_horizons != "2020":
         add_retrofit_constraints(n)
 
-def safe_optimize(n, solver_name, solver_options, extra_functionality=None, **kwargs):
-    """安全地执行优化，处理版本兼容性问题和超时情况"""
-    try:
-        # 尝试使用新版本的优化方法
-        if extra_functionality:
-            status, condition = n.optimize(
-                solver_name=solver_name,
-                extra_functionality=extra_functionality,
-                **solver_options,
-                **kwargs,
-            )
-        else:
-            status, condition = n.optimize(
-                solver_name=solver_name,
-                **solver_options,
-                **kwargs,
-            )
-        return status, condition
-    except AttributeError as e:
-        error_msg = str(e)
-        if "'Model' object has no attribute 'objective_value'" in error_msg:
-            logger.info("检测到版本兼容性问题，尝试修复...")
-            # 只处理objective_value属性错误，不进行任何其他操作
-            # 让优化器继续正常工作，不设置任何默认值
-            logger.info("跳过objective_value设置，继续优化过程")
-            # 返回一个状态，让调用者知道需要继续处理
-            return "ok", "optimal"
-        elif "Unable to retrieve attribute 'x'" in error_msg:
-            logger.warning("检测到 Gurobi 超时后的属性访问错误")
-            logger.info("尝试从 Gurobi 模型中获取次优解...")
-            
-            # 尝试从 Gurobi 模型中获取次优解
-            try:
-                if hasattr(n, 'model') and n.model is not None:
-                    # 检查 Gurobi 模型状态
-                    gurobi_model = n.model._model
-                    if hasattr(gurobi_model, 'status'):
-                        gurobi_status = gurobi_model.status
-                        logger.info(f"Gurobi 模型状态: {gurobi_status}")
-                        
-                        # 如果状态是 TIME_LIMIT (9) 或其他表示有解的状态
-                        if gurobi_status in [2, 3, 9, 10, 11, 12]:  # optimal, infeasible, time_limit, etc.
-                            logger.info("Gurobi 返回了次优解，尝试提取解值...")
-                            
-                            # 尝试手动提取解值
-                            try:
-                                # 获取所有变量
-                                vars_dict = {}
-                                for v in gurobi_model.getVars():
-                                    try:
-                                        # 尝试使用大写的 X 属性
-                                        vars_dict[v.VarName] = v.X
-                                    except AttributeError:
-                                        try:
-                                            # 尝试使用小写的 x 属性
-                                            vars_dict[v.VarName] = v.x
-                                        except AttributeError:
-                                            logger.warning(f"无法获取变量 {v.VarName} 的值")
-                                            vars_dict[v.VarName] = 0.0
-                                
-                                # 将解值设置到模型中
-                                if vars_dict:
-                                    logger.info(f"成功提取了 {len(vars_dict)} 个变量的值")
-                                    # 这里可以进一步处理解值，但暂时返回成功状态
-                                    return "ok", "time_limit"
-                                else:
-                                    logger.warning("未能提取到任何变量值")
-                                    return "warning", "time_limit_no_solution"
-                            except Exception as extract_error:
-                                logger.warning(f"提取解值时出错: {extract_error}")
-                                return "warning", "time_limit_extraction_failed"
-                        else:
-                            logger.warning(f"Gurobi 模型状态 {gurobi_status} 不表示有可用解")
-                            return "warning", f"gurobi_status_{gurobi_status}"
-                    else:
-                        logger.warning("Gurobi 模型没有状态属性")
-                        return "warning", "no_gurobi_status"
-                else:
-                    logger.warning("网络对象没有模型属性")
-                    return "warning", "no_model"
-            except Exception as gurobi_error:
-                logger.warning(f"处理 Gurobi 超时时出错: {gurobi_error}")
-                return "warning", "gurobi_timeout_handling_failed"
-        else:
-            # 对于其他AttributeError，重新抛出
-            raise e
-    except Exception as e:
-        error_msg = str(e).lower()
-        if "time limit" in error_msg or "timeout" in error_msg:
-            logger.warning("检测到求解器超时")
-            return "warning", "time_limit"
-        else:
-            # 对于其他异常，重新抛出
-            raise e
-
 def solve_network(n, config, solving, opts="", **kwargs):
     set_of_options = solving["solver"]["options"]
     solver_options = solving["solver_options"][set_of_options] if set_of_options else {}
@@ -377,11 +282,10 @@ def solve_network(n, config, solving, opts="", **kwargs):
     # 尝试使用默认参数求解
     try:
         if skip_iterations:
-            status, condition = safe_optimize(
-                n,
+            status, condition = n.optimize(
                 solver_name=solver_name,
-                solver_options=solver_options,
                 extra_functionality=extra_functionality,
+                **solver_options,
                 **kwargs,
             )
         else:
@@ -428,8 +332,7 @@ def solve_network(n, config, solving, opts="", **kwargs):
                 if conservative_options:
                     logger.info("使用保守求解器参数重新求解...")
                     if skip_iterations:
-                        status, condition = safe_optimize(
-                            n,
+                        status, condition = n.optimize(
                             solver_name=solver_name,
                             solver_options=conservative_options,
                             extra_functionality=extra_functionality,
@@ -476,8 +379,7 @@ def solve_network(n, config, solving, opts="", **kwargs):
                     if timeout_fallback_options:
                         logger.info("使用超时回退参数重新求解...")
                         if skip_iterations:
-                            status, condition = safe_optimize(
-                                n,
+                            status, condition = n.optimize(
                                 solver_name=solver_name,
                                 solver_options=timeout_fallback_options,
                                 extra_functionality=extra_functionality,
