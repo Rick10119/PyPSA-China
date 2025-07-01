@@ -280,8 +280,8 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     # 不复制网络，而是直接使用传入的网络
     # 找到所有电解铝相关的组件
     aluminum_buses = n.buses[n.buses.carrier == "aluminum"].index
-    aluminum_smelters = n.links[n.links.carrier == "aluminum smelter"].index
-    aluminum_stores = n.stores[n.stores.carrier == "aluminum storage"].index
+    aluminum_smelters = n.links[n.links.carrier == "aluminum"].index
+    aluminum_stores = n.stores[n.stores.carrier == "aluminum"].index
     aluminum_loads = n.loads[n.loads.bus.isin(aluminum_buses)].index
     
     # 重新设置电解铝冶炼设备的参数
@@ -449,7 +449,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         n_current.opts = opts
         
         # 重新创建电解铝冶炼设备，确保在步骤1中禁用电解铝启停约束
-        aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum smelter"].index
+        aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
         
         # 保存原始参数
         smelter_params = {}

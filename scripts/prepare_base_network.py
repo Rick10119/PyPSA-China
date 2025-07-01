@@ -148,25 +148,11 @@ def prepare_network(config):
         network.add("Carrier", "coal", co2_emissions=costs.at['coal', 'co2_emissions'])
     if config["add_aluminum"]:
         network.add("Carrier", "aluminum")
-        network.add("Carrier", "aluminum smelter")
-        network.add("Carrier", "aluminum storage")
     
     # 添加其他可能需要的carriers
     if config["add_hydro"]:
         network.add("Carrier", "stations")
         network.add("Carrier", "hydro_inflow")
-    if config["add_H2"]:
-        network.add("Carrier", "H2")
-        network.add("Carrier", "H2 CHP")
-    if config["add_methanation"]:
-        network.add("Carrier", "Sabatier")
-    if config["add_biomass"]:
-        network.add("Carrier", "biomass")
-        network.add("Carrier", "CO2")
-        network.add("Carrier", "CO2 capture")
-    
-    # 添加其他可能需要的carriers
-    network.add("Carrier", "coal cc", co2_emissions=costs.at['coal', 'co2_emissions'])
 
     # add global constraint
     if not isinstance(config['scenario']['co2_reduction'], tuple):
@@ -218,7 +204,7 @@ def prepare_network(config):
                     suffix=" aluminum smelter",
                     bus0=production_ratio.index,
                     bus1=production_ratio.index + " aluminum",
-                    carrier="aluminum smelter",
+                    carrier="aluminum",
                     p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
                     p_nom_extendable=False,
                     efficiency=1.0,  # Scalar value
@@ -232,7 +218,7 @@ def prepare_network(config):
                     production_ratio.index,  # Only add for filtered provinces
                     suffix=" aluminum storage",
                     bus=production_ratio.index + " aluminum",
-                    carrier="aluminum storage",
+                    carrier="aluminum",
                     e_nom_extendable=True,
                     e_cyclic=True,
                     marginal_cost_storage=config['aluminum']['al_marginal_cost_storage'])
