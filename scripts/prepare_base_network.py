@@ -126,6 +126,7 @@ def prepare_network(config):
         add_buses(network, nodes, suffix, carrier, pro_centroid_x, pro_centroid_y)
 
     # add carriers
+    network.add("Carrier", "AC")  # 添加AC carrier定义
     if config["heat_coupling"]:
         network.add("Carrier", "heat")
     for carrier in config["Techs"]["vre_techs"]:
@@ -148,6 +149,24 @@ def prepare_network(config):
     if config["add_aluminum"]:
         network.add("Carrier", "aluminum")
         network.add("Carrier", "aluminum smelter")
+        network.add("Carrier", "aluminum storage")
+    
+    # 添加其他可能需要的carriers
+    if config["add_hydro"]:
+        network.add("Carrier", "stations")
+        network.add("Carrier", "hydro_inflow")
+    if config["add_H2"]:
+        network.add("Carrier", "H2")
+        network.add("Carrier", "H2 CHP")
+    if config["add_methanation"]:
+        network.add("Carrier", "Sabatier")
+    if config["add_biomass"]:
+        network.add("Carrier", "biomass")
+        network.add("Carrier", "CO2")
+        network.add("Carrier", "CO2 capture")
+    
+    # 添加其他可能需要的carriers
+    network.add("Carrier", "coal cc", co2_emissions=costs.at['coal', 'co2_emissions'])
 
     # add global constraint
     if not isinstance(config['scenario']['co2_reduction'], tuple):
