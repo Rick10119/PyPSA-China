@@ -31,11 +31,11 @@ from pypsa.descriptors import get_switchable_as_dense as get_as_dense
 def prepare_network(
         n,
         solve_opts=None,
-        single_node=False,
+        using_single_node=False,
         single_node_province="Shandong"
 ):
     # 检查是否启用单节点模式
-    if single_node:
+    if using_single_node:
         logger.info(f"启用单节点模式，只保留 {single_node_province} 省份的组件")
         
         # Filter to keep only specified province components
@@ -328,12 +328,12 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
             marginal_cost = nodal_prices[bus]
             logger.info(f"为节点 {bus} 使用其对应的边际电价")
             
-            n.add("Generator",
-                f"virtual_gen_{bus}",
-                bus=bus,
-                carrier="virtual",
-                p_nom=1e6,  # 大容量
-                marginal_cost=marginal_cost)  # 使用节点边际电价作为边际成本
+        n.add("Generator",
+            f"virtual_gen_{bus}",
+            bus=bus,
+            carrier="virtual",
+            p_nom=1e6,  # 大容量
+            marginal_cost=marginal_cost)  # 使用节点边际电价作为边际成本
             
     # 打印所有bus:
     logger.info(f"所有bus: {n.buses.index}")
@@ -342,7 +342,7 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     try:
         # 只保留PyPSA支持的参数
         optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
-        n.optimize(
+        status, condition = n.optimize(
             solver_name=solver_name,
             extra_functionality=extra_functionality,
             **solver_options,
@@ -403,13 +403,17 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     # 记录每次迭代的时间
     iteration_times = []
     
-    # 保存原始网络文件路径，用于重新加载
+    # 保存原始网络文件路径和overrides，用于重新加载
     original_network_path = None
+    original_overrides = None
     if hasattr(n, '_network_path'):
         original_network_path = n._network_path
-    else:
-        # 如果没有网络路径，保存网络对象用于复制
-        original_network = n
+    if hasattr(n, '_overrides_path'):
+        original_overrides = override_component_attrs(n._overrides_path)
+    
+    # 获取单节点参数
+    using_single_node = kwargs.get("using_single_node", False)
+    single_node_province = kwargs.get("single_node_province", "Shandong")
     
     while iteration < max_iterations:
         iteration += 1
@@ -420,16 +424,20 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         # 步骤1: 使用连续化电解铝模型求解，得到节点电价
         logger.info("步骤1: 使用连续化电解铝模型求解")
         
-        # 重新加载网络，禁用电解铝启停约束
-        n_current = pypsa.Network(original_network_path)
+        # 重新加载网络，确保网络状态一致
+        if original_network_path:
+            if original_overrides:
+                n_current = pypsa.Network(original_network_path, override_component_attrs=original_overrides)
+            else:
+                n_current = pypsa.Network(original_network_path)
 
         
         # 重新应用网络准备
         n_current = prepare_network(
             n_current,
             kwargs.get("solve_opts", {}),
-            kwargs.get("single_node", False),
-            kwargs.get("single_node_province", "Shandong")
+            using_single_node=using_single_node,
+            single_node_province=single_node_province
         )
         
         # 设置配置
@@ -501,21 +509,20 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                     logger.info(f"为电解铝冶炼设备 {smelter} 设置动态约束")
                     logger.info(f"  零出力时段数: {np.sum(aluminum_power == 0)}")
                     logger.info(f"  非零出力时段数: {np.sum(aluminum_power > 0)}")
-                
         
         # 求解网络
         try:
             # 只保留PyPSA支持的参数
             optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
             if skip_iterations:
-                n_current.optimize(
+                status, condition = n_current.optimize(
                     solver_name=solver_name,
                     extra_functionality=extra_functionality,
                     **solver_options,
                     **optimize_kwargs,
                 )
             else:
-                n_current.optimize.optimize_transmission_expansion_iteratively(
+                status, condition = n_current.optimize.optimize_transmission_expansion_iteratively(
                     solver_name=solver_name,
                     track_iterations=track_iterations,
                     min_iterations=min_iterations,
@@ -650,14 +657,14 @@ def solve_network_standard(n, config, solving, opts="", **kwargs):
         # 只保留PyPSA支持的参数
         optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
         if skip_iterations:
-            n.optimize(
+            status, condition = n.optimize(
                 solver_name=solver_name,
                 extra_functionality=extra_functionality,
                 **solver_options,
                 **optimize_kwargs,
             )
         else:
-            n.optimize.optimize_transmission_expansion_iteratively(
+            status, condition = n.optimize.optimize_transmission_expansion_iteratively(
                 solver_name=solver_name,
                 track_iterations=track_iterations,
                 min_iterations=min_iterations,
@@ -710,7 +717,9 @@ if __name__ == '__main__':
         def __init__(self, config, default_params):
             self.config = config
             self.params = {
-                'solving': config['solving']
+                'solving': config['solving'],
+                'using_single_node': config.get('using_single_node', False),
+                'single_node_province': config.get('single_node_province', 'Shandong')
             }
             self.wildcards = type('Wildcards', (), default_params)()
             
@@ -776,12 +785,14 @@ if __name__ == '__main__':
     
     # 设置网络文件路径，用于迭代优化中的网络重新加载
     n._network_path = snakemake.input.network
+    if "overrides" in snakemake.input.__dict__.keys():
+        n._overrides_path = snakemake.input.overrides
 
     n = prepare_network(
         n,
         solve_opts,
-        single_node=snakemake.config.get("single_node", False),
-        single_node_province=snakemake.config.get("single_node_province", "Shandong")
+        using_single_node=snakemake.params['using_single_node'],
+        single_node_province=snakemake.params['single_node_province']
     )
 
     # 检查是否启用电解铝迭代优化
@@ -798,15 +809,13 @@ if __name__ == '__main__':
         iteration_kwargs = {
             "log_fn": snakemake.log.solver,
             "solve_opts": solve_opts,
-            "single_node": snakemake.config.get("single_node", False),
-            "single_node_province": snakemake.config.get("single_node_province", "Shandong")
+            "using_single_node": snakemake.params['using_single_node'],
+            "single_node_province": snakemake.params['single_node_province']
         }
         
         # 如果有overrides，也传递
         if "overrides" in snakemake.input.__dict__.keys():
             iteration_kwargs["overrides"] = overrides
-            # 同时设置网络的overrides路径
-            n._overrides_path = snakemake.input.overrides
         
         # 使用迭代优化算法
         n = solve_network_iterative(

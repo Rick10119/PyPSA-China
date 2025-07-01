@@ -344,7 +344,7 @@ if config["foresight"] == "myopic":
             params:
                 solving = config["solving"],
                 planning_horizons=config["scenario"]["planning_horizons"],
-                using_single_node = config["single_node"],
+                using_single_node = config["using_single_node"],
                 single_node_province = config["single_node_province"]
             input:
                 overrides = "data/override_component_attrs",
@@ -366,7 +366,7 @@ if config["foresight"] == "myopic":
             params:
                 solving = config["solving"],
                 planning_horizons=config["scenario"]["planning_horizons"],
-                using_single_node = config["single_node"],
+                using_single_node = config["using_single_node"],
                 single_node_province = config["single_node_province"]
             input:
                 overrides = "data/override_component_attrs",
