@@ -313,12 +313,11 @@ def add_power_capacities_installed_before_baseyear(n, grouping_years, costs, bas
                        )
 
         if generator == "ground heat pump":
-            date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
+            date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
             date_range = date_range.map(lambda t: t.replace(year=2020))
 
             with pd.HDFStore(snakemake.input.cop_name, mode='r') as store:
                 gshp_cop = store['gshp_cop_profiles']
-                gshp_cop.index = gshp_cop.index.tz_localize('Asia/shanghai')
                 gshp_cop = gshp_cop.loc[date_range].set_index(n.snapshots)
 
             n.madd("Link",

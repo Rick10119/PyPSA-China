@@ -198,18 +198,18 @@ if config["foresight"] == "myopic":
 #     resources: mem_mb=ATLITE_NPROCESSES * 5000
 #     script: "scripts/build_renewable_potential.py"
 
-# rule build_load_profiles:
-#     input:
-#         population = "data/population/population.h5",
-#         population_map = "data/population/population_gridcell_map.h5",
-#         cutout = "cutouts/China-2020.nc",
-#         intraday_profiles="data/heating/heat_load_profile_DK_AdamJensen.csv",
-#         space_heat_demand="data/heating/SPH_2020.csv"
-#     output:
-#         heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5"
-#     threads: ATLITE_NPROCESSES
-#     resources: mem_mb = ATLITE_NPROCESSES * 5000
-#     script: "scripts/build_load_profiles.py"
+rule build_load_profiles:
+    input:
+        population = "data/population/population.h5",
+        population_map = "data/population/population_gridcell_map.h5",
+        cutout = "cutouts/China-2020.nc",
+        intraday_profiles="data/heating/heat_load_profile_DK_AdamJensen.csv",
+        space_heat_demand="data/heating/SPH_2020.csv"
+    output:
+        heat_demand_profile = "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5"
+    threads: ATLITE_NPROCESSES
+    resources: mem_mb = ATLITE_NPROCESSES * 5000
+    script: "scripts/build_load_profiles.py"
 
 # rule build_biomass_potential:
 #     input:
@@ -343,8 +343,9 @@ if config["foresight"] == "myopic":
         params:
             solving = config["solving"],
             planning_horizons=config["scenario"]["planning_horizons"],
-            using_single_node = config["single_node"],
-            single_node_province = config["single_node_province"]
+            using_single_node = config["using_single_node"],
+            single_node_province = config["single_node_province"],
+            iterative_optimization = config["iterative_optimization"]
         input:
             overrides = "data/override_component_attrs",
             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
@@ -357,7 +358,6 @@ if config["foresight"] == "myopic":
         threads: config['threads']
         resources: mem_mb = config['mem_per_thread'] * config['threads']
         script: "scripts/solve_network_myopic.py"
-
     ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
 
 if config["plot"]:

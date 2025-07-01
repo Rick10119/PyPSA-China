@@ -57,13 +57,16 @@ def prepare_network(config):
     # set times
     planning_horizons = snakemake.wildcards['planning_horizons']
     if int(planning_horizons) % 4 != 0:
-        snapshots = pd.date_range(str(planning_horizons)+'-01-01 00:00', str(planning_horizons)+'-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+        snapshots = pd.date_range(str(planning_horizons)+'-01-01 00:00', str(planning_horizons)+'-12-31 23:00', freq=config['freq'])
     else:
-        snapshots = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+        snapshots = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         snapshots = snapshots.map(lambda t: t.replace(year=int(planning_horizons)))
 
     network.set_snapshots(snapshots)
-    network.snapshot_weightings[:] = config['frequency']
+    # 从freq中解析出小时数来设置snapshot_weightings
+    # 例如：'1h' -> 1, '2h' -> 2, '8h' -> 8
+    freq_hours = float(config['freq'].replace('h', ''))
+    network.snapshot_weightings[:] = freq_hours
     represented_hours = network.snapshot_weightings.sum()[0]
     Nyears= represented_hours/8760.
 
@@ -75,7 +78,7 @@ def prepare_network(config):
     cost_year = snakemake.wildcards.planning_horizons
     costs = load_costs(tech_costs,config['costs'],config['electricity'],cost_year, Nyears)
 
-    date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+    date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
     date_range = date_range.map(lambda t: t.replace(year=2020))
 
     ds_solar = xr.open_dataset(snakemake.input.profile_solar)
@@ -83,13 +86,19 @@ def prepare_network(config):
     ds_offwind = xr.open_dataset(snakemake.input.profile_offwind)
 
     solar_p_max_pu = ds_solar['profile'].transpose('time', 'bus').to_pandas()
-    solar_p_max_pu.index = solar_p_max_pu.index.tz_localize('Asia/shanghai')
+    # Ensure solar_p_max_pu has naive timestamps to match date_range
+    if solar_p_max_pu.index.tz is not None:
+        solar_p_max_pu.index = solar_p_max_pu.index.tz_localize(None)
     solar_p_max_pu = solar_p_max_pu.loc[date_range].set_index(network.snapshots)
     onwind_p_max_pu = ds_onwind['profile'].transpose('time', 'bus').to_pandas()
-    onwind_p_max_pu.index = onwind_p_max_pu.index.tz_localize('Asia/shanghai')
+    # Ensure onwind_p_max_pu has naive timestamps to match date_range
+    if onwind_p_max_pu.index.tz is not None:
+        onwind_p_max_pu.index = onwind_p_max_pu.index.tz_localize(None)
     onwind_p_max_pu = onwind_p_max_pu.loc[date_range].set_index(network.snapshots)
     offwind_p_max_pu = ds_offwind['profile'].transpose('time', 'bus').to_pandas()
-    offwind_p_max_pu.index = offwind_p_max_pu.index.tz_localize('Asia/shanghai')
+    # Ensure offwind_p_max_pu has naive timestamps to match date_range
+    if offwind_p_max_pu.index.tz is not None:
+        offwind_p_max_pu.index = offwind_p_max_pu.index.tz_localize(None)
     offwind_p_max_pu = offwind_p_max_pu.loc[date_range].set_index(network.snapshots)
 
     def rename_province(label):
@@ -117,6 +126,7 @@ def prepare_network(config):
         add_buses(network, nodes, suffix, carrier, pro_centroid_x, pro_centroid_y)
 
     # add carriers
+    network.add("Carrier", "AC")  # 添加AC carrier定义
     if config["heat_coupling"]:
         network.add("Carrier", "heat")
     for carrier in config["Techs"]["vre_techs"]:
@@ -139,6 +149,24 @@ def prepare_network(config):
     if config["add_aluminum"]:
         network.add("Carrier", "aluminum")
         network.add("Carrier", "aluminum smelter")
+        network.add("Carrier", "aluminum storage")
+    
+    # 添加其他可能需要的carriers
+    if config["add_hydro"]:
+        network.add("Carrier", "stations")
+        network.add("Carrier", "hydro_inflow")
+    if config["add_H2"]:
+        network.add("Carrier", "H2")
+        network.add("Carrier", "H2 CHP")
+    if config["add_methanation"]:
+        network.add("Carrier", "Sabatier")
+    if config["add_biomass"]:
+        network.add("Carrier", "biomass")
+        network.add("Carrier", "CO2")
+        network.add("Carrier", "CO2 capture")
+    
+    # 添加其他可能需要的carriers
+    network.add("Carrier", "coal cc", co2_emissions=costs.at['coal', 'co2_emissions'])
 
     # add global constraint
     if not isinstance(config['scenario']['co2_reduction'], tuple):
@@ -157,7 +185,6 @@ def prepare_network(config):
     #load demand data
     with pd.HDFStore(snakemake.input.elec_load, mode='r') as store:
         load = 1e6 * store['load']
-        load.index = load.index.tz_localize('Asia/shanghai')
         load = load.loc[network.snapshots]
 
     load.columns = pro_names
@@ -186,32 +213,19 @@ def prepare_network(config):
         )
 
         # Add aluminum smelters only for provinces with production ratio > 0.01
-        if config['aluminum_commitment']:
-            network.madd("Link",
-                        production_ratio.index,  # Only add for filtered provinces
-                        suffix=" aluminum smelter",
-                        bus0=production_ratio.index,
-                        bus1=production_ratio.index + " aluminum",
-                        carrier="aluminum smelter",
-                        p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
-                        p_nom_extendable=False,
-                        efficiency=1.0,  # Scalar value
-                        start_up_cost=config['aluminum']['al_start_up_cost'] * 1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),
-                        committable=True,
-                        p_min_pu=config['aluminum']['al_p_min_pu'],
-                        )
-        else:
-            network.madd("Link",
-                        production_ratio.index,  # Only add for filtered provinces
-                        suffix=" aluminum smelter",
-                        bus0=production_ratio.index,
-                        bus1=production_ratio.index + " aluminum",
-                        carrier="aluminum smelter",
-                        p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
-                        p_nom_extendable=False,
-                        efficiency=1.0,  # Scalar value
-                        committable=False,
-                        )
+        network.madd("Link",
+                    production_ratio.index,  # Only add for filtered provinces
+                    suffix=" aluminum smelter",
+                    bus0=production_ratio.index,
+                    bus1=production_ratio.index + " aluminum",
+                    carrier="aluminum smelter",
+                    p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
+                    p_nom_extendable=False,
+                    efficiency=1.0,  # Scalar value
+                    start_up_cost=config['aluminum']['al_start_up_cost'] * 1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),
+                    committable=config['aluminum_commitment'],
+                    p_min_pu=config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0,
+                    )
 
         # Add aluminum storage only for provinces with production ratio > 0.01
         network.madd("Store",
@@ -479,6 +493,9 @@ def prepare_network(config):
 
             # Resample inflow data to match network frequency
             resampled_inflow = inflow.resample(config['freq']).sum()
+            # Ensure resampled_inflow has naive timestamps to match date_range
+            if resampled_inflow.index.tz is not None:
+                resampled_inflow.index = resampled_inflow.index.tz_localize(None)
             resampled_inflow = resampled_inflow.loc[date_range]
 
             p_nom = (resampled_inflow/water_consumption_factor).iloc[:,inflow_station].max()
@@ -498,8 +515,13 @@ def prepare_network(config):
         hydro_p_nom = pd.read_hdf("data/p_nom/hydro_p_nom.h5")
         hydro_p_max_pu = pd.read_hdf("data/p_nom/hydro_p_max_pu.h5", key="hydro_p_max_pu")
 
-        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
+        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         date_range = date_range.map(lambda t: t.replace(year=2020))
+        
+        # Ensure hydro_p_max_pu has naive timestamps to match date_range
+        if hydro_p_max_pu.index.tz is not None:
+            hydro_p_max_pu.index = hydro_p_max_pu.index.tz_localize(None)
+        
         hydro_p_max_pu = hydro_p_max_pu.loc[date_range]
         hydro_p_max_pu.index = network.snapshots
 
@@ -632,15 +654,19 @@ def prepare_network(config):
 
     if "heat pump" in config["Techs"]["vre_techs"]:
 
-        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
+        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         date_range = date_range.map(lambda t: t.replace(year=2020))
 
         with pd.HDFStore(snakemake.input.cop_name, mode='r') as store:
             ashp_cop = store['ashp_cop_profiles']
-            ashp_cop.index = ashp_cop.index.tz_localize('Asia/shanghai')
+            # Ensure ashp_cop has naive timestamps to match date_range
+            if ashp_cop.index.tz is not None:
+                ashp_cop.index = ashp_cop.index.tz_localize(None)
             ashp_cop = ashp_cop.loc[date_range].set_index(network.snapshots)
             gshp_cop = store['gshp_cop_profiles']
-            gshp_cop.index = gshp_cop.index.tz_localize('Asia/shanghai')
+            # Ensure gshp_cop has naive timestamps to match date_range
+            if gshp_cop.index.tz is not None:
+                gshp_cop.index = gshp_cop.index.tz_localize(None)
             gshp_cop = gshp_cop.loc[date_range].set_index(network.snapshots)
 
         for cat in [' decentral ', ' central ']:
@@ -683,16 +709,16 @@ def prepare_network(config):
                          lifetime=costs.at[cat.lstrip()+'resistive heater','lifetime'])
 
     if "solar thermal" in config["Techs"]["vre_techs"]:
-        #this is the amount of heat collected in W per m^2, accounting
-        #for efficiency
         with pd.HDFStore(snakemake.input.solar_thermal_name, mode='r') as store:
             #1e3 converts from W/m^2 to MW/(1000m^2) = kW/m^2
             solar_thermal = config['solar_cf_correction'] * store['solar_thermal_profiles']/1e3
 
-        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         date_range = date_range.map(lambda t: t.replace(year=2020))
 
-        solar_thermal.index = solar_thermal.index.tz_localize('Asia/shanghai')
+        # Ensure solar_thermal has naive timestamps to match date_range
+        if solar_thermal.index.tz is not None:
+            solar_thermal.index = solar_thermal.index.tz_localize(None)
         solar_thermal = solar_thermal.loc[date_range].set_index(network.snapshots)
 
         for cat in [" decentral ", " central "]:
