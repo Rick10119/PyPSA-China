@@ -379,7 +379,7 @@ if config["foresight"] == "myopic":
                 solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log")
             threads: config['threads']
             resources: mem_mb = config['mem_per_thread'] * config['threads']
-            script: "scripts/solve_network_aluminum_iterative.py"
+            script: "scripts/solve_network_aluminum_iterative-1.py"
             
         ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_aluminum_iterative
 

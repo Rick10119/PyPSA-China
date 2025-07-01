@@ -361,12 +361,13 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
 def solve_network_iterative(n, config, solving, opts="", max_iterations=10, convergence_tolerance=0.01, **kwargs):
     """
     电解铝迭代优化算法
-    1. 使用连续化电解铝模型求解，得到节点电价
-    2. 基于节点电价，运行电解铝最优运行问题
-    3. 固定电解铝用能，求解剩下的优化问题
-    4. 重复2-3，直到收敛
+    1. 使用连续化电解铝模型求解，得到节点电价和目标函数值
+    2. 检查收敛性：比较步骤一的目标函数值变化
+    3. 基于节点电价，运行电解铝最优运行问题，得到新的电解铝用能模式
+    4. 固定电解铝用能，求解剩下的优化问题
+    5. 重复1-4，直到收敛
     
-    收敛条件：目标函数变化的相对值小于convergence_tolerance（默认1%）
+    收敛条件：步骤一目标函数变化的相对值小于convergence_tolerance（默认1%）
     """
     import time
     
@@ -420,16 +421,8 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         logger.info("步骤1: 使用连续化电解铝模型求解")
         
         # 重新加载网络，禁用电解铝启停约束
-        if original_network_path:
-            # 从文件重新加载网络
-            if "overrides" in kwargs:
-                overrides = kwargs["overrides"]
-                n_current = pypsa.Network(original_network_path, override_component_attrs=overrides)
-            else:
-                n_current = pypsa.Network(original_network_path)
-        else:
-            # 如果没有网络路径，直接使用原始网络（不复制）
-            n_current = n
+        n_current = pypsa.Network(original_network_path)
+
         
         # 重新应用网络准备
         n_current = prepare_network(
@@ -443,11 +436,41 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         n_current.config = config
         n_current.opts = opts
         
-        # 重新设置电解铝冶炼设备的参数
+        # 重新创建电解铝冶炼设备，确保在步骤1中禁用电解铝启停约束
         aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum smelter"].index
+        
+        # 保存原始参数
+        smelter_params = {}
         for smelter in aluminum_smelters:
-            n_current.links.at[smelter, 'committable'] = config['aluminum_commitment']
-            n_current.links.at[smelter, 'p_min_pu'] = config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0
+            smelter_params[smelter] = {
+                'bus0': n_current.links.at[smelter, 'bus0'],
+                'bus1': n_current.links.at[smelter, 'bus1'],
+                'carrier': n_current.links.at[smelter, 'carrier'],
+                'p_nom': n_current.links.at[smelter, 'p_nom'],
+                'p_nom_extendable': n_current.links.at[smelter, 'p_nom_extendable'],
+                'efficiency': n_current.links.at[smelter, 'efficiency'],
+                'start_up_cost': n_current.links.at[smelter, 'start_up_cost'],
+                'committable': n_current.links.at[smelter, 'committable'],
+                'p_min_pu': n_current.links.at[smelter, 'p_min_pu']
+            }
+        
+        # 移除现有的smelter
+        n_current.mremove("Link", aluminum_smelters)
+        
+        # 重新添加smelter，在步骤1中禁用电解铝启停约束
+        for smelter_name, params in smelter_params.items():
+            n_current.add("Link",
+                smelter_name,
+                bus0=params['bus0'],
+                bus1=params['bus1'],
+                carrier=params['carrier'],
+                p_nom=params['p_nom'],
+                p_nom_extendable=params['p_nom_extendable'],
+                efficiency=params['efficiency'],
+                start_up_cost=params['start_up_cost'],
+                committable=False,  # 在步骤1中禁用电解铝启停约束
+                p_min_pu=0  # 在步骤1中设置最小出力为0
+            )
         
         # 临时修改配置，禁用电解铝启停约束
         original_commitment = config.get("aluminum_commitment", False)
@@ -522,32 +545,13 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
             logger.error(f"网络求解出错: {e}")
             break
         
-        # 步骤2: 基于节点电价，运行电解铝最优运行问题
-        logger.info("步骤2: 运行电解铝最优运行问题")
-        
-        # 恢复电解铝启停约束
-        config["aluminum_commitment"] = True
-        
-        # 重新设置电解铝冶炼设备的参数（启用启停约束）
-        aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum smelter"].index
-        for smelter in aluminum_smelters:
-            n_current.links.at[smelter, 'committable'] = config['aluminum_commitment']
-            n_current.links.at[smelter, 'p_min_pu'] = config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0
-        
-        # 求解电解铝优化问题，传递节点电价
-        new_aluminum_usage = solve_aluminum_optimization(n_current, config, solving, opts, nodal_prices=current_nodal_prices, **kwargs)
-        
-        if new_aluminum_usage is None:
-            logger.error("电解铝优化问题求解失败")
-            break
-        
-        # 步骤3: 检查收敛性 - 基于目标函数变化的相对值
+        # 步骤2: 检查收敛性 - 基于步骤一的目标函数变化的相对值
         if previous_objective is not None and current_objective is not None:
             # 计算目标函数变化的相对值
             objective_change = abs(current_objective - previous_objective)
             relative_change = objective_change / abs(previous_objective) if abs(previous_objective) > 1e-10 else float('inf')
             
-            logger.info(f"目标函数变化统计:")
+            logger.info(f"步骤一目标函数变化统计:")
             logger.info(f"  当前目标函数值: {current_objective:.6e}")
             logger.info(f"  上次目标函数值: {previous_objective:.6e}")
             logger.info(f"  绝对变化: {objective_change:.6e}")
@@ -563,6 +567,19 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
             # 第一次迭代，保存目标函数值用于下次比较
             if current_objective is not None:
                 previous_objective = current_objective
+        
+        # 步骤3: 基于节点电价，运行电解铝最优运行问题
+        logger.info("步骤3: 运行电解铝最优运行问题")
+        
+        # 恢复电解铝启停约束
+        config["aluminum_commitment"] = True
+        
+        # 求解电解铝优化问题，传递节点电价
+        new_aluminum_usage = solve_aluminum_optimization(n_current, config, solving, opts, nodal_prices=current_nodal_prices, **kwargs)
+        
+        if new_aluminum_usage is None:
+            logger.error("电解铝优化问题求解失败")
+            break
         
         # 更新电解铝用能和目标函数值
         aluminum_usage = new_aluminum_usage
@@ -750,6 +767,9 @@ if __name__ == '__main__':
         n = pypsa.Network(snakemake.input.network, override_component_attrs=overrides)
     else:
         n = pypsa.Network(snakemake.input.network)
+    
+    # 设置网络文件路径，用于迭代优化中的网络重新加载
+    n._network_path = snakemake.input.network
 
     n = prepare_network(
         n,
@@ -779,6 +799,8 @@ if __name__ == '__main__':
         # 如果有overrides，也传递
         if "overrides" in snakemake.input.__dict__.keys():
             iteration_kwargs["overrides"] = overrides
+            # 同时设置网络的overrides路径
+            n._overrides_path = snakemake.input.overrides
         
         # 使用迭代优化算法
         n = solve_network_iterative(

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0630.8H.1
+version: 0630.1H.1
 logging_level: INFO
 foresight: "myopic"
 
@@ -65,16 +65,16 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2 # barrier
-      BarHomogeneous: 1
-      # MIPGap: 0.05
-      BarConvTol: 1.e-3
-      FeasibilityTol: 1.e-3
+      # BarHomogeneous: 1
+      MIPGap: 0.01
+      BarConvTol: 1.e-5
+      FeasibilityTol: 1.e-6
       AggFill: 0
       PreDual: 0
       GURO_PAR_BARDENSETHRESH: 200
       DualReductions: 0
-      ScaleFlag: 2
-      ObjScale: 1.e-3
+      # ScaleFlag: 2
+      # ObjScale: 1.e-3
       OutputFlag: 0  # 关闭Gurobi输出
       LogToConsole: 0  # 关闭控制台日志
       LogFile: ''  # 关闭日志文件
