@@ -383,11 +383,6 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         skip_iterations = True
         logger.info("No expandable lines found. Skipping iterative solving.")
     
-    # 检查是否启用电解铝
-    if not config.get("add_aluminum", False):
-        logger.info("电解铝功能未启用，使用标准求解方法")
-        return solve_network_standard(n, config, solving, opts, **kwargs)
-    
     logger.info("开始电解铝迭代优化算法")
     
     # 记录总开始时间
@@ -736,7 +731,34 @@ if __name__ == '__main__':
     )
 
     # 检查是否启用电解铝迭代优化
-    if snakemake.params.iterative_optimization:
+    # 条件1: 检查snakemake.params.iterative_optimization
+    # 条件2: 检查config["aluminum"]["al_excess_rate"][planning_horizons] > 0.01
+    # 条件3: 检查config.get("add_aluminum", False)
+    
+    planning_horizons = snakemake.wildcards.planning_horizons
+    
+    # 检查电解铝过剩率条件
+    aluminum_excess_rate_condition = False
+    try:
+        if (snakemake.config.get("aluminum", {}).get("al_excess_rate", {}).get(planning_horizons, 0) > 0.01):
+            aluminum_excess_rate_condition = True
+            logger.info(f"电解铝过剩率条件满足: {snakemake.config['aluminum']['al_excess_rate'][planning_horizons]:.3f} > 0.01")
+        else:
+            logger.info(f"电解铝过剩率条件不满足: {snakemake.config.get('aluminum', {}).get('al_excess_rate', {}).get(planning_horizons, 0):.3f} <= 0.01")
+    except (KeyError, TypeError) as e:
+        logger.warning(f"无法检查电解铝过剩率条件: {e}")
+    
+    # 检查电解铝功能启用条件
+    aluminum_enabled_condition = snakemake.config.get("add_aluminum", False)
+    if aluminum_enabled_condition:
+        logger.info("电解铝功能已启用")
+    else:
+        logger.info("电解铝功能未启用")
+    
+    # 综合判断是否启用电解铝迭代优化
+    if (snakemake.params.iterative_optimization and 
+        aluminum_excess_rate_condition and 
+        aluminum_enabled_condition):
         # 获取迭代优化参数
         max_iterations = snakemake.config.get("aluminum_max_iterations", 10)
         convergence_tolerance = snakemake.config.get("aluminum_convergence_tolerance", 0.01)
@@ -768,7 +790,17 @@ if __name__ == '__main__':
             **iteration_kwargs,
         )
     else:
-        logger.info("使用标准求解方法")
+        # 详细说明为什么使用标准求解方法
+        reasons = []
+        if not snakemake.params.iterative_optimization:
+            reasons.append("snakemake.params.iterative_optimization = False")
+        if not aluminum_excess_rate_condition:
+            reasons.append("电解铝过剩率 <= 0.01")
+        if not aluminum_enabled_condition:
+            reasons.append("电解铝功能未启用 (add_aluminum = False)")
+        
+        logger.info(f"使用标准求解方法，原因: {', '.join(reasons)}")
+        
         # 使用标准求解方法
         n = solve_network_standard(
             n,
