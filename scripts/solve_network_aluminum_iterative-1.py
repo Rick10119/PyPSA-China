@@ -478,24 +478,30 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         
         # 如果有固定的电解铝用能，需要添加约束
         if aluminum_usage is not None:
-            logger.info("固定电解铝用能，求解剩余优化问题")
-            # 固定电解铝用能 - 使用p_set来固定smelter的link出力
+            logger.info("根据电解铝用能模式设置动态约束")
+            # 根据电解铝用能模式动态设置约束
             for smelter in aluminum_usage.columns:
                 if smelter in n_current.links.index:
-                    fixed_aluminum_power = aluminum_usage[smelter].values
-                    # 确保p_set存在
-                    if not hasattr(n_current.links_t, 'p_set'):
-                        n_current.links_t.p_set = pd.DataFrame(index=n_current.snapshots, columns=n_current.links.index)
-                    # 修改smelter的link出力
-                    n_current.links_t.p_set[smelter] = fixed_aluminum_power
-                    logger.info(f"固定电解铝冶炼设备 {smelter} 的用能模式")
+                    aluminum_power = aluminum_usage[smelter].values
+                                     
+                    # 根据用能模式设置约束
+                    for i, power in enumerate(aluminum_power):
+                        if power == 0:
+                            # 当用能为0时，固定p_set为0，p_min_pu为0
+                            n_current.links_t.p_set.at[n_current.snapshots[i], smelter] = 0
+                            n_current.links_t.p_min_pu.at[n_current.snapshots[i], smelter] = 0
+                        else:
+                            # 当用能不为0时，不固定p_set，但设置p_min_pu为最小出力比例
+                            # 清除p_set约束（设为NaN表示不约束）
+                            n_current.links_t.p_set.at[n_current.snapshots[i], smelter] = np.nan
+                            # 设置最小出力比例，可以根据实际需求调整
+                            min_pu = config['aluminum'].get('al_p_min_pu', 0.9)  # 默认30%最小出力
+                            n_current.links_t.p_min_pu.at[n_current.snapshots[i], smelter] = min_pu
                     
-                    # 同时修改对应的负荷设定
-                    aluminum_loads = n_current.loads[n_current.loads.bus.isin(n_current.buses[n_current.buses.carrier == "aluminum"].index)].index
-                    for load in aluminum_loads:
-                        if hasattr(n_current.loads_t, 'p_set'):
-                            n_current.loads_t.p_set[load] = fixed_aluminum_power
-                            logger.info(f"固定电解铝负荷 {load} 的用能模式")
+                    logger.info(f"为电解铝冶炼设备 {smelter} 设置动态约束")
+                    logger.info(f"  零出力时段数: {np.sum(aluminum_power == 0)}")
+                    logger.info(f"  非零出力时段数: {np.sum(aluminum_power > 0)}")
+                
         
         # 求解网络
         try:
