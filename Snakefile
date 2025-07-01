@@ -339,46 +339,49 @@ if config["foresight"] == "myopic":
 
     ruleorder: add_existing_baseyear > add_brownfield
 
-    rule solve_network_myopic:
-        params:
-            solving = config["solving"],
-            planning_horizons=config["scenario"]["planning_horizons"],
-            using_single_node = config["single_node"],
-            single_node_province = config["single_node_province"]
-        input:
-            overrides = "data/override_component_attrs",
-            network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-            costs="data/costs/costs_{planning_horizons}.csv",
-            biomass_potental= "data/p_nom/biomass_potential.h5",
-        output:
-            network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
-        log:
-            solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log")
-        threads: config['threads']
-        resources: mem_mb = config['mem_per_thread'] * config['threads']
-        script: "scripts/solve_network_myopic.py"
+    if config["iterative_optimization"] == False:
+        rule solve_network_myopic:
+            params:
+                solving = config["solving"],
+                planning_horizons=config["scenario"]["planning_horizons"],
+                using_single_node = config["single_node"],
+                single_node_province = config["single_node_province"]
+            input:
+                overrides = "data/override_component_attrs",
+                network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+                costs="data/costs/costs_{planning_horizons}.csv",
+                biomass_potental= "data/p_nom/biomass_potential.h5",
+            output:
+                network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
+            log:
+                solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log")
+            threads: config['threads']
+            resources: mem_mb = config['mem_per_thread'] * config['threads']
+            script: "scripts/solve_network_myopic.py"
+        ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
 
-    # 电解铝迭代优化求解规则
-    rule solve_network_aluminum_iterative:
-        params:
-            solving = config["solving"],
-            planning_horizons=config["scenario"]["planning_horizons"],
-            using_single_node = config["single_node"],
-            single_node_province = config["single_node_province"]
-        input:
-            overrides = "data/override_component_attrs",
-            network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
-            costs="data/costs/costs_{planning_horizons}.csv",
-            biomass_potental= "data/p_nom/biomass_potential.h5",
-        output:
-            network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}-iterative.nc'
-        log:
-            solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}-iterative.log")
-        threads: config['threads']
-        resources: mem_mb = config['mem_per_thread'] * config['threads']
-        script: "scripts/solve_network_aluminum_iterative.py"
-
-    ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic > solve_network_aluminum_iterative
+    if config["iterative_optimization"] == True:
+        # 电解铝迭代优化求解规则
+        rule solve_network_aluminum_iterative:
+            params:
+                solving = config["solving"],
+                planning_horizons=config["scenario"]["planning_horizons"],
+                using_single_node = config["single_node"],
+                single_node_province = config["single_node_province"]
+            input:
+                overrides = "data/override_component_attrs",
+                network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+                costs="data/costs/costs_{planning_horizons}.csv",
+                biomass_potental= "data/p_nom/biomass_potential.h5",
+            output:
+                network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
+            log:
+                solver = normpath("logs/solve_operations_network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log")
+            threads: config['threads']
+            resources: mem_mb = config['mem_per_thread'] * config['threads']
+            script: "scripts/solve_network_aluminum_iterative.py"
+            
+        ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_aluminum_iterative
 
 if config["plot"]:
 

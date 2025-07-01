@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0628.24H.1
+version: 0630.8H.1
 logging_level: INFO
 foresight: "myopic"
 
@@ -17,10 +17,13 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '24h'
+freq: '1h'
 
 add_aluminum: True
+iterative_optimization: True
 aluminum_commitment: False
+aluminum_max_iterations: 5
+aluminum_convergence_tolerance: 0.01
 
 scenario:
   line_limits: [ 'opt' ]
@@ -63,7 +66,7 @@ solving:
       Crossover: 0
       Method: 2 # barrier
       BarHomogeneous: 1
-      MIPGap: 0.05
+      # MIPGap: 0.05
       BarConvTol: 1.e-3
       FeasibilityTol: 1.e-3
       AggFill: 0
@@ -72,6 +75,9 @@ solving:
       DualReductions: 0
       ScaleFlag: 2
       ObjScale: 1.e-3
+      OutputFlag: 0  # 关闭Gurobi输出
+      LogToConsole: 0  # 关闭控制台日志
+      LogFile: ''  # 关闭日志文件
     conservative:
       Threads: 192
       MIPGap: 0.01
@@ -88,7 +94,9 @@ solving:
       ScaleFlag: 2
       ObjScale: 1.e-3
       TimeLimit: 14400  # 4小时时间限制
-      OutputFlag: 1     # 启用输出以便监控进度
+      OutputFlag: 0     # 关闭Gurobi输出
+      LogToConsole: 0   # 关闭控制台日志
+      LogFile: ''       # 关闭日志文件
     timeout_fallback:
       Threads: 192
       MIPGap: 0.05      # 放宽MIP间隙以加快收敛
@@ -105,7 +113,9 @@ solving:
       ScaleFlag: 2
       ObjScale: 1.e-2
       TimeLimit: 7200   # 2小时时间限制
-      OutputFlag: 1
+      OutputFlag: 0     # 关闭Gurobi输出
+      LogToConsole: 0   # 关闭控制台日志
+      LogFile: ''       # 关闭日志文件
   options:
     track_iterations: false
     min_iterations: 4

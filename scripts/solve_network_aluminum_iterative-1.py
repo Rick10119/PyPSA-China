@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import pypsa
 import xarray as xr
+import yaml
+import os
 from _helpers import (
     configure_logging,
     override_component_attrs,
@@ -262,7 +264,7 @@ def extra_functionality(n, snapshots, fixed_aluminum_usage=None):
     """
     opts = n.opts
     config = n.config
-    add_chp_constraints(n)
+    # add_chp_constraints(n)
     add_transimission_constraints(n)
     if snakemake.wildcards.planning_horizons != "2020":
         add_retrofit_constraints(n)
@@ -276,71 +278,71 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     solver_options = solving["solver_options"][set_of_options] if set_of_options else {}
     solver_name = solving["solver"]["name"]
     
-    # 创建电解铝优化网络副本
-    n_al = copy.deepcopy(n)
-    n_al.config = config
-    n_al.opts = opts
-    
+    # 不复制网络，而是直接使用传入的网络
     # 找到所有电解铝相关的组件
-    aluminum_buses = n_al.buses[n_al.buses.carrier == "aluminum"].index
-    aluminum_smelters = n_al.links[n_al.links.carrier == "aluminum smelter"].index
-    aluminum_stores = n_al.stores[n_al.stores.carrier == "aluminum storage"].index
-    aluminum_loads = n_al.loads[n_al.loads.bus.isin(aluminum_buses)].index
+    aluminum_buses = n.buses[n.buses.carrier == "aluminum"].index
+    aluminum_smelters = n.links[n.links.carrier == "aluminum smelter"].index
+    aluminum_stores = n.stores[n.stores.carrier == "aluminum storage"].index
+    aluminum_loads = n.loads[n.loads.bus.isin(aluminum_buses)].index
+    
+    # 重新设置电解铝冶炼设备的参数
+    for smelter in aluminum_smelters:
+        n.links.at[smelter, 'committable'] = config['aluminum_commitment']
+        n.links.at[smelter, 'p_min_pu'] = config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0
     
     # 移除所有非电解铝相关的组件
     for component_type in ["Generator", "StorageUnit", "Store", "Link", "Load"]:
         if component_type == "Store":
             # 保留电解铝存储
-            other_stores = n_al.stores[~n_al.stores.index.isin(aluminum_stores)].index
-            n_al.mremove(component_type, other_stores)
+            other_stores = n.stores[~n.stores.index.isin(aluminum_stores)].index
+            n.mremove(component_type, other_stores)
         elif component_type == "Link":
             # 保留电解铝冶炼设备
-            other_links = n_al.links[~n_al.links.index.isin(aluminum_smelters)].index
-            n_al.mremove(component_type, other_links)
+            other_links = n.links[~n.links.index.isin(aluminum_smelters)].index
+            n.mremove(component_type, other_links)
         elif component_type == "Load":
             # 保留电解铝负荷
-            other_loads = n_al.loads[~n_al.loads.index.isin(aluminum_loads)].index
-            n_al.mremove(component_type, other_loads)
+            other_loads = n.loads[~n.loads.index.isin(aluminum_loads)].index
+            n.mremove(component_type, other_loads)
         else:
             # 移除所有其他组件
-            n_al.mremove(component_type, n_al.df(component_type).index)
+            n.mremove(component_type, n.df(component_type).index)
     
-    # 移除非电解铝相关的节点
-    non_aluminum_buses = n_al.buses[n_al.buses.carrier != "aluminum"].index
-    n_al.mremove("Bus", non_aluminum_buses)
+    # 移除aluminum和AC以外的节点
+    non_aluminum_buses = n.buses[(n.buses.carrier != "aluminum") & (n.buses.carrier != "AC")].index
+    n.mremove("Bus", non_aluminum_buses)
     
     # 确保虚拟carrier存在
-    if "virtual" not in n_al.carriers.index:
-        n_al.add("Carrier", "virtual")
+    if "virtual" not in n.carriers.index:
+        n.add("Carrier", "virtual")
     
     # 添加虚拟发电机来提供电力（基于节点电价）
-    for bus in n_al.buses.index:
+    for bus in n.buses.index:
         if bus.endswith(" aluminum"):
             # 这是电解铝节点，不需要虚拟发电机
             continue
             
-        # 为电力节点添加虚拟发电机
-        marginal_cost = 0.0  # 默认边际成本
-        
-        if nodal_prices is not None:
-            # 直接使用传入的节点电价作为边际成本
-            marginal_cost = nodal_prices.mean() if hasattr(nodal_prices, 'mean') else float(nodal_prices)
-            logger.info(f"为节点 {bus} 添加虚拟发电机，使用节点边际电价: {marginal_cost:.4f}")
-        else:
-            logger.info(f"为节点 {bus} 添加虚拟发电机，使用零边际成本（无节点电价数据）")
+        # 根据节点类型确定边际成本
+        if bus in nodal_prices.columns:
+            # 如果该节点有对应的边际电价，使用该节点的电价
+            marginal_cost = nodal_prices[bus]
+            logger.info(f"为节点 {bus} 使用其对应的边际电价")
             
-        n_al.add("Generator",
-                 f"virtual_gen_{bus}",
-                 bus=bus,
-                 carrier="virtual",
-                 p_nom=1e6,  # 大容量
-                 marginal_cost=marginal_cost)  # 使用节点边际电价作为边际成本
+            n.add("Generator",
+                f"virtual_gen_{bus}",
+                bus=bus,
+                carrier="virtual",
+                p_nom=1e6,  # 大容量
+                marginal_cost=marginal_cost)  # 使用节点边际电价作为边际成本
+            
+    # 打印所有bus:
+    logger.info(f"所有bus: {n.buses.index}")
     
     # 求解电解铝优化问题
     try:
         # 只保留PyPSA支持的参数
         optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
-        n_al.optimize(
+        n.optimize(
             solver_name=solver_name,
             extra_functionality=extra_functionality,
             **solver_options,
@@ -349,7 +351,7 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
         
         logger.info("电解铝优化问题求解成功")
         # 提取电解铝用能模式
-        aluminum_usage = n_al.links_t.p[aluminum_smelters].copy()
+        aluminum_usage = n.links_t.p0[aluminum_smelters].copy()
         return aluminum_usage
             
     except Exception as e:
@@ -426,8 +428,8 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
             else:
                 n_current = pypsa.Network(original_network_path)
         else:
-            # 复制原始网络
-            n_current = copy.deepcopy(original_network)
+            # 如果没有网络路径，直接使用原始网络（不复制）
+            n_current = n
         
         # 重新应用网络准备
         n_current = prepare_network(
@@ -440,6 +442,12 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         # 设置配置
         n_current.config = config
         n_current.opts = opts
+        
+        # 重新设置电解铝冶炼设备的参数
+        aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum smelter"].index
+        for smelter in aluminum_smelters:
+            n_current.links.at[smelter, 'committable'] = config['aluminum_commitment']
+            n_current.links.at[smelter, 'p_min_pu'] = config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0
         
         # 临时修改配置，禁用电解铝启停约束
         original_commitment = config.get("aluminum_commitment", False)
@@ -500,13 +508,13 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
             # 提取当前迭代的节点电价（用于电解铝优化）
             current_nodal_prices = None
             if hasattr(n_current, 'buses_t') and hasattr(n_current.buses_t, 'marginal_price'):
-                # 获取carrier为"AC"的电力节点的边际电价
+                # 获取所有carrier为"AC"的电力节点的边际电价
                 electricity_buses = n_current.buses[n_current.buses.carrier == "AC"].index
                 if len(electricity_buses) > 0:
-                    # 使用第一个AC节点作为参考电价
-                    price_bus = electricity_buses[0]
-                    current_nodal_prices = n_current.buses_t.marginal_price[price_bus]
-                    logger.info(f"提取节点电价: {price_bus} (carrier: AC)")
+                    # 使用所有AC节点的边际电价
+                    current_nodal_prices = n_current.buses_t.marginal_price[electricity_buses]
+                    logger.info(f"提取节点电价: 共 {len(electricity_buses)} 个AC节点")
+                    logger.info(f"节点列表: {list(electricity_buses)}")
                 else:
                     logger.warning("未找到carrier为AC的节点，无法提取节点电价")
             
@@ -519,6 +527,12 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         
         # 恢复电解铝启停约束
         config["aluminum_commitment"] = True
+        
+        # 重新设置电解铝冶炼设备的参数（启用启停约束）
+        aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum smelter"].index
+        for smelter in aluminum_smelters:
+            n_current.links.at[smelter, 'committable'] = config['aluminum_commitment']
+            n_current.links.at[smelter, 'p_min_pu'] = config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0
         
         # 求解电解铝优化问题，传递节点电价
         new_aluminum_usage = solve_aluminum_optimization(n_current, config, solving, opts, nodal_prices=current_nodal_prices, **kwargs)
@@ -650,28 +664,88 @@ def solve_network_standard(n, config, solving, opts="", **kwargs):
     return n
 
 if __name__ == '__main__':
-    if 'snakemake' not in globals():
-        from _helpers import mock_snakemake
-        # 使用config中的第一个planning_horizon作为默认值
-        default_planning_horizon = "2050"  # config中scenario.planning_horizons的第一个值
-        snakemake = mock_snakemake('solve_network_aluminum_iterative',
-                                   opts='ll',
-                                   topology='current+Neighbor',
-                                   pathway='linear2050',
-                                   co2_reduction='0.0',
-                                   planning_horizons=default_planning_horizon)
-
-    configure_logging(snakemake)
+    # 加载配置文件
+    config_path = "config.yaml"
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"配置文件 {config_path} 不存在")
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    # 设置默认参数
+    default_params = {
+        'opts': 'll',
+        'topology': 'current+Neighbor',
+        'pathway': 'linear2050',
+        'co2_reduction': '0.0',
+        'planning_horizons': '2050',
+        'heating_demand': 'positive'
+    }
+    
+    # 创建模拟的snakemake对象
+    class MockSnakemake:
+        def __init__(self, config, default_params):
+            self.config = config
+            self.params = {
+                'solving': config['solving']
+            }
+            self.wildcards = type('Wildcards', (), default_params)()
+            
+            # 设置输入文件路径
+            version = config['version']
+            results_dir = config['results_dir']
+            
+            # 构建网络文件路径
+            network_path = f"{results_dir}version-{version}/prenetworks-brownfield/{default_params['heating_demand']}/prenetwork-{default_params['opts']}-{default_params['topology']}-{default_params['pathway']}-{default_params['planning_horizons']}.nc"
+            
+            self.input = type('Input', (), {
+                'network': network_path,
+                'overrides': 'data/override_component_attrs'
+            })()
+            
+            # 设置输出文件路径
+            output_path = f"{results_dir}version-{version}/postnetworks/{default_params['heating_demand']}/postnetwork-{default_params['opts']}-{default_params['topology']}-{default_params['pathway']}-{default_params['planning_horizons']}.nc"
+            
+            self.output = type('Output', (), {
+                'network_name': output_path
+            })()
+            
+            # 设置日志文件路径
+            log_dir = f"logs/solve_operations_network/{default_params['heating_demand']}"
+            os.makedirs(log_dir, exist_ok=True)
+            log_path = f"{log_dir}/postnetwork-{default_params['opts']}-{default_params['topology']}-{default_params['pathway']}-{default_params['planning_horizons']}.log"
+            
+            self.log = type('Log', (), {
+                'solver': log_path
+            })()
+    
+    # 创建模拟的snakemake对象
+    snakemake = MockSnakemake(config, default_params)
+    
+    # 配置日志 - 简化版本，不依赖snakemake.rule
+    import logging
+    logging.basicConfig(
+        level=config.get('logging', {}).get('level', 'INFO'),
+        format='%(levelname)s:%(name)s:%(message)s',
+        handlers=[
+            logging.FileHandler(snakemake.log.solver),
+            logging.StreamHandler()
+        ]
+    )
 
     opts = snakemake.wildcards.opts
-    if "sector_opts" in snakemake.wildcards.keys():
+    if "sector_opts" in snakemake.wildcards.__dict__.keys():
         opts += "-" + snakemake.wildcards.sector_opts
     opts = [o for o in opts.split("-") if o != ""]
-    solve_opts = snakemake.params.solving["options"]
+    solve_opts = snakemake.params['solving']["options"]
 
     np.random.seed(solve_opts.get("seed", 123))
 
-    if "overrides" in snakemake.input.keys():
+    # 检查输入文件是否存在
+    if not os.path.exists(snakemake.input.network):
+        raise FileNotFoundError(f"网络文件不存在: {snakemake.input.network}")
+    
+    if "overrides" in snakemake.input.__dict__.keys():
         overrides = override_component_attrs(snakemake.input.overrides)
         n = pypsa.Network(snakemake.input.network, override_component_attrs=overrides)
     else:
@@ -703,14 +777,14 @@ if __name__ == '__main__':
         }
         
         # 如果有overrides，也传递
-        if "overrides" in snakemake.input.keys():
+        if "overrides" in snakemake.input.__dict__.keys():
             iteration_kwargs["overrides"] = overrides
         
         # 使用迭代优化算法
         n = solve_network_iterative(
             n,
             config=snakemake.config,
-            solving=snakemake.params.solving,
+            solving=snakemake.params['solving'],
             opts=opts,
             max_iterations=max_iterations,
             convergence_tolerance=convergence_tolerance,
@@ -722,10 +796,14 @@ if __name__ == '__main__':
         n = solve_network_standard(
             n,
             config=snakemake.config,
-            solving=snakemake.params.solving,
+            solving=snakemake.params['solving'],
             opts=opts,
             log_fn=snakemake.log.solver,
         )
+
+    # 确保输出目录存在
+    output_dir = os.path.dirname(snakemake.output.network_name)
+    os.makedirs(output_dir, exist_ok=True)
 
     #n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
     n.links_t.p2 = n.links_t.p2.astype(float)
@@ -733,4 +811,7 @@ if __name__ == '__main__':
     if hasattr(n, 'links_t') and hasattr(n.links_t, 'p3'):
         # Convert DataFrame to numeric, handling any non-numeric values
         n.links_t.p3 = n.links_t.p3.apply(pd.to_numeric, errors='coerce').fillna(0.0)
-    n.export_to_netcdf(snakemake.output.network_name) 
+    
+    # 导出结果
+    n.export_to_netcdf(snakemake.output.network_name)
+    logger.info(f"结果已保存到: {snakemake.output.network_name}") 
