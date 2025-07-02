@@ -510,6 +510,13 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     # 记录每次迭代的时间
     iteration_times = []
     
+    # 记录求解器性能统计
+    solver_performance = {
+        'iteration_times': [],
+        'objective_values': [],
+        'convergence_info': []
+    }
+    
     # 保存原始网络文件路径和overrides，用于重新加载
     original_network_path = None
     original_overrides = None
@@ -522,6 +529,20 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     using_single_node = kwargs.get("using_single_node", False)
     single_node_province = kwargs.get("single_node_province", "Shandong")
     
+    # 检查是否启用热启动功能
+    use_warm_start = config.get("aluminum_warm_start", True)  # 默认启用热启动
+    logger.info(f"热启动功能: {'启用' if use_warm_start else '禁用'}")
+    
+    # 如果是Gurobi求解器，说明热启动机制
+    if solver_name.lower() == 'gurobi' and use_warm_start:
+        logger.info("Gurobi热启动机制说明:")
+        logger.info("  - 对于LP问题，Gurobi会自动重用上一次求解的最优基")
+        logger.info("  - 当问题结构变化不大时，可以显著加速求解")
+        logger.info("  - 不需要显式设置warmstart参数，Gurobi会自动处理")
+    
+    # 初始化当前网络 - 只在第一次迭代时创建
+    n_current = None
+    
     while iteration < max_iterations:
         iteration += 1
         iteration_start_time = time.time()  # 记录每次迭代开始时间
@@ -531,30 +552,42 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         # 步骤1: 使用连续化电解铝模型求解，得到节点电价
         logger.info("步骤1: 使用连续化电解铝模型求解")
         
-        # 重新加载网络，确保网络状态一致
-        if original_network_path:
-            if original_overrides:
-                n_current = pypsa.Network(original_network_path, override_component_attrs=original_overrides)
-            else:
-                n_current = pypsa.Network(original_network_path)
+        # 网络初始化策略：使用上一次的结果作为初值
+        if iteration == 1:
+            # 第一次迭代：重新加载网络
+            logger.info("第一次迭代：重新加载网络")
+            if original_network_path:
+                if original_overrides:
+                    n_current = pypsa.Network(original_network_path, override_component_attrs=original_overrides)
+                else:
+                    n_current = pypsa.Network(original_network_path)
+                
+                # 设置网络文件路径，用于后续可能的重新加载
+                n_current._network_path = original_network_path
+                if original_overrides:
+                    n_current._overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
             
-            # 设置网络文件路径，用于后续可能的重新加载
-            n_current._network_path = original_network_path
-            if original_overrides:
-                n_current._overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
-
-        
-        # 重新应用网络准备
-        n_current = prepare_network(
-            n_current,
-            kwargs.get("solve_opts", {}),
-            using_single_node=using_single_node,
-            single_node_province=single_node_province
-        )
-        
-        # 设置配置
-        n_current.config = config
-        n_current.opts = opts
+            # 重新应用网络准备
+            n_current = prepare_network(
+                n_current,
+                kwargs.get("solve_opts", {}),
+                using_single_node=using_single_node,
+                single_node_province=single_node_province
+            )
+            
+            # 设置配置
+            n_current.config = config
+            n_current.opts = opts
+        else:
+            # 后续迭代：使用上一次的网络结果作为初值
+            logger.info(f"第{iteration}次迭代：使用上一次的网络结果作为初值")
+            # n_current已经是上一次迭代的结果，直接使用
+            
+            # 清除上一次的求解结果，但保留网络结构
+            if hasattr(n_current, 'model'):
+                del n_current.model
+            if hasattr(n_current, 'objective'):
+                del n_current.objective
         
         # 重新创建电解铝冶炼设备，确保在步骤1中禁用电解铝启停约束
         aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
@@ -626,25 +659,65 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         try:
             # 只保留PyPSA支持的参数
             optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
+            
+            # 为后续迭代添加热启动选项（如果求解器支持）
+            if iteration > 1 and use_warm_start and solver_name.lower() in ['gurobi', 'cplex', 'cbc']:
+                # 对于支持热启动的求解器，可以设置相关参数
+                if solver_name.lower() == 'gurobi':
+                    # Gurobi会自动处理热启动，特别是对于LP问题
+                    # 不需要显式设置warmstart参数，让Gurobi自动利用上一次的基信息
+                    warm_start_options = {
+                        'presolve': 2,  # 启用预求解
+                        'method': 2,  # 使用障碍法，对热启动更友好
+                    }
+                    # 合并求解器选项
+                    current_solver_options = {**solver_options, **warm_start_options}
+                    logger.info(f"第{iteration}次迭代：启用Gurobi自动热启动（LP基重用）")
+                elif solver_name.lower() == 'cplex':
+                    warm_start_options = {
+                        'advance': 2,  # 启用高级启动
+                        'presolve': 1,  # 启用预求解
+                    }
+                    current_solver_options = {**solver_options, **warm_start_options}
+                    logger.info(f"第{iteration}次迭代：启用CPLEX热启动选项")
+                elif solver_name.lower() == 'cbc':
+                    warm_start_options = {
+                        'warmStart': 'on',  # 启用热启动
+                    }
+                    current_solver_options = {**solver_options, **warm_start_options}
+                    logger.info(f"第{iteration}次迭代：启用CBC热启动选项")
+                else:
+                    current_solver_options = solver_options
+            else:
+                current_solver_options = solver_options
+                if iteration > 1:
+                    if not use_warm_start:
+                        logger.info(f"第{iteration}次迭代：热启动功能已禁用")
+                    elif solver_name.lower() not in ['gurobi', 'cplex', 'cbc']:
+                        logger.info(f"第{iteration}次迭代：求解器 {solver_name} 不支持热启动")
+            
             if skip_iterations:
                 status, condition = n_current.optimize(
                     solver_name=solver_name,
+                    solver_options=current_solver_options,  # 使用solver_options参数传递求解器特定选项
                     extra_functionality=extra_functionality,
-                    **solver_options,
                     **optimize_kwargs,
                 )
             else:
                 status, condition = n_current.optimize.optimize_transmission_expansion_iteratively(
                     solver_name=solver_name,
+                    solver_options=current_solver_options,  # 使用solver_options参数传递求解器特定选项
                     track_iterations=track_iterations,
                     min_iterations=min_iterations,
                     max_iterations=max_transmission_iterations,
                     extra_functionality=extra_functionality,
-                    **solver_options,
                     **optimize_kwargs,
                 )
             
             logger.info("网络求解结束，获得节点电价")
+            
+            # 记录求解性能统计
+            solver_performance['iteration_times'].append(time.time() - iteration_start_time)
             
             # 获取当前目标函数值
             current_objective = None
@@ -855,6 +928,22 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         for i, t in enumerate(iteration_times, 1):
             logger.info(f"  第{i}次迭代: {t:.2f} 秒")
     
+    # 输出热启动效果分析
+    if len(solver_performance['iteration_times']) > 1 and use_warm_start:
+        logger.info(f"\n=== 热启动效果分析 ===")
+        first_iter_time = solver_performance['iteration_times'][0]
+        avg_later_iter_time = np.mean(solver_performance['iteration_times'][1:])
+        time_improvement = (first_iter_time - avg_later_iter_time) / first_iter_time * 100
+        
+        logger.info(f"第一次迭代耗时: {first_iter_time:.2f} 秒")
+        logger.info(f"后续迭代平均耗时: {avg_later_iter_time:.2f} 秒")
+        logger.info(f"热启动带来的时间改善: {time_improvement:.1f}%")
+        
+        if time_improvement > 0:
+            logger.info(f"✓ 热启动有效，平均加速 {time_improvement:.1f}%")
+        else:
+            logger.info(f"⚠ 热启动未带来明显改善，可能需要调整参数")
+    
     logger.info(f"电解铝迭代优化算法完成，共进行 {iteration} 次迭代")
     
     # 返回最终的网络结果
@@ -888,18 +977,18 @@ def solve_network_standard(n, config, solving, opts="", **kwargs):
         if skip_iterations:
             status, condition = n.optimize(
                 solver_name=solver_name,
+                solver_options=solver_options,  # 使用solver_options参数传递求解器特定选项
                 extra_functionality=extra_functionality,
-                **solver_options,
                 **optimize_kwargs,
             )
         else:
             status, condition = n.optimize.optimize_transmission_expansion_iteratively(
                 solver_name=solver_name,
+                solver_options=solver_options,  # 使用solver_options参数传递求解器特定选项
                 track_iterations=track_iterations,
                 min_iterations=min_iterations,
                 max_iterations=max_iterations,
                 extra_functionality=extra_functionality,
-                **solver_options,
                 **optimize_kwargs,
             )
 

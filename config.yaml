@@ -22,8 +22,9 @@ freq: '24h'
 add_aluminum: True
 iterative_optimization: True
 aluminum_commitment: False # keep False for iterative optimization
-aluminum_max_iterations: 2
-aluminum_convergence_tolerance: 0.01
+aluminum_max_iterations: 2  # 最大迭代次数
+aluminum_convergence_tolerance: 0.01  # 收敛阈值（1%）
+aluminum_warm_start: true  # 是否启用热启动功能（默认启用）
 
 scenario:
   line_limits: [ 'opt' ]
@@ -99,16 +100,16 @@ solving:
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
-  al_excess_rate: # aluminum excess rate
-    '2020': 0.00
-    '2025': 0.00
-    '2030': 0.30
-    '2035': 0.40
-    '2040': 0.50
-    '2045': 0.50
-    '2050': 0.50
-    '2055': 0.40
-    '2060': 0.30
+  al_excess_rate:
+    "2020": 0.0
+    "2025": 0.05
+    "2030": 0.1
+    "2035": 0.15
+    "2040": 0.2
+    "2045": 0.25
+    "2050": 0.3
+    "2055": 0.35
+    "2060": 0.4
 
   
   # Electrolyzer costs
