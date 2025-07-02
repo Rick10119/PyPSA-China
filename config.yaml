@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0701.1H.3
+version: 0701.1H.6
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: False
+using_single_node: True
 single_node_province: "Anhui"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
@@ -19,8 +19,8 @@ tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
 freq: '1h'
 
-add_aluminum: True
-iterative_optimization: True
+add_aluminum: False
+iterative_optimization: False
 aluminum_commitment: False # keep False for iterative optimization
 aluminum_max_iterations: 2
 aluminum_convergence_tolerance: 0.01
@@ -97,7 +97,7 @@ solving:
     max_iterations: 6
     skip_iterations: false
     formulation: kirchhoff
-    load_shedding: false
+    load_shedding: true
     noisy_costs: false
     clip_p_max_pu: 0.01
 

@@ -184,12 +184,16 @@ def plot_costs(infn, config, fn=None):
     fig, ax = plt.subplots()
     fig.set_size_inches((12,8))
 
+    # Filter out technologies that don't have color configuration
+    available_colors = [i for i in new_index if i in config['plotting']['tech_colors']]
+    df_filtered = df.loc[available_colors, new_columns]
+    
     # Plot stacked bars
-    df.loc[new_index,new_columns].T.plot(
+    df_filtered.T.plot(
         kind="bar",
         ax=ax,
         stacked=True,
-        color=[config['plotting']['tech_colors'][i] for i in new_index],
+        color=[config['plotting']['tech_colors'][i] for i in available_colors],
     )
 
     # Format legend
@@ -258,14 +262,18 @@ def plot_energy(infn, config, fn=None):
     fig, ax = plt.subplots()
     fig.set_size_inches((12,8))
 
-    logger.debug(df.loc[new_index, new_columns])
+    # Filter out technologies that don't have color configuration
+    available_colors = [i for i in new_index if i in config['plotting']['tech_colors']]
+    df_filtered = df.loc[available_colors, new_columns]
+    
+    logger.debug(df_filtered)
 
     # Plot stacked bars
-    df.loc[new_index,new_columns].T.plot(
+    df_filtered.T.plot(
         kind="bar",
         ax=ax,
         stacked=True,
-        color=[config['plotting']['tech_colors'][i] for i in new_index],
+        color=[config['plotting']['tech_colors'][i] for i in available_colors],
     )
 
     # Format legend

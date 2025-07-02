@@ -659,7 +659,7 @@ def calculate_weighted_prices(n, label, weighted_prices):
                 continue
 
             load += (
-                n.links_t.p0[names].groupby(n.links.loc[names, "bus0"], axis=1).sum()
+                n.links_t.p0[names].T.groupby(n.links.loc[names, "bus0"]).sum().T
             )
 
         # Add H2 Store when charging
@@ -712,8 +712,9 @@ def calculate_market_values(n, label, market_values):
             try:
                 dispatch = (
                     n.generators_t.p[gens]
-                    .groupby(n.generators.loc[gens, "bus"], axis=1)
+                    .T.groupby(n.generators.loc[gens, "bus"])
                     .sum()
+                    .T
                     .reindex(columns=available_buses, fill_value=0.0)
                 )
 
@@ -745,8 +746,9 @@ def calculate_market_values(n, label, market_values):
             try:
                 dispatch = (
                     n.links_t["p" + i][links]
-                    .groupby(n.links.loc[links, "bus" + i], axis=1)
+                    .T.groupby(n.links.loc[links, "bus" + i])
                     .sum()
+                    .T
                     .reindex(columns=available_buses, fill_value=0.0)
                 )
 
