@@ -12,6 +12,7 @@ import pandas as pd
 import pypsa
 import xarray as xr
 import os
+import time
 from _helpers import (
     configure_logging,
     override_component_attrs,
@@ -25,6 +26,19 @@ ALLOWED_OPTIMIZE_KWARGS = [
 
 logger = logging.getLogger(__name__)
 pypsa.pf.logger.setLevel(logging.WARNING)
+
+# 设置gurobipy和linopy的日志级别，避免输出info信息
+import logging
+gurobipy_logger = logging.getLogger('gurobipy')
+gurobipy_logger.setLevel(logging.WARNING)
+
+linopy_logger = logging.getLogger('linopy')
+linopy_logger.setLevel(logging.WARNING)
+
+# 设置linopy.model的日志级别
+linopy_model_logger = logging.getLogger('linopy.model')
+linopy_model_logger.setLevel(logging.WARNING)
+
 from pypsa.descriptors import get_switchable_as_dense as get_as_dense
 
 def prepare_network(
@@ -280,8 +294,6 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     # 为MILP问题使用专门的求解器设置
     if "MILP" in solving["solver_options"]:
         milp_solver_options = solving["solver_options"]["MILP"]
-        logger.info("为电解铝MILP问题使用专用MILP求解器设置")
-        logger.info(f"MILP求解器参数: {milp_solver_options}")
     else:
         milp_solver_options = solver_options
         logger.info("未找到MILP专用设置，使用标准求解器参数")
