@@ -282,10 +282,16 @@ def extra_functionality(n, snapshots, fixed_aluminum_usage=None):
     if snakemake.wildcards.planning_horizons != "2020":
         add_retrofit_constraints(n)
 
-def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, **kwargs):
+def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, target_province=None, **kwargs):
     """
-    电解铝最优运行问题求解
+    电解铝最优运行问题求解 - 单省份版本
     基于节点电价，运行以满足铝需求为约束的电解铝最优运行问题
+    只求解指定省份的电解铝优化问题
+    
+    Parameters:
+    -----------
+    target_province : str
+        目标省份名称，如"Shandong"、"Henan"等
     """
     set_of_options = solving["solver"]["options"]
     solver_options = solving["solver_options"][set_of_options] if set_of_options else {}
@@ -320,43 +326,59 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
         logger.error(f"读取电解铝生产比例数据失败: {e}")
         return None
     
-    # 找到所有电解铝相关的组件，但只保留生产比例大于阈值的省份
+    # 如果没有指定目标省份，返回None
+    if target_province is None:
+        logger.error("未指定目标省份")
+        return None
+    
+    # 检查目标省份是否在生产比例列表中
+    if target_province not in production_ratio.index:
+        logger.warning(f"目标省份 {target_province} 不在生产比例列表中或比例 <= 0.01")
+        return None
+    
+    logger.info(f"开始求解省份 {target_province} 的电解铝优化问题")
+    
+    # 找到指定省份的电解铝相关组件
     aluminum_buses = n.buses[n.buses.carrier == "aluminum"].index
     aluminum_smelters = n.links[n.links.carrier == "aluminum"].index
     aluminum_stores = n.stores[n.stores.carrier == "aluminum"].index
     aluminum_loads = n.loads[n.loads.bus.isin(aluminum_buses)].index
     
-    # 过滤出生产比例大于阈值的电解铝组件
-    filtered_provinces = production_ratio.index
-    filtered_aluminum_buses = [bus for bus in aluminum_buses if any(province in bus for province in filtered_provinces)]
-    filtered_aluminum_smelters = [smelter for smelter in aluminum_smelters if any(province in smelter for province in filtered_provinces)]
-    filtered_aluminum_stores = [store for store in aluminum_stores if any(province in store for province in filtered_provinces)]
-    filtered_aluminum_loads = [load for load in aluminum_loads if any(province in load for province in filtered_provinces)]
+    # 过滤出指定省份的电解铝组件
+    target_aluminum_buses = [bus for bus in aluminum_buses if target_province in bus]
+    target_aluminum_smelters = [smelter for smelter in aluminum_smelters if target_province in smelter]
+    target_aluminum_stores = [store for store in aluminum_stores if target_province in store]
+    target_aluminum_loads = [load for load in aluminum_loads if target_province in load]
     
-    logger.info(f"过滤后的电解铝组件:")
-    logger.info(f"  电解铝节点: {filtered_aluminum_buses}")
-    logger.info(f"  电解铝冶炼设备: {filtered_aluminum_smelters}")
-    logger.info(f"  电解铝存储: {filtered_aluminum_stores}")
-    logger.info(f"  电解铝负荷: {filtered_aluminum_loads}")
+    logger.info(f"省份 {target_province} 的电解铝组件:")
+    logger.info(f"  电解铝节点: {target_aluminum_buses}")
+    logger.info(f"  电解铝冶炼设备: {target_aluminum_smelters}")
+    logger.info(f"  电解铝存储: {target_aluminum_stores}")
+    logger.info(f"  电解铝负荷: {target_aluminum_loads}")
+    
+    # 如果没有找到该省份的电解铝组件，返回None
+    if not target_aluminum_smelters:
+        logger.warning(f"省份 {target_province} 没有找到电解铝冶炼设备")
+        return None
     
     # 重新设置电解铝冶炼设备的参数
-    for smelter in filtered_aluminum_smelters:
+    for smelter in target_aluminum_smelters:
         n.links.at[smelter, 'committable'] = config['aluminum_commitment']
         n.links.at[smelter, 'p_min_pu'] = config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0
     
     # 移除所有非电解铝相关的组件
     for component_type in ["Generator", "StorageUnit", "Store", "Link", "Load"]:
         if component_type == "Store":
-            # 保留过滤后的电解铝存储
-            other_stores = n.stores[~n.stores.index.isin(filtered_aluminum_stores)].index
+            # 保留指定省份的电解铝存储
+            other_stores = n.stores[~n.stores.index.isin(target_aluminum_stores)].index
             n.mremove(component_type, other_stores)
         elif component_type == "Link":
-            # 保留过滤后的电解铝冶炼设备
-            other_links = n.links[~n.links.index.isin(filtered_aluminum_smelters)].index
+            # 保留指定省份的电解铝冶炼设备
+            other_links = n.links[~n.links.index.isin(target_aluminum_smelters)].index
             n.mremove(component_type, other_links)
         elif component_type == "Load":
-            # 保留过滤后的电解铝负荷
-            other_loads = n.loads[~n.loads.index.isin(filtered_aluminum_loads)].index
+            # 保留指定省份的电解铝负荷
+            other_loads = n.loads[~n.loads.index.isin(target_aluminum_loads)].index
             n.mremove(component_type, other_loads)
         else:
             # 移除所有其他组件
@@ -403,13 +425,13 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
             **optimize_kwargs,
         )
         
-        logger.info("电解铝优化问题求解成功")
+        logger.info(f"省份 {target_province} 电解铝优化问题求解成功")
         # 提取电解铝用能模式
-        aluminum_usage = n.links_t.p0[filtered_aluminum_smelters].copy()
+        aluminum_usage = n.links_t.p0[target_aluminum_smelters].copy()
         return aluminum_usage
             
     except Exception as e:
-        logger.error(f"电解铝优化问题求解出错: {e}")
+        logger.error(f"省份 {target_province} 电解铝优化问题求解出错: {e}")
         return None
 
 def solve_network_iterative(n, config, solving, opts="", max_iterations=10, convergence_tolerance=0.01, **kwargs):
@@ -439,6 +461,42 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         logger.info("No expandable lines found. Skipping iterative solving.")
     
     logger.info("开始电解铝迭代优化算法")
+    
+    # 读取生产比例数据，获取需要优化的省份列表
+    try:
+        if 'snakemake' in globals():
+            production_ratio_path = snakemake.input.aluminum_production_ratio
+        else:
+            production_ratio_path = "data/p_nom/al_production_ratio.csv"
+        
+        production_ratio = pd.read_csv(production_ratio_path)
+        production_ratio = production_ratio.set_index('Province')['production_share_2023']
+        production_ratio = production_ratio[production_ratio > 0.01]
+        
+        # 检查哪些省份在网络中实际存在电解铝组件
+        available_provinces = []
+        for province in production_ratio.index:
+            # 检查该省份是否有电解铝冶炼设备
+            aluminum_smelters = n.links[n.links.carrier == "aluminum"].index
+            province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
+            
+            if province_smelters:
+                available_provinces.append(province)
+                logger.info(f"省份 {province} 在网络中找到 {len(province_smelters)} 个电解铝冶炼设备")
+            else:
+                logger.warning(f"省份 {province} 在网络中未找到电解铝冶炼设备，跳过")
+        
+        target_provinces = available_provinces
+        logger.info(f"电解铝迭代优化将处理以下省份（网络中存在）: {target_provinces}")
+        logger.info(f"各省份生产比例: {production_ratio.to_dict()}")
+        
+        if not target_provinces:
+            logger.error("没有找到任何在网络中存在的电解铝省份，无法进行迭代优化")
+            return None
+        
+    except Exception as e:
+        logger.error(f"读取生产比例数据失败: {e}")
+        return None
     
     # 记录总开始时间
     total_start_time = time.time()
@@ -635,23 +693,143 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
             if current_objective is not None:
                 previous_objective = current_objective
         
-        # 步骤3: 基于节点电价，运行电解铝最优运行问题
-        logger.info("步骤3: 运行电解铝最优运行问题")
+        # 步骤3: 基于节点电价，按省份运行电解铝最优运行问题
+        logger.info("步骤3: 按省份运行电解铝最优运行问题")
         
         # 恢复电解铝启停约束
         config["aluminum_commitment"] = True
         
-        # 求解电解铝优化问题，传递节点电价
-        new_aluminum_usage = solve_aluminum_optimization(n_current, config, solving, opts, nodal_prices=current_nodal_prices, **kwargs)
-        
-        if new_aluminum_usage is None:
-            logger.error("电解铝优化问题求解失败")
+        # 读取生产比例数据，获取需要优化的省份列表
+        try:
+            if 'snakemake' in globals():
+                production_ratio_path = snakemake.input.aluminum_production_ratio
+            else:
+                production_ratio_path = "data/p_nom/al_production_ratio.csv"
+            
+            production_ratio = pd.read_csv(production_ratio_path)
+            production_ratio = production_ratio.set_index('Province')['production_share_2023']
+            production_ratio = production_ratio[production_ratio > 0.01]
+            
+            # 检查哪些省份在网络中实际存在电解铝组件
+            available_provinces = []
+            for province in production_ratio.index:
+                # 检查该省份是否有电解铝冶炼设备
+                aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
+                province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
+                
+                if province_smelters:
+                    available_provinces.append(province)
+                    logger.info(f"省份 {province} 在网络中找到 {len(province_smelters)} 个电解铝冶炼设备")
+                else:
+                    logger.warning(f"省份 {province} 在网络中未找到电解铝冶炼设备，跳过")
+            
+            target_provinces = available_provinces
+            logger.info(f"需要优化的省份列表（网络中存在）: {target_provinces}")
+            
+            if not target_provinces:
+                logger.error("没有找到任何在网络中存在的电解铝省份")
+                break
+            
+        except Exception as e:
+            logger.error(f"读取生产比例数据失败: {e}")
             break
         
-        # 更新电解铝用能和目标函数值
-        aluminum_usage = new_aluminum_usage
-        previous_objective = current_objective
-        final_network = n_current
+        # 按省份逐个求解电解铝优化问题
+        all_aluminum_usage = {}
+        all_provinces_success = True
+        province_start_time = time.time()
+        
+        logger.info(f"开始按省份求解电解铝优化问题，共 {len(target_provinces)} 个省份")
+        
+        for i, province in enumerate(target_provinces, 1):
+            province_iter_start_time = time.time()
+            logger.info(f"开始求解省份 {province} 的电解铝优化问题 ({i}/{len(target_provinces)})")
+            
+            # 为每个省份创建网络副本
+            if original_network_path:
+                if original_overrides:
+                    n_province = pypsa.Network(original_network_path, override_component_attrs=original_overrides)
+                else:
+                    n_province = pypsa.Network(original_network_path)
+                
+                # 设置网络文件路径
+                n_province._network_path = original_network_path
+                if original_overrides:
+                    n_province._overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
+            
+            # 重新应用网络准备
+            n_province = prepare_network(
+                n_province,
+                kwargs.get("solve_opts", {}),
+                using_single_node=using_single_node,
+                single_node_province=single_node_province
+            )
+            
+            # 设置配置
+            n_province.config = config
+            n_province.opts = opts
+            
+            # 求解单个省份的电解铝优化问题
+            province_aluminum_usage = solve_aluminum_optimization(
+                n_province, 
+                config, 
+                solving, 
+                opts, 
+                nodal_prices=current_nodal_prices, 
+                target_province=province,
+                **kwargs
+            )
+            
+            province_iter_time = time.time() - province_iter_start_time
+            
+            if province_aluminum_usage is not None:
+                all_aluminum_usage[province] = province_aluminum_usage
+                logger.info(f"省份 {province} 电解铝优化求解成功，耗时: {province_iter_time:.2f} 秒")
+            else:
+                logger.error(f"省份 {province} 电解铝优化求解失败，耗时: {province_iter_time:.2f} 秒")
+                all_provinces_success = False
+                break
+        
+        province_total_time = time.time() - province_start_time
+        
+        if not all_provinces_success:
+            logger.error("部分省份电解铝优化问题求解失败")
+            break
+        
+        logger.info(f"所有省份电解铝优化求解完成，总耗时: {province_total_time:.2f} 秒")
+        
+        # 合并所有省份的电解铝用能结果
+        if all_aluminum_usage:
+            # 获取所有冶炼设备名称
+            all_smelters = []
+            for province_usage in all_aluminum_usage.values():
+                all_smelters.extend(province_usage.columns.tolist())
+            
+            # 创建合并后的DataFrame
+            merged_aluminum_usage = pd.DataFrame(index=current_nodal_prices.index, columns=all_smelters)
+            merged_aluminum_usage.fillna(0, inplace=True)
+            
+            # 填充各省份的数据
+            for province, province_usage in all_aluminum_usage.items():
+                for smelter in province_usage.columns:
+                    if smelter in merged_aluminum_usage.columns:
+                        merged_aluminum_usage[smelter] = province_usage[smelter]
+            
+            logger.info(f"成功合并 {len(all_aluminum_usage)} 个省份的电解铝用能结果")
+            logger.info(f"合并后的冶炼设备数量: {len(merged_aluminum_usage.columns)}")
+            logger.info(f"合并后的冶炼设备列表: {list(merged_aluminum_usage.columns)}")
+            
+            # 统计各省份的冶炼设备数量
+            for province, province_usage in all_aluminum_usage.items():
+                logger.info(f"  省份 {province}: {len(province_usage.columns)} 个冶炼设备")
+            
+            # 更新电解铝用能和目标函数值
+            aluminum_usage = merged_aluminum_usage
+            previous_objective = current_objective
+            final_network = n_current
+        else:
+            logger.error("没有成功求解任何省份的电解铝优化问题")
+            break
         
         # 记录本次迭代时间
         iteration_time = time.time() - iteration_start_time
@@ -664,9 +842,6 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     
     # 计算总时间
     total_time = time.time() - total_start_time
-    
-    if iteration >= max_iterations:
-        logger.warning(f"达到最大迭代次数 {max_iterations}，算法未完全收敛")
     
     # 输出时间统计
     logger.info(f"\n=== 迭代时间统计 ===")
