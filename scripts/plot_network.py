@@ -167,7 +167,7 @@ def plot_cost_map(
     new_index = preferred_order.intersection(df.index).append(
         df.index.difference(preferred_order)
     )
-    percent = round((df.sum()[1] / df.sum()[0]) * 100)
+    percent = round((df.sum().iloc[1] / df.sum().iloc[0]) * 100)
 
     # Create the figure and axes for the two maps
     fig, (ax1, ax2) = plt.subplots(1, 2, subplot_kw={"projection": ccrs.PlateCarree()})
@@ -317,7 +317,7 @@ def plot_cost_map(
     ax3.set_xticklabels(ax3.get_xticklabels(), rotation='horizontal')
     ax3.grid(axis="y")
     ax3.set_ylim([0, opts["costs_max"]])
-    ax3.text(0.85, (df.sum()[1] + 15), str(percent) + "%", color='black')
+    ax3.text(0.85, (df.sum().iloc[1] + 15), str(percent) + "%", color='black')
 
     fig.tight_layout()
 

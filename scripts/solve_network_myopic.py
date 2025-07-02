@@ -12,10 +12,16 @@ import pandas as pd
 import pypsa
 import xarray as xr
 import os
+import time
 from _helpers import (
     configure_logging,
     override_component_attrs,
 )
+
+# 添加并行计算相关的导入
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import functools
 
 # 允许传递给PyPSA optimize的参数
 ALLOWED_OPTIMIZE_KWARGS = [
@@ -25,6 +31,19 @@ ALLOWED_OPTIMIZE_KWARGS = [
 
 logger = logging.getLogger(__name__)
 pypsa.pf.logger.setLevel(logging.WARNING)
+
+# 设置gurobipy和linopy的日志级别，避免输出info信息
+import logging
+gurobipy_logger = logging.getLogger('gurobipy')
+gurobipy_logger.setLevel(logging.WARNING)
+
+linopy_logger = logging.getLogger('linopy')
+linopy_logger.setLevel(logging.WARNING)
+
+# 设置linopy.model的日志级别
+linopy_model_logger = logging.getLogger('linopy.model')
+linopy_model_logger.setLevel(logging.WARNING)
+
 from pypsa.descriptors import get_switchable_as_dense as get_as_dense
 
 def prepare_network(
@@ -35,8 +54,6 @@ def prepare_network(
 ):
     # 检查是否启用单节点模式
     if using_single_node:
-        logger.info(f"启用单节点模式，只保留 {single_node_province} 省份的组件")
-        
         # Filter to keep only specified province components
         province_buses = n.buses[n.buses.index.str.contains(single_node_province)].index
         
@@ -69,8 +86,6 @@ def prepare_network(
         
         # Finally remove non-province buses
         n.mremove("Bus", non_province_buses)
-        
-        logger.info(f"单节点过滤完成，保留了 {len(province_buses)} 个节点")
     
     # Fix any remaining links that might have undefined buses
     for link in n.links.index:
@@ -268,10 +283,16 @@ def extra_functionality(n, snapshots, fixed_aluminum_usage=None):
     if snakemake.wildcards.planning_horizons != "2020":
         add_retrofit_constraints(n)
 
-def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, **kwargs):
+def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, target_province=None, **kwargs):
     """
-    电解铝最优运行问题求解
+    电解铝最优运行问题求解 - 单省份版本
     基于节点电价，运行以满足铝需求为约束的电解铝最优运行问题
+    只求解指定省份的电解铝优化问题
+    
+    Parameters:
+    -----------
+    target_province : str
+        目标省份名称，如"Shandong"、"Henan"等
     """
     set_of_options = solving["solver"]["options"]
     solver_options = solving["solver_options"][set_of_options] if set_of_options else {}
@@ -280,71 +301,65 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     # 为MILP问题使用专门的求解器设置
     if "MILP" in solving["solver_options"]:
         milp_solver_options = solving["solver_options"]["MILP"]
-        logger.info("为电解铝MILP问题使用专用MILP求解器设置")
-        logger.info(f"MILP求解器参数: {milp_solver_options}")
     else:
         milp_solver_options = solver_options
-        logger.info("未找到MILP专用设置，使用标准求解器参数")
     
     # 读取生产比例数据并过滤
-    try:
-        # 从snakemake.input中获取aluminum_production_ratio文件路径
-        if 'snakemake' in globals():
-            production_ratio_path = snakemake.input.aluminum_production_ratio
-        else:
-            # 如果没有snakemake，使用默认路径
-            production_ratio_path = "data/p_nom/al_production_ratio.csv"
-        
-        production_ratio = pd.read_csv(production_ratio_path)
-        production_ratio = production_ratio.set_index('Province')['production_share_2023']
-        
-        # 过滤出生产比例大于0.01的省份（与prepare_base_network保持一致）
-        production_ratio = production_ratio[production_ratio > 0.01]
-        
-        logger.info(f"电解铝生产比例过滤后的省份: {list(production_ratio.index)}")
-        logger.info(f"生产比例: {production_ratio.to_dict()}")
-        
-    except Exception as e:
-        logger.error(f"读取电解铝生产比例数据失败: {e}")
+    # 从snakemake.input中获取aluminum_production_ratio文件路径
+    if 'snakemake' in globals():
+        production_ratio_path = snakemake.input.aluminum_production_ratio
+    else:
+        # 如果没有snakemake，使用默认路径
+        production_ratio_path = "data/p_nom/al_production_ratio.csv"
+    
+    production_ratio = pd.read_csv(production_ratio_path)
+    production_ratio = production_ratio.set_index('Province')['production_share_2023']
+    
+    # 过滤出生产比例大于0.01的省份（与prepare_base_network保持一致）
+    production_ratio = production_ratio[production_ratio > 0.01]
+    
+    # 如果没有指定目标省份，返回None
+    if target_province is None:
         return None
     
-    # 找到所有电解铝相关的组件，但只保留生产比例大于阈值的省份
+    # 检查目标省份是否在生产比例列表中
+    if target_province not in production_ratio.index:
+        return None
+    
+    # 找到指定省份的电解铝相关组件
     aluminum_buses = n.buses[n.buses.carrier == "aluminum"].index
     aluminum_smelters = n.links[n.links.carrier == "aluminum"].index
     aluminum_stores = n.stores[n.stores.carrier == "aluminum"].index
     aluminum_loads = n.loads[n.loads.bus.isin(aluminum_buses)].index
     
-    # 过滤出生产比例大于阈值的电解铝组件
-    filtered_provinces = production_ratio.index
-    filtered_aluminum_buses = [bus for bus in aluminum_buses if any(province in bus for province in filtered_provinces)]
-    filtered_aluminum_smelters = [smelter for smelter in aluminum_smelters if any(province in smelter for province in filtered_provinces)]
-    filtered_aluminum_stores = [store for store in aluminum_stores if any(province in store for province in filtered_provinces)]
-    filtered_aluminum_loads = [load for load in aluminum_loads if any(province in load for province in filtered_provinces)]
+    # 过滤出指定省份的电解铝组件
+    target_aluminum_buses = [bus for bus in aluminum_buses if target_province in bus]
+    target_aluminum_smelters = [smelter for smelter in aluminum_smelters if target_province in smelter]
+    target_aluminum_stores = [store for store in aluminum_stores if target_province in store]
+    target_aluminum_loads = [load for load in aluminum_loads if target_province in load]
     
-    logger.info(f"过滤后的电解铝组件:")
-    logger.info(f"  电解铝节点: {filtered_aluminum_buses}")
-    logger.info(f"  电解铝冶炼设备: {filtered_aluminum_smelters}")
-    logger.info(f"  电解铝存储: {filtered_aluminum_stores}")
-    logger.info(f"  电解铝负荷: {filtered_aluminum_loads}")
+    # 如果没有找到该省份的电解铝组件，返回None
+    if not target_aluminum_smelters:
+        return None
     
     # 重新设置电解铝冶炼设备的参数
-    for smelter in filtered_aluminum_smelters:
+    for smelter in target_aluminum_smelters:
         n.links.at[smelter, 'committable'] = config['aluminum_commitment']
         n.links.at[smelter, 'p_min_pu'] = config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0
     
     # 移除所有非电解铝相关的组件
     for component_type in ["Generator", "StorageUnit", "Store", "Link", "Load"]:
         if component_type == "Store":
-            # 保留过滤后的电解铝存储
-            other_stores = n.stores[~n.stores.index.isin(filtered_aluminum_stores)].index
+            # 保留指定省份的电解铝存储
+            other_stores = n.stores[~n.stores.index.isin(target_aluminum_stores)].index
             n.mremove(component_type, other_stores)
         elif component_type == "Link":
-            # 保留过滤后的电解铝冶炼设备
-            other_links = n.links[~n.links.index.isin(filtered_aluminum_smelters)].index
+            # 保留指定省份的电解铝冶炼设备
+            other_links = n.links[~n.links.index.isin(target_aluminum_smelters)].index
             n.mremove(component_type, other_links)
         elif component_type == "Load":
-            # 保留过滤后的电解铝负荷
-            other_loads = n.loads[~n.loads.index.isin(filtered_aluminum_loads)].index
+            # 保留指定省份的电解铝负荷
+            other_loads = n.loads[~n.loads.index.isin(target_aluminum_loads)].index
             n.mremove(component_type, other_loads)
         else:
             # 移除所有其他组件
@@ -368,7 +383,6 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
         if bus in nodal_prices.columns:
             # 如果该节点有对应的边际电价，使用该节点的电价
             marginal_cost = nodal_prices[bus]
-            logger.info(f"为节点 {bus} 使用其对应的边际电价")
             
         n.add("Generator",
             f"virtual_gen_{bus}",
@@ -376,29 +390,156 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
             carrier="virtual",
             p_nom=1e6,  # 大容量
             marginal_cost=marginal_cost)  # 使用节点边际电价作为边际成本
-            
-    # 打印所有bus:
-    logger.info(f"所有bus: {n.buses.index}")
     
     # 求解电解铝优化问题
-    try:
-        # 只保留PyPSA支持的参数
-        optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
-        status, condition = n.optimize(
-            solver_name=solver_name,
-            extra_functionality=extra_functionality,
-            **milp_solver_options,  # 使用MILP专用参数
-            **optimize_kwargs,
-        )
+    # 只保留PyPSA支持的参数
+    optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
+    status, condition = n.optimize(
+        solver_name=solver_name,
+        extra_functionality=extra_functionality,
+        **milp_solver_options,  # 使用MILP专用参数
+        **optimize_kwargs,
+    )
+    
+    # 提取电解铝用能模式
+    aluminum_usage = n.links_t.p0[target_aluminum_smelters].copy()
+    return aluminum_usage
+
+def solve_aluminum_optimization_parallel_wrapper(args):
+    """
+    并行化电解铝优化的包装函数
+    这个函数需要在独立的进程中运行，因此需要接收所有必要的参数
+    
+    Parameters:
+    -----------
+    args : tuple
+        包含所有必要参数的元组:
+        (original_network_path, original_overrides, config, solving, opts, 
+         nodal_prices, target_province, solve_opts, using_single_node, 
+         single_node_province, overrides_path, **kwargs)
+    
+    Returns:
+    --------
+    tuple : (province, aluminum_usage) 或 (province, None)
+    """
+    # 解包参数
+    (original_network_path, original_overrides, config, solving, opts, 
+     nodal_prices, target_province, solve_opts, using_single_node, 
+     single_node_province, overrides_path, kwargs_dict) = args
+    
+    # 重新创建网络
+    if original_overrides:
+        n_province = pypsa.Network(original_network_path, override_component_attrs=original_overrides)
+    else:
+        n_province = pypsa.Network(original_network_path)
+    
+    # 设置网络文件路径
+    n_province._network_path = original_network_path
+    if original_overrides:
+        n_province._overrides_path = overrides_path
+    
+    # 重新应用网络准备
+    n_province = prepare_network(
+        n_province,
+        solve_opts,
+        using_single_node=using_single_node,
+        single_node_province=single_node_province
+    )
+    
+    # 设置配置
+    n_province.config = config
+    n_province.opts = opts
+    
+    # 求解单个省份的电解铝优化问题
+    province_aluminum_usage = solve_aluminum_optimization(
+        n_province, 
+        config, 
+        solving, 
+        opts, 
+        nodal_prices=nodal_prices, 
+        target_province=target_province,
+        **kwargs_dict
+    )
+    
+    return (target_province, province_aluminum_usage)
+
+def solve_aluminum_optimization_parallel(target_provinces, original_network_path, original_overrides, 
+                                       config, solving, opts, current_nodal_prices, 
+                                       solve_opts, using_single_node, single_node_province, 
+                                       overrides_path, max_workers=None, **kwargs):
+    """
+    并行求解多个省份的电解铝优化问题
+    
+    Parameters:
+    -----------
+    target_provinces : list
+        需要优化的省份列表
+    original_network_path : str
+        原始网络文件路径
+    original_overrides : dict or None
+        原始覆盖配置
+    config : dict
+        配置字典
+    solving : dict
+        求解配置
+    opts : list
+        选项列表
+    current_nodal_prices : pd.DataFrame
+        当前节点电价
+    solve_opts : dict
+        求解选项
+    using_single_node : bool
+        是否使用单节点模式
+    single_node_province : str
+        单节点省份名称
+    overrides_path : str
+        覆盖文件路径
+    max_workers : int, optional
+        最大并行进程数，默认为CPU核心数
+    **kwargs : dict
+        其他参数
+    
+    Returns:
+    --------
+    dict : {province: aluminum_usage} 或 None
+    """
+    if not target_provinces:
+        return {}
+    
+    # 设置最大并行进程数
+    if max_workers is None:
+        max_workers = min(len(target_provinces), mp.cpu_count())
+    
+    # 准备参数
+    args_list = []
+    for province in target_provinces:
+        args = (original_network_path, original_overrides, config, solving, opts,
+                current_nodal_prices, province, solve_opts, using_single_node,
+                single_node_province, overrides_path, kwargs)
+        args_list.append(args)
+    
+    # 使用进程池并行执行
+    all_aluminum_usage = {}
+    
+    start_time = time.time()
+    
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # 提交所有任务
+        future_to_province = {
+            executor.submit(solve_aluminum_optimization_parallel_wrapper, args): args[6]  # args[6] 是 target_province
+            for args in args_list
+        }
         
-        logger.info("电解铝优化问题求解成功")
-        # 提取电解铝用能模式
-        aluminum_usage = n.links_t.p0[filtered_aluminum_smelters].copy()
-        return aluminum_usage
+        # 收集结果
+        for future in as_completed(future_to_province):
+            result_province, province_aluminum_usage = future.result()
             
-    except Exception as e:
-        logger.error(f"电解铝优化问题求解出错: {e}")
-        return None
+            if province_aluminum_usage is not None:
+                all_aluminum_usage[result_province] = province_aluminum_usage
+    
+    total_time = time.time() - start_time
+    
+    return all_aluminum_usage
 
 def solve_network_iterative(n, config, solving, opts="", max_iterations=10, convergence_tolerance=0.01, **kwargs):
     """
@@ -424,9 +565,33 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     skip_iterations = cf_solving.get("skip_iterations", False)
     if not n.lines.s_nom_extendable.any():
         skip_iterations = True
-        logger.info("No expandable lines found. Skipping iterative solving.")
     
-    logger.info("开始电解铝迭代优化算法")
+
+    
+    # 读取生产比例数据，获取需要优化的省份列表
+    if 'snakemake' in globals():
+        production_ratio_path = snakemake.input.aluminum_production_ratio
+    else:
+        production_ratio_path = "data/p_nom/al_production_ratio.csv"
+    
+    production_ratio = pd.read_csv(production_ratio_path)
+    production_ratio = production_ratio.set_index('Province')['production_share_2023']
+    production_ratio = production_ratio[production_ratio > 0.01]
+    
+    # 检查哪些省份在网络中实际存在电解铝组件
+    available_provinces = []
+    for province in production_ratio.index:
+        # 检查该省份是否有电解铝冶炼设备
+        aluminum_smelters = n.links[n.links.carrier == "aluminum"].index
+        province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
+        
+        if province_smelters:
+            available_provinces.append(province)
+    
+    target_provinces = available_provinces
+    
+    if not target_provinces:
+        return None
     
     # 记录总开始时间
     total_start_time = time.time()
@@ -440,6 +605,13 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     # 记录每次迭代的时间
     iteration_times = []
     
+    # 记录求解器性能统计
+    solver_performance = {
+        'iteration_times': [],
+        'objective_values': [],
+        'convergence_info': []
+    }
+    
     # 保存原始网络文件路径和overrides，用于重新加载
     original_network_path = None
     original_overrides = None
@@ -452,39 +624,51 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     using_single_node = kwargs.get("using_single_node", False)
     single_node_province = kwargs.get("single_node_province", "Shandong")
     
+
+    
+    # 初始化当前网络 - 只在第一次迭代时创建
+    n_current = None
+    
     while iteration < max_iterations:
         iteration += 1
         iteration_start_time = time.time()  # 记录每次迭代开始时间
         
-        logger.info(f"开始第 {iteration} 次迭代")
-        
-        # 步骤1: 使用连续化电解铝模型求解，得到节点电价
-        logger.info("步骤1: 使用连续化电解铝模型求解")
-        
-        # 重新加载网络，确保网络状态一致
-        if original_network_path:
-            if original_overrides:
-                n_current = pypsa.Network(original_network_path, override_component_attrs=original_overrides)
-            else:
-                n_current = pypsa.Network(original_network_path)
-            
-            # 设置网络文件路径，用于后续可能的重新加载
-            n_current._network_path = original_network_path
-            if original_overrides:
-                n_current._overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
 
         
-        # 重新应用网络准备
-        n_current = prepare_network(
-            n_current,
-            kwargs.get("solve_opts", {}),
-            using_single_node=using_single_node,
-            single_node_province=single_node_province
-        )
-        
-        # 设置配置
-        n_current.config = config
-        n_current.opts = opts
+        # 网络初始化策略：使用上一次的结果作为初值
+        if iteration == 1:
+            # 第一次迭代：重新加载网络
+            if original_network_path:
+                if original_overrides:
+                    n_current = pypsa.Network(original_network_path, override_component_attrs=original_overrides)
+                else:
+                    n_current = pypsa.Network(original_network_path)
+                
+                # 设置网络文件路径，用于后续可能的重新加载
+                n_current._network_path = original_network_path
+                if original_overrides:
+                    n_current._overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
+            
+            # 重新应用网络准备
+            n_current = prepare_network(
+                n_current,
+                kwargs.get("solve_opts", {}),
+                using_single_node=using_single_node,
+                single_node_province=single_node_province
+            )
+            
+            # 设置配置
+            n_current.config = config
+            n_current.opts = opts
+        else:
+            # 后续迭代：使用上一次的网络结果作为初值
+            # n_current已经是上一次迭代的结果，直接使用
+            
+            # 清除上一次的求解结果，但保留网络结构
+            if hasattr(n_current, 'model'):
+                del n_current.model
+            if hasattr(n_current, 'objective'):
+                del n_current.objective
         
         # 重新创建电解铝冶炼设备，确保在步骤1中禁用电解铝启停约束
         aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
@@ -528,7 +712,6 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         
         # 如果有固定的电解铝用能，需要添加约束
         if aluminum_usage is not None:
-            logger.info("根据电解铝用能模式设置动态约束")
             # 根据电解铝用能模式动态设置约束
             for smelter in aluminum_usage.columns:
                 if smelter in n_current.links.index:
@@ -547,58 +730,49 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                             # 设置最小出力比例，可以根据实际需求调整
                             min_pu = config['aluminum'].get('al_p_min_pu', 0.9)  # 默认30%最小出力
                             n_current.links_t.p_min_pu.at[n_current.snapshots[i], smelter] = min_pu
-                    
-                    logger.info(f"为电解铝冶炼设备 {smelter} 设置动态约束")
-                    logger.info(f"  零出力时段数: {np.sum(aluminum_power == 0)}")
-                    logger.info(f"  非零出力时段数: {np.sum(aluminum_power > 0)}")
         
         # 求解网络
-        try:
-            # 只保留PyPSA支持的参数
-            optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
-            if skip_iterations:
-                status, condition = n_current.optimize(
-                    solver_name=solver_name,
-                    extra_functionality=extra_functionality,
-                    **solver_options,
-                    **optimize_kwargs,
-                )
-            else:
-                status, condition = n_current.optimize.optimize_transmission_expansion_iteratively(
-                    solver_name=solver_name,
-                    track_iterations=track_iterations,
-                    min_iterations=min_iterations,
-                    max_iterations=max_transmission_iterations,
-                    extra_functionality=extra_functionality,
-                    **solver_options,
-                    **optimize_kwargs,
-                )
-            
-            logger.info("网络求解结束，获得节点电价")
-            
-            # 获取当前目标函数值
-            current_objective = None
-            if hasattr(n_current, 'objective'):
-                current_objective = n_current.objective
-            elif hasattr(n_current, 'model') and hasattr(n_current.model, 'objective_value'):
-                current_objective = n_current.model.objective_value
-            
-            # 提取当前迭代的节点电价（用于电解铝优化）
-            current_nodal_prices = None
-            if hasattr(n_current, 'buses_t') and hasattr(n_current.buses_t, 'marginal_price'):
-                # 获取所有carrier为"AC"的电力节点的边际电价
-                electricity_buses = n_current.buses[n_current.buses.carrier == "AC"].index
-                if len(electricity_buses) > 0:
-                    # 使用所有AC节点的边际电价
-                    current_nodal_prices = n_current.buses_t.marginal_price[electricity_buses]
-                    logger.info(f"提取节点电价: 共 {len(electricity_buses)} 个AC节点")
-                    logger.info(f"节点列表: {list(electricity_buses)}")
-                else:
-                    logger.warning("未找到carrier为AC的节点，无法提取节点电价")
-            
-        except Exception as e:
-            logger.error(f"网络求解出错: {e}")
-            break
+        # 只保留PyPSA支持的参数
+        optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
+        
+        current_solver_options = solver_options
+        
+        if skip_iterations:
+            status, condition = n_current.optimize(
+                solver_name=solver_name,
+                solver_options=current_solver_options,  # 使用solver_options参数传递求解器特定选项
+                extra_functionality=extra_functionality,
+                **optimize_kwargs,
+            )
+        else:
+            status, condition = n_current.optimize.optimize_transmission_expansion_iteratively(
+                solver_name=solver_name,
+                solver_options=current_solver_options,  # 使用solver_options参数传递求解器特定选项
+                track_iterations=track_iterations,
+                min_iterations=min_iterations,
+                max_iterations=max_transmission_iterations,
+                extra_functionality=extra_functionality,
+                **optimize_kwargs,
+            )
+        
+        # 记录求解性能统计
+        solver_performance['iteration_times'].append(time.time() - iteration_start_time)
+        
+        # 获取当前目标函数值
+        current_objective = None
+        if hasattr(n_current, 'objective'):
+            current_objective = n_current.objective
+        elif hasattr(n_current, 'model') and hasattr(n_current.model, 'objective_value'):
+            current_objective = n_current.model.objective_value
+        
+        # 提取当前迭代的节点电价（用于电解铝优化）
+        current_nodal_prices = None
+        if hasattr(n_current, 'buses_t') and hasattr(n_current.buses_t, 'marginal_price'):
+            # 获取所有carrier为"AC"的电力节点的边际电价
+            electricity_buses = n_current.buses[n_current.buses.carrier == "AC"].index
+            if len(electricity_buses) > 0:
+                # 使用所有AC节点的边际电价
+                current_nodal_prices = n_current.buses_t.marginal_price[electricity_buses]
         
         # 步骤2: 检查收敛性 - 基于步骤一的目标函数变化的相对值
         if previous_objective is not None and current_objective is not None:
@@ -606,16 +780,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
             objective_change = abs(current_objective - previous_objective)
             relative_change = objective_change / abs(previous_objective) if abs(previous_objective) > 1e-10 else float('inf')
             
-            logger.info(f"步骤一目标函数变化统计:")
-            logger.info(f"  当前目标函数值: {current_objective:.6e}")
-            logger.info(f"  上次目标函数值: {previous_objective:.6e}")
-            logger.info(f"  绝对变化: {objective_change:.6e}")
-            logger.info(f"  相对变化: {relative_change:.6f} ({relative_change*100:.2f}%)")
-            logger.info(f"  收敛阈值: {convergence_tolerance:.6f} ({convergence_tolerance*100:.2f}%)")
-            
             if relative_change < convergence_tolerance:
-                logger.info(f"算法收敛，在第 {iteration} 次迭代后停止")
-                logger.info(f"目标函数相对变化 {relative_change:.6f} ({relative_change*100:.2f}%) < 收敛阈值 {convergence_tolerance:.6f} ({convergence_tolerance*100:.2f}%)")
                 final_network = n_current
                 break
         else:
@@ -623,52 +788,132 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
             if current_objective is not None:
                 previous_objective = current_objective
         
-        # 步骤3: 基于节点电价，运行电解铝最优运行问题
-        logger.info("步骤3: 运行电解铝最优运行问题")
-        
         # 恢复电解铝启停约束
         config["aluminum_commitment"] = True
         
-        # 求解电解铝优化问题，传递节点电价
-        new_aluminum_usage = solve_aluminum_optimization(n_current, config, solving, opts, nodal_prices=current_nodal_prices, **kwargs)
+        # 读取生产比例数据，获取需要优化的省份列表
+        if 'snakemake' in globals():
+            production_ratio_path = snakemake.input.aluminum_production_ratio
+        else:
+            production_ratio_path = "data/p_nom/al_production_ratio.csv"
         
-        if new_aluminum_usage is None:
-            logger.error("电解铝优化问题求解失败")
+        production_ratio = pd.read_csv(production_ratio_path)
+        production_ratio = production_ratio.set_index('Province')['production_share_2023']
+        production_ratio = production_ratio[production_ratio > 0.01]
+        
+        # 检查哪些省份在网络中实际存在电解铝组件
+        available_provinces = []
+        for province in production_ratio.index:
+            # 检查该省份是否有电解铝冶炼设备
+            aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
+            province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
+            
+            if province_smelters:
+                available_provinces.append(province)
+        
+        target_provinces = available_provinces
+        
+        if not target_provinces:
             break
         
+        # 求解多个省份的电解铝优化问题（支持并行和串行）
+        # 获取并行计算参数
+        max_workers = kwargs.get("max_workers", None)  # 可以从kwargs中获取最大进程数
+        overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
+        use_parallel = kwargs.get("max_workers") is not None  # 如果指定了max_workers，则使用并行
+        
+        if use_parallel:
+            # 使用并行函数求解
+            all_aluminum_usage = solve_aluminum_optimization_parallel(
+                target_provinces=target_provinces,
+                original_network_path=original_network_path,
+                original_overrides=original_overrides,
+                config=config,
+                solving=solving,
+                opts=opts,
+                current_nodal_prices=current_nodal_prices,
+                solve_opts=kwargs.get("solve_opts", {}),
+                using_single_node=using_single_node,
+                single_node_province=single_node_province,
+                overrides_path=overrides_path,
+                max_workers=max_workers,
+                **kwargs
+            )
+        else:
+            # 使用原来的串行方法
+            all_aluminum_usage = {}
+            
+            for province in target_provinces:
+                # 为每个省份创建网络副本
+                if original_network_path:
+                    if original_overrides:
+                        n_province = pypsa.Network(original_network_path, override_component_attrs=original_overrides)
+                    else:
+                        n_province = pypsa.Network(original_network_path)
+                    
+                    # 设置网络文件路径
+                    n_province._network_path = original_network_path
+                    if original_overrides:
+                        n_province._overrides_path = overrides_path
+                
+                # 重新应用网络准备
+                n_province = prepare_network(
+                    n_province,
+                    kwargs.get("solve_opts", {}),
+                    using_single_node=using_single_node,
+                    single_node_province=single_node_province
+                )
+                
+                # 设置配置
+                n_province.config = config
+                n_province.opts = opts
+                
+                # 求解单个省份的电解铝优化问题
+                province_aluminum_usage = solve_aluminum_optimization(
+                    n_province, 
+                    config, 
+                    solving, 
+                    opts, 
+                    nodal_prices=current_nodal_prices, 
+                    target_province=province,
+                    **kwargs
+                )
+                
+                if province_aluminum_usage is not None:
+                    all_aluminum_usage[province] = province_aluminum_usage
+        
+        if not all_aluminum_usage:
+            break
+        
+        # 合并所有省份的电解铝用能结果
+        # 获取所有冶炼设备名称
+        all_smelters = []
+        for province_usage in all_aluminum_usage.values():
+            all_smelters.extend(province_usage.columns.tolist())
+        
+        # 创建合并后的DataFrame
+        merged_aluminum_usage = pd.DataFrame(index=current_nodal_prices.index, columns=all_smelters)
+        merged_aluminum_usage.fillna(0, inplace=True)
+        
+        # 填充各省份的数据
+        for province, province_usage in all_aluminum_usage.items():
+            for smelter in province_usage.columns:
+                if smelter in merged_aluminum_usage.columns:
+                    merged_aluminum_usage[smelter] = province_usage[smelter]
+        
         # 更新电解铝用能和目标函数值
-        aluminum_usage = new_aluminum_usage
+        aluminum_usage = merged_aluminum_usage
         previous_objective = current_objective
         final_network = n_current
         
         # 记录本次迭代时间
         iteration_time = time.time() - iteration_start_time
         iteration_times.append(iteration_time)
-        
-        logger.info(f"第 {iteration} 次迭代完成，耗时: {iteration_time:.2f} 秒")
     
     # 恢复原始配置
     config["aluminum_commitment"] = original_commitment
     
-    # 计算总时间
-    total_time = time.time() - total_start_time
-    
-    if iteration >= max_iterations:
-        logger.warning(f"达到最大迭代次数 {max_iterations}，算法未完全收敛")
-    
-    # 输出时间统计
-    logger.info(f"\n=== 迭代时间统计 ===")
-    logger.info(f"总迭代次数: {iteration}")
-    logger.info(f"总耗时: {total_time:.2f} 秒 ({total_time/60:.2f} 分钟)")
-    if iteration_times:
-        logger.info(f"平均每次迭代耗时: {np.mean(iteration_times):.2f} 秒")
-        logger.info(f"最快迭代耗时: {np.min(iteration_times):.2f} 秒")
-        logger.info(f"最慢迭代耗时: {np.max(iteration_times):.2f} 秒")
-        logger.info(f"迭代时间详情:")
-        for i, t in enumerate(iteration_times, 1):
-            logger.info(f"  第{i}次迭代: {t:.2f} 秒")
-    
-    logger.info(f"电解铝迭代优化算法完成，共进行 {iteration} 次迭代")
+
     
     # 返回最终的网络结果
     return final_network
@@ -692,46 +937,33 @@ def solve_network_standard(n, config, solving, opts="", **kwargs):
     skip_iterations = cf_solving.get("skip_iterations", False)
     if not n.lines.s_nom_extendable.any():
         skip_iterations = True
-        logger.info("No expandable lines found. Skipping iterative solving.")
     
     # 使用标准参数求解
-    try:
-        # 只保留PyPSA支持的参数
-        optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
-        if skip_iterations:
-            status, condition = n.optimize(
-                solver_name=solver_name,
-                extra_functionality=extra_functionality,
-                **solver_options,
-                **optimize_kwargs,
-            )
-        else:
-            status, condition = n.optimize.optimize_transmission_expansion_iteratively(
-                solver_name=solver_name,
-                track_iterations=track_iterations,
-                min_iterations=min_iterations,
-                max_iterations=max_iterations,
-                extra_functionality=extra_functionality,
-                **solver_options,
-                **optimize_kwargs,
-            )
-
-        logger.info("标准求解成功")
-
-    except Exception as e:
-        logger.error(f"标准求解失败: {e}")
-        raise e
+    # 只保留PyPSA支持的参数
+    optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
+    if skip_iterations:
+        status, condition = n.optimize(
+            solver_name=solver_name,
+            solver_options=solver_options,  # 使用solver_options参数传递求解器特定选项
+            extra_functionality=extra_functionality,
+            **optimize_kwargs,
+        )
+    else:
+        status, condition = n.optimize.optimize_transmission_expansion_iteratively(
+            solver_name=solver_name,
+            solver_options=solver_options,  # 使用solver_options参数传递求解器特定选项
+            track_iterations=track_iterations,
+            min_iterations=min_iterations,
+            max_iterations=max_iterations,
+            extra_functionality=extra_functionality,
+            **optimize_kwargs,
+        )
 
     # Store the objective value from the model (兼容性处理)
-    try:
-        if hasattr(n.model, 'objective_value'):
-            n.objective = n.model.objective_value
-        elif hasattr(n.model, 'objective'):
-            n.objective = n.model.objective.value
-        else:
-            logger.warning("Could not find objective value in model")
-    except Exception as e:
-        logger.warning(f"Error accessing objective value: {e}")
+    if hasattr(n.model, 'objective_value'):
+        n.objective = n.model.objective_value
+    elif hasattr(n.model, 'objective'):
+        n.objective = n.model.objective.value
 
     return n
 
@@ -782,21 +1014,11 @@ if __name__ == '__main__':
     
     # 检查电解铝过剩率条件
     aluminum_excess_rate_condition = False
-    try:
-        if (snakemake.config.get("aluminum", {}).get("al_excess_rate", {}).get(planning_horizons, 0) > 0.01):
-            aluminum_excess_rate_condition = True
-            logger.info(f"电解铝过剩率条件满足: {snakemake.config['aluminum']['al_excess_rate'][planning_horizons]:.3f} > 0.01")
-        else:
-            logger.info(f"电解铝过剩率条件不满足: {snakemake.config.get('aluminum', {}).get('al_excess_rate', {}).get(planning_horizons, 0):.3f} <= 0.01")
-    except (KeyError, TypeError) as e:
-        logger.warning(f"无法检查电解铝过剩率条件: {e}")
+    if (snakemake.config.get("aluminum", {}).get("al_excess_rate", {}).get(planning_horizons, 0) > 0.01):
+        aluminum_excess_rate_condition = True
     
     # 检查电解铝功能启用条件
     aluminum_enabled_condition = snakemake.config.get("add_aluminum", False)
-    if aluminum_enabled_condition:
-        logger.info("电解铝功能已启用")
-    else:
-        logger.info("电解铝功能未启用")
     
     # 综合判断是否启用电解铝迭代优化
     if (snakemake.params.iterative_optimization and 
@@ -805,10 +1027,6 @@ if __name__ == '__main__':
         # 获取迭代优化参数
         max_iterations = snakemake.config.get("aluminum_max_iterations", 10)
         convergence_tolerance = snakemake.config.get("aluminum_convergence_tolerance", 0.01)
-        
-        logger.info(f"启用电解铝迭代优化算法")
-        logger.info(f"最大迭代次数: {max_iterations}")
-        logger.info(f"收敛阈值: {convergence_tolerance}")
         
         # 准备传递给迭代函数的参数
         iteration_kwargs = {
@@ -822,6 +1040,11 @@ if __name__ == '__main__':
         if "overrides" in snakemake.input.keys():
             iteration_kwargs["overrides"] = overrides
         
+        # 添加并行计算配置
+        if snakemake.config.get("aluminum_parallel", True):  # 默认启用并行计算
+            max_workers = snakemake.config.get("aluminum_max_workers", None)  # 默认使用CPU核心数
+            iteration_kwargs["max_workers"] = max_workers
+        
         # 使用迭代优化算法
         n = solve_network_iterative(
             n,
@@ -833,17 +1056,6 @@ if __name__ == '__main__':
             **iteration_kwargs,
         )
     else:
-        # 详细说明为什么使用标准求解方法
-        reasons = []
-        if not snakemake.params.iterative_optimization:
-            reasons.append("snakemake.params.iterative_optimization = False")
-        if not aluminum_excess_rate_condition:
-            reasons.append("电解铝过剩率 <= 0.01")
-        if not aluminum_enabled_condition:
-            reasons.append("电解铝功能未启用 (add_aluminum = False)")
-        
-        logger.info(f"使用标准求解方法，原因: {', '.join(reasons)}")
-        
         # 使用标准求解方法
         n = solve_network_standard(
             n,
@@ -865,5 +1077,4 @@ if __name__ == '__main__':
         n.links_t.p3 = n.links_t.p3.apply(pd.to_numeric, errors='coerce').fillna(0.0)
     
     # 导出结果
-    n.export_to_netcdf(snakemake.output.network_name)
-    logger.info(f"结果已保存到: {snakemake.output.network_name}") 
+    n.export_to_netcdf(snakemake.output.network_name) 

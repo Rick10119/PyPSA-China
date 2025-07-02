@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0701.1H.8
+version: 0701.1H.9
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: False
+using_single_node: True
 single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
@@ -17,25 +17,20 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1h'
+freq: '24h'
 
 add_aluminum: True
-iterative_optimization: False
+iterative_optimization: True
 aluminum_commitment: False # keep False for iterative optimization
-aluminum_max_iterations: 2
-aluminum_convergence_tolerance: 0.01
+aluminum_max_iterations: 2  # 最大迭代次数
+aluminum_convergence_tolerance: 0.01  # 收敛阈值（1%）
+aluminum_warm_start: true  # 是否启用热启动功能（默认启用）
 
 scenario:
   line_limits: [ 'opt' ]
   pathway: ['linear2050']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
     - 2050
   co2_reduction:
     linear2060:
@@ -83,7 +78,7 @@ solving:
     MILP:
       Threads: 192
       Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
-      MIPGap: 0.05
+      MIPGap: 0.01
       Heuristics: 0.5 # 增加启发式搜索的强度
       Cuts: 0 # 尝试关闭大部分割平面生成，或设置为1 (温和生成)
       Presolve: -1 # 保持默认，通常是有益的
@@ -105,16 +100,16 @@ solving:
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
-  al_excess_rate: # aluminum excess rate
-    '2020': 0.00
-    '2025': 0.00
-    '2030': 0.30
-    '2035': 0.40
-    '2040': 0.50
-    '2045': 0.50
-    '2050': 0.50
-    '2055': 0.40
-    '2060': 0.30
+  al_excess_rate:
+    "2020": 0.0
+    "2025": 0.05
+    "2030": 0.1
+    "2035": 0.15
+    "2040": 0.2
+    "2045": 0.25
+    "2050": 0.3
+    "2055": 0.35
+    "2060": 0.4
 
   
   # Electrolyzer costs
