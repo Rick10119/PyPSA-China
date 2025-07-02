@@ -2,13 +2,13 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0701.1H.3
+version: 0701.1H.4
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: False
-single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
+using_single_node: True
+single_node_province: "Anhui"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
 summary_dir: 'summary/'
@@ -22,7 +22,7 @@ freq: '1h'
 add_aluminum: True
 iterative_optimization: True
 aluminum_commitment: False # keep False for iterative optimization
-aluminum_max_iterations: 5
+aluminum_max_iterations: 2
 aluminum_convergence_tolerance: 0.01
 
 scenario:
@@ -30,12 +30,6 @@ scenario:
   pathway: ['linear2050']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
     - 2050
   co2_reduction:
     linear2060:
@@ -71,7 +65,7 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2 # barrier
-      MIPGap: 0.01
+      MIPGap: 0.05
       BarConvTol: 1.e-5
       FeasibilityTol: 1.e-6
       AggFill: 0

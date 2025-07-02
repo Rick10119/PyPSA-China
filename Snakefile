@@ -345,7 +345,8 @@ if config["foresight"] == "myopic":
             planning_horizons=config["scenario"]["planning_horizons"],
             using_single_node = config["using_single_node"],
             single_node_province = config["single_node_province"],
-            iterative_optimization = config["iterative_optimization"]
+            iterative_optimization = config["iterative_optimization"],
+            aluminum_production_ratio = "data/p_nom/al_production_ratio.csv"
         input:
             overrides = "data/override_component_attrs",
             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',

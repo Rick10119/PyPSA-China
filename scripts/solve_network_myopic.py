@@ -277,31 +277,65 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     solver_options = solving["solver_options"][set_of_options] if set_of_options else {}
     solver_name = solving["solver"]["name"]
     
-    # 不复制网络，而是直接使用传入的网络
-    # 找到所有电解铝相关的组件
+    # 读取生产比例数据并过滤
+    try:
+        # 从snakemake.input中获取aluminum_production_ratio文件路径
+        if 'snakemake' in globals():
+            production_ratio_path = snakemake.input.aluminum_production_ratio
+        else:
+            # 如果没有snakemake，使用默认路径
+            production_ratio_path = "data/p_nom/al_production_ratio.csv"
+        
+        production_ratio = pd.read_csv(production_ratio_path)
+        production_ratio = production_ratio.set_index('Province')['production_share_2023']
+        
+        # 过滤出生产比例大于0.01的省份（与prepare_base_network保持一致）
+        production_ratio = production_ratio[production_ratio > 0.01]
+        
+        logger.info(f"电解铝生产比例过滤后的省份: {list(production_ratio.index)}")
+        logger.info(f"生产比例: {production_ratio.to_dict()}")
+        
+    except Exception as e:
+        logger.error(f"读取电解铝生产比例数据失败: {e}")
+        return None
+    
+    # 找到所有电解铝相关的组件，但只保留生产比例大于阈值的省份
     aluminum_buses = n.buses[n.buses.carrier == "aluminum"].index
     aluminum_smelters = n.links[n.links.carrier == "aluminum"].index
     aluminum_stores = n.stores[n.stores.carrier == "aluminum"].index
     aluminum_loads = n.loads[n.loads.bus.isin(aluminum_buses)].index
     
+    # 过滤出生产比例大于阈值的电解铝组件
+    filtered_provinces = production_ratio.index
+    filtered_aluminum_buses = [bus for bus in aluminum_buses if any(province in bus for province in filtered_provinces)]
+    filtered_aluminum_smelters = [smelter for smelter in aluminum_smelters if any(province in smelter for province in filtered_provinces)]
+    filtered_aluminum_stores = [store for store in aluminum_stores if any(province in store for province in filtered_provinces)]
+    filtered_aluminum_loads = [load for load in aluminum_loads if any(province in load for province in filtered_provinces)]
+    
+    logger.info(f"过滤后的电解铝组件:")
+    logger.info(f"  电解铝节点: {filtered_aluminum_buses}")
+    logger.info(f"  电解铝冶炼设备: {filtered_aluminum_smelters}")
+    logger.info(f"  电解铝存储: {filtered_aluminum_stores}")
+    logger.info(f"  电解铝负荷: {filtered_aluminum_loads}")
+    
     # 重新设置电解铝冶炼设备的参数
-    for smelter in aluminum_smelters:
+    for smelter in filtered_aluminum_smelters:
         n.links.at[smelter, 'committable'] = config['aluminum_commitment']
         n.links.at[smelter, 'p_min_pu'] = config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0
     
     # 移除所有非电解铝相关的组件
     for component_type in ["Generator", "StorageUnit", "Store", "Link", "Load"]:
         if component_type == "Store":
-            # 保留电解铝存储
-            other_stores = n.stores[~n.stores.index.isin(aluminum_stores)].index
+            # 保留过滤后的电解铝存储
+            other_stores = n.stores[~n.stores.index.isin(filtered_aluminum_stores)].index
             n.mremove(component_type, other_stores)
         elif component_type == "Link":
-            # 保留电解铝冶炼设备
-            other_links = n.links[~n.links.index.isin(aluminum_smelters)].index
+            # 保留过滤后的电解铝冶炼设备
+            other_links = n.links[~n.links.index.isin(filtered_aluminum_smelters)].index
             n.mremove(component_type, other_links)
         elif component_type == "Load":
-            # 保留电解铝负荷
-            other_loads = n.loads[~n.loads.index.isin(aluminum_loads)].index
+            # 保留过滤后的电解铝负荷
+            other_loads = n.loads[~n.loads.index.isin(filtered_aluminum_loads)].index
             n.mremove(component_type, other_loads)
         else:
             # 移除所有其他组件
@@ -350,7 +384,7 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
         
         logger.info("电解铝优化问题求解成功")
         # 提取电解铝用能模式
-        aluminum_usage = n.links_t.p0[aluminum_smelters].copy()
+        aluminum_usage = n.links_t.p0[filtered_aluminum_smelters].copy()
         return aluminum_usage
             
     except Exception as e:
