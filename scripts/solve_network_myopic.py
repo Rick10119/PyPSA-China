@@ -277,6 +277,15 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     solver_options = solving["solver_options"][set_of_options] if set_of_options else {}
     solver_name = solving["solver"]["name"]
     
+    # 为MILP问题使用专门的求解器设置
+    if "MILP" in solving["solver_options"]:
+        milp_solver_options = solving["solver_options"]["MILP"]
+        logger.info("为电解铝MILP问题使用专用MILP求解器设置")
+        logger.info(f"MILP求解器参数: {milp_solver_options}")
+    else:
+        milp_solver_options = solver_options
+        logger.info("未找到MILP专用设置，使用标准求解器参数")
+    
     # 读取生产比例数据并过滤
     try:
         # 从snakemake.input中获取aluminum_production_ratio文件路径
@@ -378,7 +387,7 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
         status, condition = n.optimize(
             solver_name=solver_name,
             extra_functionality=extra_functionality,
-            **solver_options,
+            **milp_solver_options,  # 使用MILP专用参数
             **optimize_kwargs,
         )
         
