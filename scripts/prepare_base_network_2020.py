@@ -214,7 +214,7 @@ def prepare_network(config):
         # Read production ratios and filter out those less than 0.01
         production_ratio = pd.read_csv(snakemake.input.aluminum_production_ratio)
         production_ratio = production_ratio.set_index('Province')['production_share_2023']
-        production_ratio = production_ratio.reindex(nodes).fillna(0)  # Ensure all provinces are included
+        production_ratio = production_ratio.reindex(nodes).fillna(0).infer_objects(copy=False)  # Ensure all provinces are included
         production_ratio = production_ratio[production_ratio > 0.01]  # Filter out low production ratios
         
         # Create a 2D array with shape (n_snapshots, n_provinces) using filtered production ratios

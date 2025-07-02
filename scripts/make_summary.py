@@ -394,7 +394,7 @@ def calculate_supply(n, label, supply):
         # Process one-port components (generators, loads, storage units)
         for c in n.iterate_components(n.one_port_components):
             # Find components connected to buses of this carrier
-            items = c.df.index[c.df.bus.map(bus_map).fillna(False)]
+            items = c.df.index[c.df.bus.map(bus_map).fillna(False).infer_objects(copy=False)]
 
             if len(items) == 0:
                 continue

@@ -893,7 +893,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         
         # 创建合并后的DataFrame
         merged_aluminum_usage = pd.DataFrame(index=current_nodal_prices.index, columns=all_smelters)
-        merged_aluminum_usage.fillna(0, inplace=True)
+        merged_aluminum_usage = merged_aluminum_usage.fillna(0).infer_objects(copy=False)
         
         # 填充各省份的数据
         for province, province_usage in all_aluminum_usage.items():
@@ -1074,7 +1074,7 @@ if __name__ == '__main__':
     # Clean up links_t_p3 data before export to avoid dtype issues
     if hasattr(n, 'links_t') and hasattr(n.links_t, 'p3'):
         # Convert DataFrame to numeric, handling any non-numeric values
-        n.links_t.p3 = n.links_t.p3.apply(pd.to_numeric, errors='coerce').fillna(0.0)
+        n.links_t.p3 = n.links_t.p3.apply(pd.to_numeric, errors='coerce').fillna(0.0).infer_objects(copy=False)
     
     # 导出结果
     n.export_to_netcdf(snakemake.output.network_name) 

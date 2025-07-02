@@ -63,7 +63,7 @@ def creat_df(n, tech):
     
     # Create pivot table for heatmap visualization
     summary = pd.pivot_table(data=df,index='Hour',columns='Day',values='p_store')
-    summary = summary.fillna(0)
+    summary = summary.fillna(0).infer_objects(copy=False)
     return summary, base
 
 def creat_aluminum_df(n):
@@ -110,7 +110,7 @@ def creat_aluminum_df(n):
     
     # Create pivot table for heatmap visualization
     summary = pd.pivot_table(data=df,index='Hour',columns='Day',values='p_smelter')
-    summary = summary.fillna(0)
+    summary = summary.fillna(0).infer_objects(copy=False)
     return summary, base
 
 def plot_heatmap(n, config):

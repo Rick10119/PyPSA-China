@@ -68,7 +68,7 @@ def add_existing_capacities(df_agg):
 
     for tech in ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']:
 
-        df = pd.read_csv(snakemake.input[f"existing_{tech}"], index_col=0).fillna(0.)
+        df = pd.read_csv(snakemake.input[f"existing_{tech}"], index_col=0).fillna(0.).infer_objects(copy=False)
         df.columns = df.columns.astype(int)
         df = df.sort_index()
 

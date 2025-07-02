@@ -117,7 +117,7 @@ def plot_cost_map(
                 .groupby([df_c.location, df_c.nice_group])
                 .sum()
                 .unstack()
-                .fillna(0.0)
+                .fillna(0.0).infer_objects(copy=False)
         )
         costs_add = pd.concat([costs_add, costs_a], axis=1)
 
@@ -127,7 +127,7 @@ def plot_cost_map(
                 .groupby([df_c.location, df_c.nice_group])
                 .sum()
                 .unstack()
-                .fillna(0.0)
+                .fillna(0.0).infer_objects(copy=False)
         )
 
         costs_nom = pd.concat([costs_nom, costs_n], axis=1)
@@ -158,7 +158,7 @@ def plot_cost_map(
     df = pd.DataFrame(index=carriers, columns=["total", "added"])
     df['total'] = costs_nom.groupby(level=1).sum()
     df['added'] = costs_add.groupby(level=1).sum()
-    df = df.fillna(0)
+    df = df.fillna(0).infer_objects(copy=False)
     df = df / 1e9  # Convert to bEUR/a
     planning_horizon = int(snakemake.wildcards.planning_horizons)
     df = df / (1 + snakemake.config["costs"]["discountrate"]) ** (planning_horizon - 2020)
