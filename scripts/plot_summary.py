@@ -248,7 +248,7 @@ def plot_energy(infn, config, fn=None):
     logger.debug(df.loc[to_drop])
     df = df.drop(to_drop)
 
-    logger.info(f"Total energy of {round(df.sum()[0])} TWh/a")
+    logger.info(f"Total energy of {round(df.sum().iloc[0])} TWh/a")
 
     # Reorder technologies according to preferred order
     new_index = preferred_order.intersection(df.index).append(

@@ -67,7 +67,7 @@ def prepare_network(config):
     # 例如：'1h' -> 1, '2h' -> 2, '8h' -> 8
     freq_hours = float(config['freq'].replace('h', ''))
     network.snapshot_weightings[:] = freq_hours
-    represented_hours = network.snapshot_weightings.sum()[0]
+    represented_hours = network.snapshot_weightings.sum().iloc[0]
     Nyears= represented_hours/8760.
 
     #load graph
