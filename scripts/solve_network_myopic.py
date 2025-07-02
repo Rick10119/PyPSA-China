@@ -574,7 +574,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                     **optimize_kwargs,
                 )
             
-            logger.info("网络求解成功，获得节点电价")
+            logger.info("网络求解结束，获得节点电价")
             
             # 获取当前目标函数值
             current_objective = None

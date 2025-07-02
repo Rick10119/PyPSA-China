@@ -346,12 +346,12 @@ if config["foresight"] == "myopic":
             using_single_node = config["using_single_node"],
             single_node_province = config["single_node_province"],
             iterative_optimization = config["iterative_optimization"],
-            aluminum_production_ratio = "data/p_nom/al_production_ratio.csv"
         input:
             overrides = "data/override_component_attrs",
             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
             costs="data/costs/costs_{planning_horizons}.csv",
             biomass_potental= "data/p_nom/biomass_potential.h5",
+            aluminum_production_ratio = "data/p_nom/al_production_ratio.csv"
         output:
             network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
         log:
