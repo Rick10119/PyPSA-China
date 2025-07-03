@@ -119,7 +119,7 @@ def set_plot_style():
                     }])
 
 
-def plot_opt_map(n, opts, ax=None, attribute='p_nom'):
+def plot_opt_map(n, opts, ax=None, attribute='p_nom', config=None):
     """
     Create a geographic map visualization of the power system network.
     
@@ -156,8 +156,16 @@ def plot_opt_map(n, opts, ax=None, attribute='p_nom'):
     if attribute == 'p_nom':
         # Aggregate generator capacities by bus and carrier (technology)
         # Exclude solar thermal and hydro inflow for clarity
-        bus_sizes = pd.concat((n.generators.query('carrier != "solar thermal"' and 'carrier != "hydro_inflow"').groupby(['bus', 'carrier']).p_nom_opt.sum(),
-                               n.links.query('carrier == ["gas-AC","coal-AC","stations-AC"]').groupby(['bus1', 'carrier']).p_nom_opt.sum()))
+        generators_query = 'carrier != "solar thermal" and carrier != "hydro_inflow"'
+        links_query = 'carrier == ["gas-AC","coal-AC","stations-AC"]'
+        
+        # Filter out aluminum components if add_aluminum is False
+        if config and not config.get("add_aluminum", False):
+            generators_query += ' and carrier != "aluminum"'
+            links_query = links_query.replace(']', ', "aluminum"]')
+        
+        bus_sizes = pd.concat((n.generators.query(generators_query).groupby(['bus', 'carrier']).p_nom_opt.sum(),
+                               n.links.query(links_query).groupby(['bus1', 'carrier']).p_nom_opt.sum()))
         bus_sizes.index.names = ['bus', 'carrier']
         bus_sizes = bus_sizes.groupby(['bus','carrier']).sum()
         
@@ -289,7 +297,7 @@ def plot_opt_map(n, opts, ax=None, attribute='p_nom'):
     return fig
 
 
-def plot_total_energy_pie(n, opts, ax=None):
+def plot_total_energy_pie(n, opts, ax=None, config=None):
     """
     Create a pie chart showing the energy mix by technology.
     
@@ -309,6 +317,10 @@ def plot_total_energy_pie(n, opts, ax=None):
     # Aggregate power by carrier and filter out small contributions
     e_primary = aggregate_p(n).drop('load', errors='ignore').loc[lambda s: s > 1]
     e_primary = e_primary.groupby('carrier').sum()
+    
+    # Filter out aluminum if add_aluminum is False
+    if config and not config.get("add_aluminum", False):
+        e_primary = e_primary[e_primary.index != "aluminum"]
     
     # Filter out technologies that don't have defined colors
     tech_colors = opts['tech_colors']
@@ -334,7 +346,7 @@ def plot_total_energy_pie(n, opts, ax=None):
             t2.remove()
 
 
-def plot_total_cost_bar(n, opts, ax=None):
+def plot_total_cost_bar(n, opts, ax=None, config=None):
     """
     Create a stacked bar chart showing system costs by technology.
     
@@ -374,6 +386,10 @@ def plot_total_cost_bar(n, opts, ax=None):
 
     # Filter costs above threshold for clarity
     costs_graph = pd.DataFrame(dict(a=costs[costs > opts['costs_threshold']])).dropna()
+    
+    # Filter out aluminum if add_aluminum is False
+    if config and not config.get("add_aluminum", False):
+        costs_graph = costs_graph[costs_graph.index != "aluminum"]
     
     # Filter out technologies that don't have defined colors
     available_colors = set(tech_colors.keys())
@@ -447,18 +463,18 @@ if __name__ == "__main__":
 
     # Create the main map figure
     fig, ax = plt.subplots(figsize=map_figsize, subplot_kw={"projection": ccrs.PlateCarree()})
-    plot_opt_map(n, config["plotting"], ax=ax)
+    plot_opt_map(n, config["plotting"], ax=ax, config=config)
 
     # Save the map-only version
     fig.savefig(snakemake.output.only_map, dpi=150, bbox_inches='tight')
 
     # Add energy mix pie chart
     ax1 = fig.add_axes([-0.115, 0.625, 0.2, 0.2])
-    plot_total_energy_pie(n, config["plotting"], ax=ax1)
+    plot_total_energy_pie(n, config["plotting"], ax=ax1, config=config)
 
     # Add cost breakdown bar chart
     ax2 = fig.add_axes([-0.075, 0.1, 0.1, 0.45])
-    plot_total_cost_bar(n, config["plotting"], ax=ax2)
+    plot_total_cost_bar(n, config["plotting"], ax=ax2, config=config)
 
     # Save the complete figure with all components
     fig.savefig(snakemake.output.ext, transparent=True, bbox_inches='tight')

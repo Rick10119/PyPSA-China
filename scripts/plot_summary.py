@@ -136,6 +136,9 @@ preferred_order = pd.Index(
         "battery storage",
         "hot water storage",
         "hydrogen storage",
+        "aluminum",
+        "aluminum smelter",
+        "aluminum storage",
     ]
 )
 
@@ -163,6 +166,10 @@ def plot_costs(infn, config, fn=None):
 
     # Rename technologies for consistent plotting
     df = df.groupby(df.index.map(rename_techs)).sum()
+    
+    # Filter out aluminum if add_aluminum is False
+    if not config.get("add_aluminum", False):
+        df = df[~df.index.str.contains("aluminum", case=False, na=False)]
 
     # Remove technologies with costs below threshold
     to_drop = df.index[df.max(axis=1) < config['plotting']['costs_plots_threshold']]
@@ -238,6 +245,10 @@ def plot_energy(infn, config, fn=None):
 
     # Rename technologies for consistent plotting
     df = df.groupby(df.index.map(rename_techs)).sum()
+    
+    # Filter out aluminum if add_aluminum is False
+    if not config.get("add_aluminum", False):
+        df = df[~df.index.str.contains("aluminum", case=False, na=False)]
 
     # Remove technologies with energy below threshold
     to_drop = df.index[df.abs().max(axis=1) < config['plotting']['energy_threshold']]

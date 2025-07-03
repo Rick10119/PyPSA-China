@@ -85,6 +85,7 @@ def plot_cost_map(
         network,
         opts,
         components=["generators", "links", "stores", "storage_units"],
+        config=None,
 ):
     tech_colors = opts["tech_colors"]
 
@@ -92,6 +93,10 @@ def plot_cost_map(
     assign_location(n)
     # Drop non-electric buses so they don't clutter the plot
     n.buses.drop(n.buses.index[n.buses.carrier != "AC"], inplace=True)
+    
+    # Drop aluminum buses if add_aluminum is False
+    if config and not config.get("add_aluminum", False):
+        n.buses.drop(n.buses.index[n.buses.carrier == "aluminum"], inplace=True)
 
     # Prepare dataframes to accumulate additional and nominal costs
     costs_add = pd.DataFrame(index=n.buses.index)
@@ -100,6 +105,18 @@ def plot_cost_map(
     # Loop through each component type and calculate costs
     for comp in components:
         df_c = getattr(n, comp)
+
+        if df_c.empty:
+            continue
+
+        # Filter out aluminum components if add_aluminum is False
+        if config and not config.get("add_aluminum", False):
+            if comp == "links":
+                df_c = df_c[df_c.carrier != "aluminum"]
+            elif comp == "stores":
+                df_c = df_c[df_c.carrier != "aluminum"]
+            elif comp == "loads":
+                df_c = df_c[~df_c.index.str.contains("aluminum", na=False)]
 
         if df_c.empty:
             continue
@@ -349,4 +366,5 @@ if __name__ == "__main__":
         n,
         opts=config["plotting"],
         components=["generators", "links", "stores", "storage_units"],
+        config=config,
     )

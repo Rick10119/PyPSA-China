@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0701.1H.9
+version: 0701.1H.42
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: False
+using_single_node: True
 single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
@@ -91,20 +91,20 @@ solving:
     noisy_costs: false
     clip_p_max_pu: 0.01
 
-  mem: 100000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+  mem: 150000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
   al_excess_rate:
-    "2020": 0.0
+    "2020": 0.05
     "2025": 0.05
-    "2030": 0.1
-    "2035": 0.15
-    "2040": 0.2
-    "2045": 0.25
-    "2050": 0.3
-    "2055": 0.35
-    "2060": 0.4
+    "2030": 0.30
+    "2035": 0.50
+    "2040": 0.50
+    "2045": 0.50
+    "2050": 0.50
+    "2055": 0.50
+    "2060": 0.50
 
   
   # Electrolyzer costs
@@ -578,6 +578,10 @@ plotting:
     DC: "#8a1caf"
     DC-DC: "#8a1caf"
     DC link: "#8a1caf"
+    # aluminum (only used when add_aluminum is True)
+    aluminum: '#8B4513'
+    aluminum smelter: '#8B4513'
+    aluminum storage: '#D2691E'
   nice_names:
     AC-AC: "Electric grid"
     H2-AC: "H2 Fuel Cell"
@@ -605,6 +609,9 @@ plotting:
     heat pump: "Heat Pump"
     solar thermal: "Solar Thermal"
     uranium: "Nuclear"
+    aluminum: "Aluminum Smelter"
+    aluminum smelter: "Aluminum Smelter"
+    aluminum storage: "Aluminum Storage"
     energy:
       coal: "Coal"
       offwind: "Offshore Wind"
