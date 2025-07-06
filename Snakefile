@@ -30,14 +30,29 @@ if config["foresight"] == "myopic":
         input:
             # expand(
             #     config['results_dir'] + 'version-' + str(
-            #     config['version']) + '/plots/heatmap/water_tank/water_tank-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+            #     config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_tank-{opts}-{topology}-{pathway}-{planning_horizons}.png',
             #     ** config["scenario"]
             # ),
-            # expand(
-            #     config['results_dir'] + 'version-' + str(
-            #     config['version']) + '/plots/heatmap/water_tank/water_store-{opts}-{topology}-{pathway}-{planning_horizons}.png',
-            #     ** config["scenario"]
-            # ),
+            expand(
+                config['results_dir'] + 'version-' + str(
+                config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_store-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+                ** config["scenario"]
+            ),
+            expand(
+                config['results_dir'] + 'version-' + str(
+                config['version']) + '/plots/weekly_operation/{heating_demand}/weekly_operation_heating-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+                ** config["scenario"]
+            ),
+            expand(
+                config['results_dir'] + 'version-' + str(
+                config['version']) + '/plots/weekly_operation/{heating_demand}/weekly_operation_non_heating-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+                ** config["scenario"]
+            ),
+            expand(
+                config['results_dir'] + 'version-' + str(
+                config['version']) + '/plots/heating_comparison/{heating_demand}/heating_comparison-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+                ** config["scenario"]
+            ),
             expand(
                 config['results_dir'] + 'version-' + str(
                 config['version']) + '/plots/summary/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_costs.png',
@@ -50,9 +65,10 @@ if config["foresight"] == "myopic":
             # ),
             # expand(
             #     config['results_dir'] + 'version-' + str(
-            #     config['version']) + '/plots/network/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext_heat.pdf',
+            #     config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext_heat.pdf',
             #     **config["scenario"]
-            # )
+            # ),
+
 
     rule solve_all_networks:
         input:
@@ -234,40 +250,11 @@ if config["foresight"] == "non-pathway":
         threads: config['threads']
         resources: mem_mb=config['mem_per_thread'] * config['threads']
         script: "scripts/solve_network.py"
-    #
-    # rule plot_network:
-    #     input:
-    #         network=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-    #         tech_costs="data/costs_{planning_horizons}.csv"
-    #     output:
-    #         only_map=config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.pdf',
-    #         cost_map=config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}-cost.pdf',
-    #         ext=config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}_ext.pdf'
-    #     log: "logs/plot_network/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log"
-    #     script: "scripts/plot_network.py"
-
-    # rule make_summary:
-    #     input:
-    #         network=config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.nc',
-    #         tech_costs="data/costs_{planning_horizons}.csv",
-    #     output:
-    #         directory(config['results_dir'] + 'version-' + str(config['version']) + '/summary/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}'),
-    #     log: "logs/make_summary/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log"
-    #     resources: mem_mb=5000
-    #     script: "scripts/make_summary.py"
-    #
-    # rule plot_summary:
-    #     input:
-    #         config['results_dir'] + 'version-' + str(config['version']) + '/summary/postnetworks/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}'
-    #     output:
-    #         energy = config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}_energy.png',
-    #         cost = config['results_dir'] + 'version-' + str(config['version']) + '/plots/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}_costs.png'
-    #     log: "logs/plot/summary/postnetwork-{opts}-{topology}-{pathway}-{co2_reduction}-{planning_horizons}.log"
-    #     script: "scripts/plot_summary.py"
 
 if config["foresight"] == "myopic":
     rule prepare_base_networks_2020:
         input:
+            config = "config.yaml",
             overrides = "data/override_component_attrs",
             edges= "data/grids/edges.txt",
             edges_ext = "data/grids/edges_current.csv",
@@ -292,6 +279,7 @@ if config["foresight"] == "myopic":
 
     rule prepare_base_networks:
         input:
+            config = "config.yaml",
             overrides = "data/override_component_attrs",
             edges = "data/grids/edges.txt",
             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),
@@ -354,7 +342,10 @@ if config["foresight"] == "myopic":
     rule solve_network_myopic:
         params:
             solving = config["solving"],
-            planning_horizons=config["scenario"]["planning_horizons"]
+            planning_horizons=config["scenario"]["planning_horizons"],
+            using_single_node = config["using_single_node"],
+            single_node_province = config["single_node_province"],
+            iterative_optimization = config["iterative_optimization"]
         input:
             overrides = "data/override_component_attrs",
             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
@@ -367,7 +358,6 @@ if config["foresight"] == "myopic":
         threads: config['threads']
         resources: mem_mb = config['mem_per_thread'] * config['threads']
         script: "scripts/solve_network_myopic.py"
-
     ruleorder: prepare_base_networks > add_existing_baseyear > solve_network_myopic
 
 if config["plot"]:

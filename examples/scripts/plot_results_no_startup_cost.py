@@ -53,13 +53,13 @@ ax4.set_title('Aluminum Smelter Capacity vs Excess Rate', fontsize=15)
 ax4.grid(True)
 
 # 调整布局
-plt.tight_layout()
+# plt.tight_layout()
 
-# 保存图表
-plt.savefig('examples/results/system_analysis.png', dpi=300, bbox_inches='tight')
+# # 保存图表
+# plt.savefig('examples/results/system_analysis.png', dpi=300, bbox_inches='tight')
 
-# 显示图表
-plt.show()
+# # 显示图表
+# plt.show()
 
 # 打印关键分析结果
 print("\nKey Analysis Results:")

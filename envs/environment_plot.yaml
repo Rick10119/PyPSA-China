@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors
+#
+# SPDX-License-Identifier: MIT
+
+name: pypsa-plot
+channels:
+  - conda-forge
+  - bioconda
+  - gurobi
+dependencies:
+  - python>=3.9
+  - pip
+
+  # Core dependencies - main versions only
+  - pypsa=0.29.0
+  - atlite
+  - dask
+  - gurobi
+
+  # Workflow dependencies - no version specified
+  - xlrd
+  - openpyxl
+  - pycountry
+  - seaborn
+  - snakemake-minimal
+  - memory_profiler
+  - pyyaml
+  - pytables
+  - lxml
+  
+  # Data processing libraries - no version specified
+  - numpy=1.24.3
+  - pandas
+  - geopandas
+  - xarray=2024.2.0
+  - netcdf4
+  - networkx
+  - scipy
+  - shapely
+  - progressbar2
+  - pyomo
+  - matplotlib
+  - tqdm
+
+  # GIS dependencies - minimal restrictions
+  - proj
+  - fiona
+  - geopy
+  - cartopy
+  - descartes
+  - rasterio
+  - pytz
+  - country_converter
+  - tabula-py
+  - graphviz
+
+  # Keep ipython in conda environment
+  - ipython
+
+  # Install poppler for fiona support
+  - poppler
+  - pyogrio
+
+  # pip installed packages
+  - pip:
+    - vresutils>=0.3.1
+    - tsam>=1.1.0
+    - powerplantmatching>=0.4.8
+
+# Installation guide for Linux:
+# 1. Create environment using this file: conda env create -f envs/environment_linux.yaml
+# 2. Activate environment: conda activate pypsa-china
+# 3. Check if Dict import in _helpers.py needs modification (if related errors occur)
+
+# For Linux systems, you might need to install system dependencies:
+# sudo apt-get update
+# sudo apt-get install -y libpoppler-cpp-dev
+# sudo apt-get install -y libgdal-dev
+# sudo apt-get install -y libspatialindex-dev 

@@ -3,8 +3,8 @@
 #SBATCH --nodes=1                # node count
 #SBATCH --ntasks=1               # total number of tasks across all nodes
 #SBATCH --cpus-per-task=40        # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --mem-per-cpu=3G         # memory per cpu-core (4G is default)
-#SBATCH --time=24:00:00          # total run time limit (HH:MM:SS)
+#SBATCH --mem-per-cpu=15G         # memory per cpu-core (4G is default)
+#SBATCH --time=48:00:00          # total run time limit (HH:MM:SS)
 #SBATCH --mail-type=begin        # send email when job begins
 #SBATCH --mail-type=end          # send email when job ends
 #SBATCH --mail-type=fail         # send email if job fails
@@ -12,6 +12,6 @@
 
 module purge
 module load anaconda3/2024.10
-conda activate pypsa-linux
+conda activate pypsa-plot
 module load gurobi/12.0.0
 snakemake --cores 40
