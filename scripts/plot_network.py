@@ -85,6 +85,7 @@ def plot_cost_map(
         network,
         opts,
         components=["generators", "links", "stores", "storage_units"],
+        config=None,
 ):
     tech_colors = opts["tech_colors"]
 
@@ -92,6 +93,10 @@ def plot_cost_map(
     assign_location(n)
     # Drop non-electric buses so they don't clutter the plot
     n.buses.drop(n.buses.index[n.buses.carrier != "AC"], inplace=True)
+    
+    # Drop aluminum buses if add_aluminum is False
+    if config and not config.get("add_aluminum", False):
+        n.buses.drop(n.buses.index[n.buses.carrier == "aluminum"], inplace=True)
 
     # Prepare dataframes to accumulate additional and nominal costs
     costs_add = pd.DataFrame(index=n.buses.index)
@@ -100,6 +105,18 @@ def plot_cost_map(
     # Loop through each component type and calculate costs
     for comp in components:
         df_c = getattr(n, comp)
+
+        if df_c.empty:
+            continue
+
+        # Filter out aluminum components if add_aluminum is False
+        if config and not config.get("add_aluminum", False):
+            if comp == "links":
+                df_c = df_c[df_c.carrier != "aluminum"]
+            elif comp == "stores":
+                df_c = df_c[df_c.carrier != "aluminum"]
+            elif comp == "loads":
+                df_c = df_c[~df_c.index.str.contains("aluminum", na=False)]
 
         if df_c.empty:
             continue
@@ -117,7 +134,7 @@ def plot_cost_map(
                 .groupby([df_c.location, df_c.nice_group])
                 .sum()
                 .unstack()
-                .fillna(0.0)
+                .fillna(0.0).infer_objects(copy=False)
         )
         costs_add = pd.concat([costs_add, costs_a], axis=1)
 
@@ -127,7 +144,7 @@ def plot_cost_map(
                 .groupby([df_c.location, df_c.nice_group])
                 .sum()
                 .unstack()
-                .fillna(0.0)
+                .fillna(0.0).infer_objects(copy=False)
         )
 
         costs_nom = pd.concat([costs_nom, costs_n], axis=1)
@@ -158,7 +175,7 @@ def plot_cost_map(
     df = pd.DataFrame(index=carriers, columns=["total", "added"])
     df['total'] = costs_nom.groupby(level=1).sum()
     df['added'] = costs_add.groupby(level=1).sum()
-    df = df.fillna(0)
+    df = df.fillna(0).infer_objects(copy=False)
     df = df / 1e9  # Convert to bEUR/a
     planning_horizon = int(snakemake.wildcards.planning_horizons)
     df = df / (1 + snakemake.config["costs"]["discountrate"]) ** (planning_horizon - 2020)
@@ -167,7 +184,7 @@ def plot_cost_map(
     new_index = preferred_order.intersection(df.index).append(
         df.index.difference(preferred_order)
     )
-    percent = round((df.sum()[1] / df.sum()[0]) * 100)
+    percent = round((df.sum().iloc[1] / df.sum().iloc[0]) * 100)
 
     # Create the figure and axes for the two maps
     fig, (ax1, ax2) = plt.subplots(1, 2, subplot_kw={"projection": ccrs.PlateCarree()})
@@ -317,7 +334,7 @@ def plot_cost_map(
     ax3.set_xticklabels(ax3.get_xticklabels(), rotation='horizontal')
     ax3.grid(axis="y")
     ax3.set_ylim([0, opts["costs_max"]])
-    ax3.text(0.85, (df.sum()[1] + 15), str(percent) + "%", color='black')
+    ax3.text(0.85, (df.sum().iloc[1] + 15), str(percent) + "%", color='black')
 
     fig.tight_layout()
 
@@ -349,4 +366,5 @@ if __name__ == "__main__":
         n,
         opts=config["plotting"],
         components=["generators", "links", "stores", "storage_units"],
+        config=config,
     )

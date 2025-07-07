@@ -38,6 +38,7 @@ if config["foresight"] == "myopic":
             #     config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_store-{opts}-{topology}-{pathway}-{planning_horizons}.png',
             #     ** config["scenario"]
             # ),
+
             # expand(
             #     config['results_dir'] + 'version-' + str(
             #     config['version']) + '/plots/weekly_operation/{heating_demand}/weekly_operation_heating-{opts}-{topology}-{pathway}-{planning_horizons}.png',
@@ -47,7 +48,6 @@ if config["foresight"] == "myopic":
             #     config['results_dir'] + 'version-' + str(
             #     config['version']) + '/plots/weekly_operation/{heating_demand}/weekly_operation_non_heating-{opts}-{topology}-{pathway}-{planning_horizons}.png',
             #     ** config["scenario"]
-            # ),
             # expand(
             #     config['results_dir'] + 'version-' + str(
             #     config['version']) + '/plots/heating_comparison/{heating_demand}/heating_comparison-{opts}-{topology}-{pathway}-{planning_horizons}.png',
@@ -347,12 +347,13 @@ if config["foresight"] == "myopic":
             planning_horizons=config["scenario"]["planning_horizons"],
             using_single_node = config["using_single_node"],
             single_node_province = config["single_node_province"],
-            iterative_optimization = config["iterative_optimization"]
+            iterative_optimization = config["iterative_optimization"],
         input:
             overrides = "data/override_component_attrs",
             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
             costs="data/costs/costs_{planning_horizons}.csv",
             biomass_potental= "data/p_nom/biomass_potential.h5",
+            aluminum_production_ratio = "data/p_nom/al_production_ratio.csv"
         output:
             network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
         log:

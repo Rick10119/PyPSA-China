@@ -55,15 +55,14 @@ def creat_df(n, tech):
     renames = {0: 'p_store'}
     df.rename(columns=renames, inplace=True)
     
-    # Convert timestamps to local time (Asia/Shanghai) and extract hour and day
+    # 数据已经是中国本地时间，直接使用时间戳，不需要时区转换
     date = n.stores_t.p.filter(like='water').index
-    date = date.tz_localize('UTC').tz_convert("Asia/Shanghai")
     df['Hour'] = date.hour
     df['Day'] = date.strftime('%m-%d')
     
     # Create pivot table for heatmap visualization
     summary = pd.pivot_table(data=df,index='Hour',columns='Day',values='p_store')
-    summary = summary.fillna(0)
+    summary = summary.fillna(0).infer_objects(copy=False)
     return summary, base
 
 def creat_aluminum_df(n):
@@ -102,15 +101,14 @@ def creat_aluminum_df(n):
     renames = {0: 'p_smelter'}
     df.rename(columns=renames, inplace=True)
     
-    # Convert timestamps to local time (Asia/Shanghai) and extract hour and day
+    # 数据已经是中国本地时间，直接使用时间戳，不需要时区转换
     date = aluminum_links.index
-    date = date.tz_localize('UTC').tz_convert("Asia/Shanghai")
     df['Hour'] = date.hour
     df['Day'] = date.strftime('%m-%d')
     
     # Create pivot table for heatmap visualization
     summary = pd.pivot_table(data=df,index='Hour',columns='Day',values='p_smelter')
-    summary = summary.fillna(0)
+    summary = summary.fillna(0).infer_objects(copy=False)
     return summary, base
 
 def plot_heatmap(n, config):
@@ -141,8 +139,8 @@ def plot_heatmap(n, config):
             fig.savefig(snakemake.output[tech], dpi=150, bbox_inches='tight')
         plt.close()
     
-    # Plot aluminum smelter heatmap only for planning horizons later than 2030
-    if config.get("add_aluminum", False) and int(planning_horizon) > 2030:
+    # Plot aluminum smelter heatmap only when aluminum is added
+    if config.get("add_aluminum", False):
         fig, ax = plt.subplots(figsize=map_figsize)
         df, base = creat_aluminum_df(n)
         if not df.empty and base > 0:

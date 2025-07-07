@@ -19,11 +19,11 @@ tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
 freq: '4h'
 
-add_aluminum: False
-iterative_optimization: True
+add_aluminum: True
+iterative_optimization: False
 aluminum_commitment: False # keep False for iterative optimization
-aluminum_max_iterations: 5
-aluminum_convergence_tolerance: 0.01
+aluminum_max_iterations: 2  # 最大迭代次数
+aluminum_convergence_tolerance: 0.01  # 收敛阈值（1%）
 
 # LS parameters
 products_load_shedding: True
@@ -70,7 +70,6 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2 # barrier
-      MIPGap: 0.01
       BarConvTol: 1.e-5
       FeasibilityTol: 1.e-6
       AggFill: 0
@@ -80,6 +79,13 @@ solving:
       OutputFlag: 0  # 关闭Gurobi输出
       LogToConsole: 0  # 关闭控制台日志
       LogFile: ''  # 关闭日志文件
+    MILP:
+      Threads: 192
+      Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
+      MIPGap: 0.01
+      Heuristics: 0.5 # 增加启发式搜索的强度
+      Cuts: 0 # 尝试关闭大部分割平面生成，或设置为1 (温和生成)
+      Presolve: -1 # 保持默认，通常是有益的
   options:
     track_iterations: false
     min_iterations: 4
@@ -90,7 +96,7 @@ solving:
     noisy_costs: false
     clip_p_max_pu: 0.01
 
-  mem: 100000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+  mem: 150000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
@@ -112,7 +118,7 @@ aluminum:
     '2045': 0.00  
     '2050': 0.00  
     '2055': 0.00  
-    '2060': 0.00  
+    '2060': 0.00
 
   
   # Electrolyzer costs
@@ -585,6 +591,10 @@ plotting:
     DC: "#8a1caf"
     DC-DC: "#8a1caf"
     DC link: "#8a1caf"
+    # aluminum (only used when add_aluminum is True)
+    aluminum: '#8B4513'
+    aluminum smelter: '#8B4513'
+    aluminum storage: '#D2691E'
   nice_names:
     AC-AC: "Electric grid"
     H2-AC: "H2 Fuel Cell"
@@ -612,6 +622,9 @@ plotting:
     heat pump: "Heat Pump"
     solar thermal: "Solar Thermal"
     uranium: "Nuclear"
+    aluminum: "Aluminum Smelter"
+    aluminum smelter: "Aluminum Smelter"
+    aluminum storage: "Aluminum Storage"
     energy:
       coal: "Coal"
       offwind: "Offshore Wind"

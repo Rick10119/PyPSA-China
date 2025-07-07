@@ -98,7 +98,7 @@ def prepare_network(config):
     # 例如：'1h' -> 1, '2h' -> 2, '8h' -> 8
     freq_hours = float(config['freq'].replace('h', ''))
     network.snapshot_weightings[:] = freq_hours
-    represented_hours = network.snapshot_weightings.sum()[0]
+    represented_hours = network.snapshot_weightings.sum().iloc[0]
     Nyears= represented_hours/8760.
 
     #load graph
@@ -214,7 +214,7 @@ def prepare_network(config):
         # Read production ratios and filter out those less than 0.01
         production_ratio = pd.read_csv(snakemake.input.aluminum_production_ratio)
         production_ratio = production_ratio.set_index('Province')['production_share_2023']
-        production_ratio = production_ratio.reindex(nodes).fillna(0)  # Ensure all provinces are included
+        production_ratio = production_ratio.reindex(nodes).fillna(0).infer_objects(copy=False)  # Ensure all provinces are included
         production_ratio = production_ratio[production_ratio > 0.01]  # Filter out low production ratios
         
         # Create a 2D array with shape (n_snapshots, n_provinces) using filtered production ratios

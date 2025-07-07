@@ -58,16 +58,16 @@ if config["foresight"] == "myopic":
                 config['version']) + '/plots/summary/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_costs.png',
                 **config["scenario"]
             ),
-            expand(
-                config['results_dir'] + 'version-' + str(
-                config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}-cost.pdf',
-                **config["scenario"]
-            ),
-            expand(
-                config['results_dir'] + 'version-' + str(
-                config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext_heat.pdf',
-                **config["scenario"]
-            )
+            # expand(
+            #     config['results_dir'] + 'version-' + str(
+            #     config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}-cost.pdf',
+            #     **config["scenario"]
+            # ),
+            # expand(
+            #     config['results_dir'] + 'version-' + str(
+            #     config['version']) + '/plots/network/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}_ext_heat.pdf',
+            #     **config["scenario"]
+            # )
 
     # rule solve_all_networks:
     #     input:

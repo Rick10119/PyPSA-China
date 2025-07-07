@@ -136,6 +136,9 @@ preferred_order = pd.Index(
         "battery storage",
         "hot water storage",
         "hydrogen storage",
+        "aluminum",
+        "aluminum smelter",
+        "aluminum storage",
     ]
 )
 
@@ -163,6 +166,10 @@ def plot_costs(infn, config, fn=None):
 
     # Rename technologies for consistent plotting
     df = df.groupby(df.index.map(rename_techs)).sum()
+    
+    # Filter out aluminum if add_aluminum is False
+    if not config.get("add_aluminum", False):
+        df = df[~df.index.str.contains("aluminum", case=False, na=False)]
 
     # Remove technologies with costs below threshold
     to_drop = df.index[df.max(axis=1) < config['plotting']['costs_plots_threshold']]
@@ -184,12 +191,16 @@ def plot_costs(infn, config, fn=None):
     fig, ax = plt.subplots()
     fig.set_size_inches((12,8))
 
+    # Filter out technologies that don't have color configuration
+    available_colors = [i for i in new_index if i in config['plotting']['tech_colors']]
+    df_filtered = df.loc[available_colors, new_columns]
+    
     # Plot stacked bars
-    df.loc[new_index,new_columns].T.plot(
+    df_filtered.T.plot(
         kind="bar",
         ax=ax,
         stacked=True,
-        color=[config['plotting']['tech_colors'][i] for i in new_index],
+        color=[config['plotting']['tech_colors'][i] for i in available_colors],
     )
 
     # Format legend
@@ -234,6 +245,10 @@ def plot_energy(infn, config, fn=None):
 
     # Rename technologies for consistent plotting
     df = df.groupby(df.index.map(rename_techs)).sum()
+    
+    # Filter out aluminum if add_aluminum is False
+    if not config.get("add_aluminum", False):
+        df = df[~df.index.str.contains("aluminum", case=False, na=False)]
 
     # Remove technologies with energy below threshold
     to_drop = df.index[df.abs().max(axis=1) < config['plotting']['energy_threshold']]
@@ -244,7 +259,7 @@ def plot_energy(infn, config, fn=None):
     logger.debug(df.loc[to_drop])
     df = df.drop(to_drop)
 
-    logger.info(f"Total energy of {round(df.sum()[0])} TWh/a")
+    logger.info(f"Total energy of {round(df.sum().iloc[0])} TWh/a")
 
     # Reorder technologies according to preferred order
     new_index = preferred_order.intersection(df.index).append(
@@ -258,14 +273,18 @@ def plot_energy(infn, config, fn=None):
     fig, ax = plt.subplots()
     fig.set_size_inches((12,8))
 
-    logger.debug(df.loc[new_index, new_columns])
+    # Filter out technologies that don't have color configuration
+    available_colors = [i for i in new_index if i in config['plotting']['tech_colors']]
+    df_filtered = df.loc[available_colors, new_columns]
+    
+    logger.debug(df_filtered)
 
     # Plot stacked bars
-    df.loc[new_index,new_columns].T.plot(
+    df_filtered.T.plot(
         kind="bar",
         ax=ax,
         stacked=True,
-        color=[config['plotting']['tech_colors'][i] for i in new_index],
+        color=[config['plotting']['tech_colors'][i] for i in available_colors],
     )
 
     # Format legend

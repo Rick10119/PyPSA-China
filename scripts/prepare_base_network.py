@@ -116,7 +116,7 @@ def prepare_network(config):
     # 例如：'1h' -> 1, '2h' -> 2, '8h' -> 8
     freq_hours = float(config['freq'].replace('h', ''))
     network.snapshot_weightings[:] = freq_hours
-    represented_hours = network.snapshot_weightings.sum()[0]
+    represented_hours = network.snapshot_weightings.sum().iloc[0]
     Nyears= represented_hours/8760.
 
     #load graph
@@ -223,8 +223,6 @@ def prepare_network(config):
         load = load.loc[network.snapshots]
 
     load.columns = pro_names
-    
-    ## LS从这里开始修改
 
     # 如果配置文件中启用了工业负荷切除，并且使用单节点（即不考虑区域划分），则设置柔性负荷
     if config['products_load_shedding'] and config['using_single_node']:
