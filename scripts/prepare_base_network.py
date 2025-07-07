@@ -251,12 +251,10 @@ def prepare_network(config):
                         f"{single_province} {material} industrial load",  # 使用省份前缀命名产品负荷
                         bus=single_province,
                         carrier=f"industrial_load_{material}",  # carrier名称即为产品名称
-                        p_max_pu=0,  # 最大出力为0，只能切负荷
-                        p_min_pu=-1,  # 需求量（负号表示消耗）
                         p_nom=products["demand"][i] * products["energy_consumption"][i] / 24,  # 需求规模
                         p_nom_extendable=False,  # 不允许模型优化此负荷的规模
                         marginal_cost=products["price"][i] / products["energy_consumption"][i] * products["net_demand_rate"][i]  # 切负荷成本（欧元）
-                        # 这里需要注意，price是1单位产品的增加值，energy_consumption是1单位产品的能量消耗，二者相除即为产品i生产用能1单位时产生的边际成本
+                        # 这里需要注意，price是1单位产品的增加值，energy_consumption是1单位产品的能量消耗，二者相除即为产品i生产用能1单位时产生的边际价值
                         # 为保证总增加值与考虑产业链的切负荷一致，需要再乘以净需求率
                     )
             elif config['LS_scenario'] == 3:
@@ -338,13 +336,11 @@ def prepare_network(config):
                         f"{single_province} {material} industrial load",
                         bus = product_bus_name,
                         carrier=f"industrial_load_{material}",  # carrier名称即为产品名称
-                        p_max_pu = 0,  # 最大出力为0，只能切负荷
-                        p_min_pu = demand_series,  # 需求量
                         p_nom = products["demand"][i] * products["net_demand_rate"][i],  # 需求规模
-                        p_nom_extendable = False,  # 允许模型优化此负荷的规模
+                        p_nom_extendable = False,
                         marginal_cost = products["price"][i] / freq_hours # 切负荷成本（欧元）
                         # 这里需要注意，price_matrix是1单位产品的增加值，而实际输出的产品会乘以时间分辨率，所以需要除以时间分辨率以确保边际成本正确
-                )
+                    )
             else:
                 raise ValueError("Invalid LS_scenario configuration. Please check the 'LS_scenario' parameter in the config.")
 

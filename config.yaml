@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0707.4H.2
+version: 0707.12H.5
 logging_level: INFO
 foresight: "myopic"
 
@@ -17,7 +17,7 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '4h'
+freq: '12h'
 
 add_aluminum: True
 iterative_optimization: False
@@ -76,9 +76,9 @@ solving:
       PreDual: 0
       GURO_PAR_BARDENSETHRESH: 200
       DualReductions: 0
-      OutputFlag: 0  # 关闭Gurobi输出
-      LogToConsole: 0  # 关闭控制台日志
-      LogFile: ''  # 关闭日志文件
+      # OutputFlag: 0  # 关闭Gurobi输出
+      # LogToConsole: 0  # 关闭控制台日志
+      # LogFile: ''  # 关闭日志文件
     MILP:
       Threads: 192
       Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
