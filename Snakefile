@@ -33,21 +33,21 @@ if config["foresight"] == "myopic":
             #     config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_tank-{opts}-{topology}-{pathway}-{planning_horizons}.png',
             #     ** config["scenario"]
             # ),
-            expand(
-                config['results_dir'] + 'version-' + str(
-                config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_store-{opts}-{topology}-{pathway}-{planning_horizons}.png',
-                ** config["scenario"]
-            ),
+            # expand(
+            #     config['results_dir'] + 'version-' + str(
+            #     config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_store-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+            #     ** config["scenario"]
+            # ),
+
             # expand(
             #     config['results_dir'] + 'version-' + str(
             #     config['version']) + '/plots/weekly_operation/{heating_demand}/weekly_operation_heating-{opts}-{topology}-{pathway}-{planning_horizons}.png',
             #     ** config["scenario"]
             # ),
-            expand(
-                config['results_dir'] + 'version-' + str(
-                config['version']) + '/plots/weekly_operation/{heating_demand}/weekly_operation_non_heating-{opts}-{topology}-{pathway}-{planning_horizons}.png',
-                ** config["scenario"]
-            ),
+            # expand(
+            #     config['results_dir'] + 'version-' + str(
+            #     config['version']) + '/plots/weekly_operation/{heating_demand}/weekly_operation_non_heating-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+            #     ** config["scenario"]
             # expand(
             #     config['results_dir'] + 'version-' + str(
             #     config['version']) + '/plots/heating_comparison/{heating_demand}/heating_comparison-{opts}-{topology}-{pathway}-{planning_horizons}.png',
@@ -291,7 +291,9 @@ if config["foresight"] == "myopic":
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_city:town_2020.h5",
             tech_costs= "data/costs/costs_{planning_horizons}.csv",
-            biomass_potental = "data/p_nom/biomass_potential.h5",
+            biomass_potential = "data/p_nom/biomass_potential.h5",
+            production_parameters="data/loadshedding/production_parameters_forLS_modified.csv",
+            production_relationship_matrix="data/loadshedding/production_relationship_matrix_modified.csv",
             **{f"profile_{tech}": f"resources/profile_{tech}.nc"
                for tech in config['renewable']}
         output:

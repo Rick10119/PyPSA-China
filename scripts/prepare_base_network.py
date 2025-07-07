@@ -4,6 +4,8 @@
 
 # for pathway network
 
+from tkinter import N
+from matplotlib.pylab import f
 from vresutils.costdata import annuity
 from _helpers import configure_logging,override_component_attrs
 import pypsa
@@ -45,6 +47,53 @@ def add_buses(network,nodes,suffix,carrier,pro_centroid_x,pro_centroid_y):
                  carrier=carrier,
                  )
 
+# LS相关函数
+def process_products(days):
+    """处理产品数据"""
+
+    df_pp = pd.read_csv(snakemake.input.production_parameters)
+    df_pm = pd.read_csv(snakemake.input.production_relationship_matrix)
+
+    # 处理产品关系矩阵
+    relationship_matrix = df_pm.iloc[:, 1:].values.tolist()
+    
+    # 将产品参数转换为字典
+    products = {
+        "materials": df_pp['materials'].tolist(),
+        "hierarchy": df_pp['hierarchy'].tolist(),
+        "yearly_demand": df_pp['yearly_demand'].tolist(),
+        "net_demand_rate": df_pp['net_demand_rate'].tolist(),
+        "price": df_pp['price'].tolist(),
+        "energy_consumption": df_pp['energy_consumption'].tolist(),
+        "initial_inventory": df_pp['initial_inventory'].tolist(),
+        "max_inventory": df_pp['max_inventory'].tolist(),
+        "excess_rate": df_pp['excess_rate'].tolist(),
+        "type": df_pp['type'].tolist(),
+        "relationship_matrix": relationship_matrix,
+    }
+    
+    # 价格矩阵修正为1欧元,1欧元=7.55人民币
+    products["price"] = [price * 10000 / 7.55 for price in products["price"]]
+ 
+    # 计算所有产品的日总电能需求，平均到每个时段
+    products["daily_total_load"] = sum(np.array(products["yearly_demand"]) * np.array(products["energy_consumption"])) / days # 每天总电能需求（MWh）
+    products["load_t"] = products["daily_total_load"] / 24  # 每小时平均功率（MW）
+
+    # 初始化产品总增加值字典
+    products["product_total_profit"] = {}
+    
+    # 计算每个产品的总增加值
+    for i, material in enumerate(products["materials"]):
+        products["product_total_profit"][material] = products["price"][i] * products["yearly_demand"][i] * products["net_demand_rate"][i] # 产品i一年的总增加值（欧元）
+
+    # 计算所有产品的全年总增加值
+    products["total_profit"] = np.sum(np.array(products["price"]) * np.array(products["yearly_demand"]) * np.array(products["net_demand_rate"])) # 每年总增加值（欧元）
+    # products["fit_t"] = products["daily_total_fit"] / 24  # 每小时增加值（欧元）
+    products["total_profit"] = products["total_profit"] * 1e-9 # 每年总增加值（十亿欧元）
+
+    products["demand"] = [yearly_demand / days for yearly_demand in products["yearly_demand"]]  # 产品需求量转换为每天的需求量
+
+    return products
 
 def prepare_network(config):
 
@@ -174,68 +223,141 @@ def prepare_network(config):
         load = load.loc[network.snapshots]
 
     load.columns = pro_names
-    
-    if config["add_aluminum"] and config["aluminum"]["al_excess_rate"][planning_horizons] > 0.01:
-        # Calculate national total aluminum load
-        national_max_electric_load = load[nodes].max().sum()  # Get national max electric load
-        national_al_load = 0.77 * (1-config['aluminum']['al_excess_rate'][planning_horizons]) * config['aluminum']['al_demand_ratio'] * national_max_electric_load
-        
-        # Read production ratios and filter out those less than 0.01
-        production_ratio = pd.read_csv(snakemake.input.aluminum_production_ratio)
-        production_ratio = production_ratio.set_index('Province')['production_share_2023']
-        production_ratio = production_ratio.reindex(nodes).fillna(0).infer_objects(copy=False)  # Ensure all provinces are included
-        production_ratio = production_ratio[production_ratio > 0.01]  # Filter out low production ratios
-        
-        # Create a 2D array with shape (n_snapshots, n_provinces) using filtered production ratios
-        al_load_values = np.tile(
-            national_al_load * production_ratio.values,
-            (len(network.snapshots), 1)
-        )
-        # Create DataFrame with the properly shaped data
-        aluminum_load = pd.DataFrame(
-            data=al_load_values,
-            index=network.snapshots,
-            columns=production_ratio.index  # Use filtered provinces
-        )
 
-        # Add aluminum smelters only for provinces with production ratio > 0.01
-        network.madd("Link",
-                    production_ratio.index,  # Only add for filtered provinces
-                    suffix=" aluminum smelter",
-                    bus0=production_ratio.index,
-                    bus1=production_ratio.index + " aluminum",
-                    carrier="aluminum",
-                    p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
-                    p_nom_extendable=False,
-                    efficiency=1.0,  # Scalar value
-                    start_up_cost=config['aluminum']['al_start_up_cost'] * 1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),
-                    committable=config['aluminum_commitment'],
-                    p_min_pu=config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0,
+    # 如果配置文件中启用了工业负荷切除，并且使用单节点（即不考虑区域划分），则设置柔性负荷
+    if config['products_load_shedding'] and config['using_single_node']:
+        
+        # get the single node province from the config
+        single_province = config['single_node_province']  # now "Anhui"
+        if single_province in load.columns:
+            # process parameters related to products
+            AllTime = len(snapshots) # 试验次数，等于时间序列长度
+            days = int(AllTime * freq_hours // 24)  # 天数
+            products = process_products(days)
+            # 将products存储为network的属性
+            network.products = products
+            # Add flexible load to the network
+            if config['LS_scenario'] == 1:
+                # 为当前优化的单节点省份添加一个恒定电力负荷
+                network.add("Load", 
+                            f"{single_province} industrial load",  # 使用省份前缀命名产品负荷
+                            bus=single_province, 
+                            p_set=products["load_t"])
+            elif config['LS_scenario'] == 2:
+                # 为每个产品添加带惩罚成本的负荷，用负出力发电机建模柔性负荷
+                for i, material in enumerate(products["materials"]):
+                    network.add(
+                        "Generator",
+                        f"{single_province} {material} industrial load",  # 使用省份前缀命名产品负荷
+                        bus=single_province,
+                        carrier=f"industrial_load_{material}",  # carrier名称即为产品名称
+                        p_max_pu=0,  # 最大出力为0，只能切负荷
+                        p_min_pu=-1,  # 需求量（负号表示消耗）
+                        p_nom=products["demand"][i] * products["energy_consumption"][i] / 24,  # 需求规模
+                        p_nom_extendable=False,  # 不允许模型优化此负荷的规模
+                        marginal_cost=products["price"][i] / products["energy_consumption"][i] * products["net_demand_rate"][i]  # 切负荷成本（欧元）
+                        # 这里需要注意，price是1单位产品的增加值，energy_consumption是1单位产品的能量消耗，二者相除即为产品i生产用能1单位时产生的边际成本
+                        # 为保证总增加值与考虑产业链的切负荷一致，需要再乘以净需求率
                     )
+            elif config['LS_scenario'] == 3:
+                ## 第一部分：添加产品仓储设施
 
-        # Add aluminum storage only for provinces with production ratio > 0.01
-        network.madd("Store",
-                    production_ratio.index,  # Only add for filtered provinces
-                    suffix=" aluminum storage",
-                    bus=production_ratio.index + " aluminum",
-                    carrier="aluminum",
-                    e_nom_extendable=True,
-                    e_cyclic=True,
-                    marginal_cost_storage=config['aluminum']['al_marginal_cost_storage'])
+                # 添加产品节点（每种物料一个bus，对应文档bus_i）
+                # 使用省份前缀命名产品bus
+                for material in products["materials"]:
+                    network.add("Bus", 
+                                f"{single_province} {material} bus",  # 使用省份前缀命名产品bus
+                                carrier="product"
+                            )
+                # 添加产品仓储设施（每个产品添加一个store，对应文档s_i）
+                for i, material in enumerate(products["materials"]):
+                    network.add(
+                        "Store",
+                        f"{single_province} {material} store",  # 使用省份前缀命名产品store
+                        bus=f"{single_province} {material} bus", # 使用省份前缀命名产品store
+                        carrier="product",  # 仓储类型
+                        e_nom=products["max_inventory"][i],  # 仓储容量上限（可调）目前假设为7天需求量
+                        e_initial=products["initial_inventory"][i],  # 初始库存
+                        e_cyclic=False  # 是否周期性
+                    )
+                
+                ## 第二部分：添加生产过程的Link
+                
+                # 使用单位用能向量修正关系矩阵，矩阵的每一列除以单位用能向量的对应元素
+                # 此时矩阵[i][i]表示输入1MWh电能可生产的产品i的数量；矩阵[i][j]表示产品i生产过程中，输入1MWh电能时消耗的产品j的数量
+                # 由于link输入的是功率，而关系矩阵对角元素表示的是每单位电能生产的产品数量，所以需要乘以时间分辨率
+                products["relationship_matrix"] = np.array(products["relationship_matrix"]) / np.array(products["energy_consumption"]).reshape(-1, 1) * freq_hours  # 每小时的能量需求
+                # 添加产品生产Link（每个产品一个生产Link）
+                for j, material in enumerate(products["materials"]):
+                    inputs = []
+                    efficiencies = []
+                    for i, input_material in enumerate(products["materials"]):
+                        if products["relationship_matrix"][i][j] > 0 and i != j:
+                            inputs.append(input_material)
+                            efficiencies.append(products["relationship_matrix"][i][j])
+                    if inputs: 
+                        link_kwargs = {
+                            "bus0": single_province,  # 电力输入总线
+                            "carrier": products["hierarchy"][j],  # 根据配置中的产品层级添加carrier
+                            # p_nom为每个时段的功率需求，时段能量需求为日总用能除每个时段的长度（24/resolution），由于p_nom是输入功率，因此还需要再除以时间分辨率
+                            # 故最终p_nom为产品的日总能量需求除以24小时
+                            "p_nom": products["energy_consumption"][j] * products["demand"][j] / 24,  
+                            "p_max_pu": products['excess_rate'][j],  # 最大出力比例
+                            "p_min_pu": 0.0,  # 最小出力比例
+                            "p_nom_extendable": False,  
+                        }
+                        # 设置输入物料的效率（消耗量为负）
+                        link_kwargs[f"efficiency"] = -efficiencies[0]
+                        for idx, input_material in enumerate(inputs):
+                            input_bus_name = f"{single_province} {input_material} bus"  # 添加省份前缀
+                            link_kwargs[f"bus{idx + 1}"] = input_bus_name  # 添加输入bus
+                            if idx + 1 != 1:
+                                link_kwargs[f"efficiency{idx + 1}"] = -efficiencies[idx]
+                        # 添加产品输出bus
+                        output_bus_name = f"{single_province} {material} bus"  # 添加省份前缀
+                        link_kwargs[f"bus{len(inputs) + 1}"] = output_bus_name
+                        link_kwargs[f"efficiency{len(inputs) + 1}"] = products["relationship_matrix"][j][j]
 
-        # Add aluminum load only for provinces with production ratio > 0.01
-        network.madd("Load",
-                    production_ratio.index,  # Only add for filtered provinces
-                    suffix=" aluminum",
-                    bus=production_ratio.index + " aluminum",
-                    p_set=aluminum_load[production_ratio.index])
+                        network.add("Link", 
+                                    f"{single_province} {material} production",
+                                    **link_kwargs
+                                )
 
-        # Subtract aluminum load from electric load only for affected provinces
-        load_minus_al = load.copy()
-        load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index]
-        network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
+                ## 第三部分：添加弹性负荷（负荷切除）
+                
+                # 构造需求时间序列：每个产品每天最后一个时段有需求
+                
+                demand_series = np.zeros(AllTime)
+                freq_hours_int = int(freq_hours)
+                for i in range(days):
+                    demand_series[i * 24 // freq_hours_int + 24 // freq_hours_int - 1] = -1  # 负号表示消耗
+                # 为每个产品添加带惩罚成本的负荷
+                for i, material in enumerate(products["materials"]):
+                    product_bus_name = f"{single_province} {material} bus"  
+                    network.add("Generator",
+                        f"{single_province} {material} industrial load",
+                        bus = product_bus_name,
+                        carrier=f"industrial_load_{material}",  # carrier名称即为产品名称
+                        p_max_pu = 0,  # 最大出力为0，只能切负荷
+                        p_min_pu = demand_series,  # 需求量
+                        p_nom = products["demand"][i] * products["net_demand_rate"][i],  # 需求规模
+                        p_nom_extendable = False,  # 允许模型优化此负荷的规模
+                        marginal_cost = products["price"][i] / freq_hours # 切负荷成本（欧元）
+                        # 这里需要注意，price_matrix是1单位产品的增加值，而实际输出的产品会乘以时间分辨率，所以需要除以时间分辨率以确保边际成本正确
+                )
+            else:
+                raise ValueError("Invalid LS_scenario configuration. Please check the 'LS_scenario' parameter in the config.")
+
+        # Subtract products load from electric load only for affected provinces
+        load_minus_products = load.copy()
+        load_minus_products[single_province] = load[single_province] - products["load_t"]
+        network.madd("Load", nodes, bus=nodes, p_set=load_minus_products)
     else:
+        # 如果没有负荷切割，则添加原有负荷，不设置products属性
+        network.products = None
         network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
+
+    ## 这里LS修改结束
 
     if config["heat_coupling"]:
 
@@ -293,7 +415,7 @@ def prepare_network(config):
                      carrier="biomass",
                      )
 
-        biomass_potential = pd.read_hdf(snakemake.input.biomass_potental)
+        biomass_potential = pd.read_hdf(snakemake.input.biomass_potential)
         network.madd("Store",
                      nodes + " biomass",
                      bus =nodes + " biomass",

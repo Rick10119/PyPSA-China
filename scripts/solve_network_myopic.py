@@ -56,7 +56,7 @@ def prepare_network(
     if using_single_node:
         # Filter to keep only specified province components
         province_buses = n.buses[n.buses.index.str.contains(single_node_province)].index
-        
+
         # Remove non-province buses and their components
         non_province_buses = n.buses[~n.buses.index.isin(province_buses)].index
         
@@ -937,7 +937,8 @@ def solve_network_standard(n, config, solving, opts="", **kwargs):
     skip_iterations = cf_solving.get("skip_iterations", False)
     if not n.lines.s_nom_extendable.any():
         skip_iterations = True
-    
+        logger.info("No expandable lines found. Skipping iterative solving.")
+
     # 使用标准参数求解
     # 只保留PyPSA支持的参数
     optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
@@ -1076,5 +1077,19 @@ if __name__ == '__main__':
         # Convert DataFrame to numeric, handling any non-numeric values
         n.links_t.p3 = n.links_t.p3.apply(pd.to_numeric, errors='coerce').fillna(0.0).infer_objects(copy=False)
     
+    # 打印生产铝的产品link
+    single_province = snakemake.params.single_node_province
+    aluminum_production_link = f"{single_province} aluminum production"
+
+    if aluminum_production_link in n.links.index:
+        if hasattr(n, 'links_t') and hasattr(n.links_t, 'p0'):
+            power_series = n.links_t.p0[aluminum_production_link]
+            total_power = power_series.sum()
+            logger.info(f"生产铝Link ({aluminum_production_link}) 总功率输入: {total_power:.2f} MW")
+        else:
+            logger.info(f"无法获取 {aluminum_production_link} 的功率数据")
+    else:
+        logger.info(f"未找到生产铝Link: {aluminum_production_link}")
+
     # 导出结果
     n.export_to_netcdf(snakemake.output.network_name) 
