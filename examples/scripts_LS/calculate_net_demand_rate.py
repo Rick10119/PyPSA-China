@@ -3,9 +3,9 @@ import pandas as pd
 import numpy as np
 
 # 读取生产参数数据 
-df_pp = pd.read_csv("examples/data/production_parameters_forLS_modified.csv")
+df_pp = pd.read_csv("data/loadshedding/production_parameters_forLS_modified.csv")
 # 读入产品关系矩阵
-df_pm = pd.read_csv("examples/data/production_relationship_matrix_modified.csv")
+df_pm = pd.read_csv("data/loadshedding/production_relationship_matrix_modified.csv")
 
 # 获取生产需求量
 demand = df_pp['demand'].tolist()
@@ -30,7 +30,7 @@ for i, rate in enumerate(net_demand_rate):
 
 # 结果写入csv文件的对应列
 df_pp['net_demand_rate'] = net_demand_rate
-df_pp.to_csv("examples/data/production_parameters_forLS_modified.csv", index=False)
+df_pp.to_csv("data/loadshedding/production_parameters_forLS_modified.csv", index=False)
 
 # 写完后打印确认信息
 print("Net demand rate calculation completed and results saved to CSV.")

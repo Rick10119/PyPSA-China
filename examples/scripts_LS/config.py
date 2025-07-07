@@ -44,7 +44,8 @@ CONFIG = {
     },
 
     # LS配置
-
+    
+    # 用于绘图时检索
     "hierarchy": ["upstream_raw_material", "upstream_product", "downstream_product"],  # 产品层级
     "type":["mineral","chemical","building","vehicle","component","fertilizer","electrical_equipment","industrial_equipment"],  # 产品类型
 

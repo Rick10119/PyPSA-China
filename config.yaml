@@ -2,13 +2,13 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0701.1H.3
+version: 0707.4H.2
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: False
-single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
+using_single_node: True
+single_node_province: "Anhui"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
 summary_dir: 'summary/'
@@ -17,25 +17,24 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1h'
+freq: '4h'
 
-add_aluminum: True
+add_aluminum: False
 iterative_optimization: True
 aluminum_commitment: False # keep False for iterative optimization
 aluminum_max_iterations: 5
 aluminum_convergence_tolerance: 0.01
+
+# LS parameters
+products_load_shedding: True
+# "resolution": 4 # 与freq应保持一致，单位为小时
+LS_scenario: 3  # 切负荷问题场景编号: 1:基准情况；2：简单切负荷；3：考虑产业链协同的切负荷
 
 scenario:
   line_limits: [ 'opt' ]
   pathway: ['linear2050']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
     - 2050
   co2_reduction:
     linear2060:
@@ -85,7 +84,7 @@ solving:
     track_iterations: false
     min_iterations: 4
     max_iterations: 6
-    skip_iterations: false
+    skip_iterations: true # LS单节点，因此跳过迭代
     formulation: kirchhoff
     load_shedding: false
     noisy_costs: false
@@ -96,15 +95,24 @@ solving:
 aluminum:
   al_demand_ratio: 0.07  # aluminum demand, 7% load
   al_excess_rate: # aluminum excess rate
+    # '2020': 0.00
+    # '2025': 0.00
+    # '2030': 0.30
+    # '2035': 0.40
+    # '2040': 0.50
+    # '2045': 0.50
+    # '2050': 0.50
+    # '2055': 0.40
+    # '2060': 0.30
     '2020': 0.00
     '2025': 0.00
-    '2030': 0.30
-    '2035': 0.40
-    '2040': 0.50
-    '2045': 0.50
-    '2050': 0.50
-    '2055': 0.40
-    '2060': 0.30
+    '2030': 0.00 
+    '2035': 0.00 
+    '2040': 0.00  
+    '2045': 0.00  
+    '2050': 0.00  
+    '2055': 0.00  
+    '2060': 0.00  
 
   
   # Electrolyzer costs
@@ -161,14 +169,13 @@ add_methanation: True
 
 existing_infrastructure: ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']
 
-bus_suffix: [""," central heat"," decentral heat"," gas"," coal"," aluminum"]
-bus_carrier: {
+bus_suffix: [""," central heat"," decentral heat"," gas"," coal"] # 把aluminum删去
+bus_carrier: { # 把aluminum删去
     "": "AC",
     " central heat": "heat",
     " decentral heat": "heat",
     " gas": "gas",
     " coal": "coal",
-    " aluminum": "aluminum",
 }
 
 Techs:
