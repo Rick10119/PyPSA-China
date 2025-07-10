@@ -310,19 +310,6 @@ def generate_summary_statistics(comparison_df, file_type, name1, name2, output_p
 def generate_yearly_comparison_plots(data1, data2, name1, name2, output_dir):
     """
     生成按年份的对比图表
-    
-    Parameters:
-    -----------
-    data1 : dict
-        第一个版本的数据
-    data2 : dict
-        第二个版本的数据
-    name1 : str
-        第一个版本名称
-    name2 : str
-        第二个版本名称
-    output_dir : Path
-        输出目录
     """
     # 创建输出目录
     plots_dir = output_dir / "plots"
@@ -332,9 +319,7 @@ def generate_yearly_comparison_plots(data1, data2, name1, name2, output_dir):
     years_data = collect_all_years_data(name1, name2, 'costs')
     
     if years_data:
-        # 生成按资源的总成本图表
-        generate_total_cost_by_carrier_plot(years_data, name1, name2, plots_dir)
-        # 生成成本变化量图表
+        # 只生成成本变化量图表，不再生成total cost by carrier图表
         generate_cost_change_plot(years_data, name1, name2, plots_dir)
     else:
         logger.warning("没有找到年份信息用于成本分析")
@@ -451,159 +436,6 @@ def load_single_csv_file(file_path):
         logger.warning(f"加载 {file_path} 时出错: {str(e)}")
         return None
 
-def generate_total_cost_by_carrier_plot(years_data, name1, name2, plots_dir):
-    """
-    生成按资源的总成本图表
-    
-    Parameters:
-    -----------
-    years_data : dict
-        按年份组织的数据
-    name1 : str
-        第一个版本名称
-    name2 : str
-        第二个版本名称
-    plots_dir : Path
-        图表输出目录
-    """
-    # 提取年份
-    years = sorted(years_data.keys())
-    
-    # 定义资源类型映射
-    carrier_mapping = {
-        'coal': 'Coal',
-        'gas': 'Natural Gas',
-        'hydro_inflow': 'Hydro',
-        'hydroelectricity': 'Hydro',
-        'nuclear': 'Nuclear',
-        'offwind': 'Offshore Wind',
-        'onwind': 'Onshore Wind',
-        'solar': 'Solar PV',
-        'solar thermal': 'Solar Thermal',
-        'biomass': 'Biomass',
-        'battery': 'Battery',
-        'PHS': 'Pumped Hydro',
-        'water tanks': 'Heat Storage',
-        'heat pump': 'Heat Pump',
-        'resistive heater': 'Electric Heater',
-        'CHP coal': 'Coal CHP',
-        'CHP gas': 'Gas CHP',
-        'OCGT gas': 'Gas OCGT',
-        'coal boiler': 'Coal Boiler',
-        'AC': 'AC Transmission',
-        'stations': 'Substations',
-        'biogas': 'Biogas'
-    }
-    
-    # 按资源类型组织数据
-    carrier_data = {}
-    
-    for year in years:
-        if name1 in years_data[year] and name2 in years_data[year]:
-            df1 = years_data[year][name1]
-            df2 = years_data[year][name2]
-            
-            # 处理第一个版本的数据
-            for idx in df1.index:
-                if len(idx) >= 3:  # 确保有多级索引
-                    component_type, cost_type, carrier = idx[0], idx[1], idx[2]
-                    # 获取中文名称
-                    carrier_name = carrier_mapping.get(carrier, carrier)
-                    
-                    if carrier_name not in carrier_data:
-                        carrier_data[carrier_name] = {'years': [], 'v1_cost': [], 'v2_cost': []}
-                    
-                    # 累加该资源的所有成本（资本成本 + 边际成本）
-                    if year not in carrier_data[carrier_name]['years']:
-                        carrier_data[carrier_name]['years'].append(year)
-                        carrier_data[carrier_name]['v1_cost'].append(0)
-                        carrier_data[carrier_name]['v2_cost'].append(0)
-                    
-                    # 找到对应的年份索引
-                    year_idx = carrier_data[carrier_name]['years'].index(year)
-                    carrier_data[carrier_name]['v1_cost'][year_idx] += df1.loc[idx].iloc[0]
-            
-            # 处理第二个版本的数据
-            for idx in df2.index:
-                if len(idx) >= 3:
-                    component_type, cost_type, carrier = idx[0], idx[1], idx[2]
-                    carrier_name = carrier_mapping.get(carrier, carrier)
-                    
-                    if carrier_name in carrier_data:
-                        year_idx = carrier_data[carrier_name]['years'].index(year)
-                        carrier_data[carrier_name]['v2_cost'][year_idx] += df2.loc[idx].iloc[0]
-    
-    # 过滤掉总成本为0的资源
-    filtered_carriers = {}
-    for carrier, data in carrier_data.items():
-        if any(cost > 0 for cost in data['v1_cost'] + data['v2_cost']):
-            filtered_carriers[carrier] = data
-    
-    if not filtered_carriers:
-        logger.warning("没有找到有效的成本数据")
-        return
-    
-    # 创建图表
-    n_carriers = len(filtered_carriers)
-    cols = 2
-    rows = (n_carriers + cols - 1) // cols
-    
-    fig, axes = plt.subplots(rows, cols, figsize=(15, 5*rows))
-    if rows == 1:
-        axes = axes.reshape(1, -1)
-    
-    for i, (carrier, data) in enumerate(filtered_carriers.items()):
-        row = i // cols
-        col = i % cols
-        ax = axes[row, col]
-        
-        years = data['years']
-        v1_cost = data['v1_cost']
-        v2_cost = data['v2_cost']
-        
-        if not years:
-            continue
-        
-        x = np.arange(len(years))
-        width = 0.35
-        
-        bars1 = ax.bar(x - width/2, v1_cost, width, label=name1, alpha=0.8)
-        bars2 = ax.bar(x + width/2, v2_cost, width, label=name2, alpha=0.8)
-        
-        ax.set_xlabel('Year')
-        ax.set_ylabel('Total Cost (CNY)')
-        ax.set_title(f'{carrier} Total Cost Comparison')
-        ax.set_xticks(x)
-        ax.set_xticklabels(years, rotation=45)
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        
-        # 添加数值标签
-        for bars in [bars1, bars2]:
-            for bar in bars:
-                height = bar.get_height()
-                if height > 0:
-                    ax.annotate(f'{height/1e9:.1f}B',
-                                xy=(bar.get_x() + bar.get_width() / 2, height),
-                                xytext=(0, 3),
-                                textcoords="offset points",
-                                ha='center', va='bottom', fontsize=8)
-    
-    # 隐藏多余的子图
-    for i in range(n_carriers, rows * cols):
-        row = i // cols
-        col = i % cols
-        axes[row, col].set_visible(False)
-    
-    plt.tight_layout()
-    
-    # 保存图表
-    plot_file = plots_dir / f"total_cost_by_carrier_{name1}_vs_{name2}.png"
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"Total cost by carrier plot saved to: {plot_file}")
-    
-    plt.close()
-
 def generate_cost_change_plot(years_data, name1, name2, plots_dir):
     """
     生成成本变化量图表
@@ -622,10 +454,13 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
     # 提取年份
     years = sorted(years_data.keys())
     
-    # 定义资源类型映射
+    # 定义资源类型映射 - 扩展映射以处理更多carrier类型
     carrier_mapping = {
         'coal': 'Coal',
+        'coal power plant': 'Coal',  # 统一coal相关
+        'coal cc': 'Coal CC',  # 碳捕获煤电
         'gas': 'Natural Gas',
+        'gas boiler': 'Gas Boiler',  # 燃气锅炉
         'hydro_inflow': 'Hydro',
         'hydroelectricity': 'Hydro',
         'nuclear': 'Nuclear',
@@ -635,6 +470,7 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
         'solar thermal': 'Solar Thermal',
         'biomass': 'Biomass',
         'battery': 'Battery',
+        'battery discharger': 'Battery',  # 统一battery相关
         'PHS': 'Pumped Hydro',
         'water tanks': 'Heat Storage',
         'heat pump': 'Heat Pump',
@@ -645,11 +481,95 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
         'coal boiler': 'Coal Boiler',
         'AC': 'AC Transmission',
         'stations': 'Substations',
-        'biogas': 'Biogas'
+        'biogas': 'Biogas',
+        'CO2 capture': 'CO2 Capture',  # 碳捕获
+        'H2': 'Hydrogen',  # 氢气
+        'H2 CHP': 'H2 CHP',  # 氢气热电联产
+        'Sabatier': 'Sabatier',  # Sabatier反应
+        'CO2': 'CO2'  # 二氧化碳
     }
     
-    # 按资源类型组织数据
-    carrier_changes = {}
+    # 定义成本类型和资源组合的分类映射
+    cost_category_mapping = {
+        # marginal (non-renewable) - 边际成本（非可再生能源）
+        ('marginal', 'coal'): 'marginal (non-renewable)',
+        ('marginal', 'coal power plant'): 'marginal (non-renewable)',
+        ('marginal', 'coal cc'): 'marginal (non-renewable)',
+        ('marginal', 'gas'): 'marginal (non-renewable)',
+        ('marginal', 'nuclear'): 'marginal (non-renewable)',
+        ('marginal', 'CHP coal'): 'marginal (non-renewable)',
+        ('marginal', 'CHP gas'): 'marginal (non-renewable)',
+        ('marginal', 'OCGT gas'): 'marginal (non-renewable)',
+        ('marginal', 'coal boiler'): 'marginal (non-renewable)',
+        ('marginal', 'gas boiler'): 'marginal (non-renewable)',
+        
+        # capital (non-renewable) - 资本成本（非可再生能源）
+        ('capital', 'coal'): 'capital (non-renewable)',
+        ('capital', 'coal power plant'): 'capital (non-renewable)',
+        ('capital', 'coal cc'): 'capital (non-renewable)',
+        ('capital', 'gas'): 'capital (non-renewable)',
+        ('capital', 'nuclear'): 'capital (non-renewable)',
+        ('capital', 'CHP coal'): 'capital (non-renewable)',
+        ('capital', 'CHP gas'): 'capital (non-renewable)',
+        ('capital', 'OCGT gas'): 'capital (non-renewable)',
+        ('capital', 'coal boiler'): 'capital (non-renewable)',
+        ('capital', 'gas boiler'): 'capital (non-renewable)',
+        
+        # capital – demand side - 需求侧资本成本
+        ('capital', 'heat pump'): 'capital – demand side',
+        ('capital', 'resistive heater'): 'capital – demand side',
+        
+        # capital – renewable - 可再生能源资本成本
+        ('capital', 'hydro_inflow'): 'capital – renewable',
+        ('capital', 'hydroelectricity'): 'capital – renewable',
+        ('capital', 'offwind'): 'capital – renewable',
+        ('capital', 'onwind'): 'capital – renewable',
+        ('capital', 'solar'): 'capital – renewable',
+        ('capital', 'solar thermal'): 'capital – renewable',
+        ('capital', 'biomass'): 'capital – renewable',
+        ('capital', 'biogas'): 'capital – renewable',
+        
+        # marginal - renewable - 可再生能源边际成本
+        ('marginal', 'hydro_inflow'): 'marginal - renewable',
+        ('marginal', 'hydroelectricity'): 'marginal - renewable',
+        ('marginal', 'offwind'): 'marginal - renewable',
+        ('marginal', 'onwind'): 'marginal - renewable',
+        ('marginal', 'solar'): 'marginal - renewable',
+        ('marginal', 'solar thermal'): 'marginal - renewable',
+        ('marginal', 'biomass'): 'marginal - renewable',
+        ('marginal', 'biogas'): 'marginal - renewable',
+        
+        # power delivery (AC) - 电力传输
+        ('capital', 'AC'): 'power delivery (AC)',
+        ('capital', 'stations'): 'power delivery (AC)',
+        
+        # batteries - 电池储能
+        ('capital', 'battery'): 'batteries',
+        ('capital', 'battery discharger'): 'batteries',
+        ('marginal', 'battery'): 'batteries',
+        ('marginal', 'battery discharger'): 'batteries',
+        
+        # long-duration storage (H2, water tank) - 长时储能
+        ('capital', 'PHS'): 'long-duration storage (H2, water tank)',
+        ('capital', 'water tanks'): 'long-duration storage (H2, water tank)',
+        ('capital', 'H2'): 'long-duration storage (H2, water tank)',
+        ('capital', 'H2 CHP'): 'long-duration storage (H2, water tank)',
+        ('marginal', 'PHS'): 'long-duration storage (H2, water tank)',
+        ('marginal', 'water tanks'): 'long-duration storage (H2, water tank)',
+        ('marginal', 'H2'): 'long-duration storage (H2, water tank)',
+        ('marginal', 'H2 CHP'): 'long-duration storage (H2, water tank)',
+        
+        # 其他分类（如果需要）
+        ('capital', 'CO2 capture'): 'carbon capture',
+        ('marginal', 'CO2 capture'): 'carbon capture',
+        ('capital', 'Sabatier'): 'synthetic fuels',
+        ('marginal', 'Sabatier'): 'synthetic fuels',
+        ('capital', 'CO2'): 'carbon management',
+        ('marginal', 'CO2'): 'carbon management',
+    }
+    
+    # 按成本分类组织数据
+    category_changes = {}
     net_changes = []
     
     for year in years:
@@ -659,14 +579,17 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
             
             year_net_change = 0
             
-            # 计算每个资源的变化量
+            # 计算每个成本分类的变化量
             for idx in df1.index:
                 if len(idx) >= 3:
                     component_type, cost_type, carrier = idx[0], idx[1], idx[2]
-                    carrier_name = carrier_mapping.get(carrier, carrier)
                     
-                    if carrier_name not in carrier_changes:
-                        carrier_changes[carrier_name] = {'years': [], 'changes': []}
+                    # 使用新的分类映射
+                    category_key = (cost_type, carrier)
+                    category_name = cost_category_mapping.get(category_key, f"{cost_type} - {carrier}")
+                    
+                    if category_name not in category_changes:
+                        category_changes[category_name] = {'years': [], 'changes': []}
                     
                     # 获取两个版本的对应值
                     v1_value = df1.loc[idx].iloc[0]
@@ -678,26 +601,68 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
                             v2_value = df2.loc[idx2].iloc[0]
                             break
                     
-                    # 计算变化量（v2 - v1，节约为正，增加为负）
-                    change = v2_value - v1_value
+                    # 处理NaN值
+                    if pd.isna(v1_value):
+                        v1_value = 0
+                    if pd.isna(v2_value):
+                        v2_value = 0
                     
-                    if year not in carrier_changes[carrier_name]['years']:
-                        carrier_changes[carrier_name]['years'].append(year)
-                        carrier_changes[carrier_name]['changes'].append(0)
+                    # 计算变化量（v1 - v2，节约为正，增加为负）
+                    change = v1_value - v2_value
                     
-                    year_idx = carrier_changes[carrier_name]['years'].index(year)
-                    carrier_changes[carrier_name]['changes'][year_idx] += change
+                    if year not in category_changes[category_name]['years']:
+                        category_changes[category_name]['years'].append(year)
+                        category_changes[category_name]['changes'].append(0)
+                    
+                    year_idx = category_changes[category_name]['years'].index(year)
+                    category_changes[category_name]['changes'][year_idx] += change
                     year_net_change += change
             
             net_changes.append(year_net_change)
     
-    # 过滤掉变化量为0的资源
-    filtered_carriers = {}
-    for carrier, data in carrier_changes.items():
-        if any(abs(change) > 1e-6 for change in data['changes']):  # 使用小的阈值避免浮点数精度问题
-            filtered_carriers[carrier] = data
+    # 打印成本分类调试信息
+    print(f"\n=== 成本分类调试信息 ===")
+    print("原始成本分类名称:")
+    for category in category_changes.keys():
+        print(f"  - {category}")
     
-    if not filtered_carriers:
+    # 过滤掉nan分类和变化量为0的分类，以及不需要展示的分类
+    filtered_categories = {}
+    exclude_categories = {
+        'nan - nan',
+        'marginal - renewable',
+        'marginal - heat pump', 
+        'marginal - resistive heater'
+    }
+    
+    for category, data in category_changes.items():
+        if category == 'nan' or pd.isna(category) or category in exclude_categories:
+            continue
+        if any(abs(change) > 1e-6 for change in data['changes']):  # 使用小的阈值避免浮点数精度问题
+            filtered_categories[category] = data
+    
+    # 检查synthetic fuels的数量，如果很少就不展示
+    if 'synthetic fuels' in filtered_categories:
+        synthetic_fuels_data = filtered_categories['synthetic fuels']
+        total_synthetic_fuels = sum(abs(change) for change in synthetic_fuels_data['changes'])
+        if total_synthetic_fuels < 1e9:  # 如果总量小于10亿，就不展示
+            del filtered_categories['synthetic fuels']
+            print(f"过滤掉 synthetic fuels，总量: {total_synthetic_fuels/1e9:.3f}B CNY")
+    
+    print(f"\n过滤后的分类数量: {len(filtered_categories)}")
+    print("过滤后的分类名称:")
+    for category in filtered_categories.keys():
+        print(f"  - {category}")
+    
+    # 添加调试信息：显示每个分类的变化量总和
+    print(f"\n=== 各分类变化量调试信息 ===")
+    for category, data in filtered_categories.items():
+        total_change = sum(data['changes'])
+        max_change = max(data['changes']) if data['changes'] else 0
+        min_change = min(data['changes']) if data['changes'] else 0
+        print(f"{category}: 总和={total_change/1e9:.3f}B, 最大值={max_change/1e9:.3f}B, 最小值={min_change/1e9:.3f}B")
+    
+    if not filtered_categories:
         logger.warning("没有找到有效的成本变化数据")
         return
     
@@ -713,39 +678,78 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
     negative_labels = []
     
     # 分离正负变化量
-    for carrier, data in filtered_carriers.items():
+    for category, data in filtered_categories.items():
         changes = data['changes']
+        years_for_category = data['years']
+        
+        # 检查数据长度是否匹配
         if len(changes) == len(x):
             positive_changes.append([max(0, change) for change in changes])
             negative_changes.append([min(0, change) for change in changes])
-            positive_labels.append(carrier)
-            negative_labels.append(carrier)
+            positive_labels.append(category)
+            negative_labels.append(category)
         else:
-            logger.warning(f"跳过 {carrier}，数据长度不匹配: {len(changes)} vs {len(x)}")
+            # 处理数据长度不匹配的情况
+            logger.warning(f"分类 {category} 数据长度不匹配: {len(changes)} vs {len(x)}")
+            logger.info(f"分类 {category} 有数据的年份: {years_for_category}")
+            
+            # 创建完整长度的数组，缺失年份用0填充
+            full_changes = []
+            for year in years:
+                if year in years_for_category:
+                    year_idx = years_for_category.index(year)
+                    full_changes.append(changes[year_idx])
+                else:
+                    full_changes.append(0)  # 缺失年份用0填充
+            
+            positive_changes.append([max(0, change) for change in full_changes])
+            negative_changes.append([min(0, change) for change in full_changes])
+            positive_labels.append(category)
+            negative_labels.append(category)
     
-    # 绘制堆叠柱状图
-    colors = plt.cm.Set3(np.linspace(0, 1, len(filtered_carriers)))
+    # 绘制堆叠柱状图 - 使用更丰富的颜色映射避免重复
+    # 使用tab20颜色映射，提供更多不同的颜色
+    colors = plt.cm.tab20(np.linspace(0, 1, len(filtered_categories)))
+    
+    # 为每个carrier分配唯一的颜色
+    carrier_colors = {}
+    for i, carrier in enumerate(filtered_categories.keys()):
+        carrier_colors[carrier] = colors[i]
+    
+    # 用于跟踪已经添加到legend的carrier
+    added_to_legend = set()
     
     # 绘制正值堆叠
     bottom_positive = np.zeros(len(x))
     for i, (changes, carrier) in enumerate(zip(positive_changes, positive_labels)):
         if any(change > 0 for change in changes):
-            bars = ax.bar(x, changes, bottom=bottom_positive, label=carrier, color=colors[i], alpha=0.8)
+            # 只在第一次遇到该carrier时添加到legend
+            label = carrier if carrier not in added_to_legend else ""
+            bars = ax.bar(x, changes, bottom=bottom_positive, label=label, color=carrier_colors[carrier], alpha=0.8)
             bottom_positive += np.array(changes)
+            added_to_legend.add(carrier)
     
     # 绘制负值堆叠
     bottom_negative = np.zeros(len(x))
     for i, (changes, carrier) in enumerate(zip(negative_changes, negative_labels)):
         if any(change < 0 for change in changes):
-            bars = ax.bar(x, changes, bottom=bottom_negative, label=carrier, color=colors[i], alpha=0.8)
+            # 负值部分也添加到legend，但只在第一次遇到该carrier时添加
+            label = carrier if carrier not in added_to_legend else ""
+            bars = ax.bar(x, changes, bottom=bottom_negative, label=label, color=carrier_colors[carrier], alpha=0.8)
             bottom_negative += np.array(changes)
+            added_to_legend.add(carrier)
+    
+    # 打印净变化量数值用于调试
+    print(f"\n=== 净变化量数值调试信息 ===")
+    for i, (year, net_change) in enumerate(zip(years, net_changes)):
+        print(f"{year}年: {net_change/1e9:.3f}B CNY (原始值: {net_change:.0f})")
     
     # 绘制净变化量的黑线（加粗并确保可见）
-    ax.plot(x, net_changes, 'k-', linewidth=4, label='Net Change', marker='o', markersize=8, zorder=10)
+    ax.plot(x, net_changes, 'k-', linewidth=2, label='Net Change', marker='o', markersize=10, zorder=20)
     
-    # 添加净变化量的数值标签
+    # 添加净变化量的数值标签 - 降低阈值显示所有数值
     for i, net_change in enumerate(net_changes):
-        if abs(net_change) > 1e6:
+        if abs(net_change) > 1e3:  # 大幅降低阈值，显示更多数值标签
             ax.annotate(f'{net_change/1e9:.1f}B',
                         xy=(i, net_change),
                         xytext=(0, 10 if net_change > 0 else -20),
@@ -757,10 +761,16 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
 
     
     ax.set_xlabel('Year')
-    ax.set_ylabel('Cost Change (CNY)')
-    ax.set_title(f'Cost Change by Carrier ({name1} → {name2})')
+    ax.set_ylabel('Cost Change (Billion CNY)')
+    ax.set_title(f'Cost Change by Category ({name1} → {name2})')
     ax.set_xticks(x)
     ax.set_xticklabels(years, rotation=45)
+    
+    # 设置y轴刻度标签为十亿单位
+    y_ticks = ax.get_yticks()
+    y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
+    ax.set_yticklabels(y_tick_labels)
+    
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax.grid(True, alpha=0.3)
     ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
@@ -768,29 +778,29 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
     plt.tight_layout()
     
     # 保存图表
-    plot_file = plots_dir / f"cost_change_by_carrier_{name1}_vs_{name2}.png"
+    plot_file = plots_dir / f"cost_change_by_category_{name1}_vs_{name2}.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     logger.info(f"Cost change plot saved to: {plot_file}")
     
     # 保存数据
     data_rows = []
-    for carrier, data in filtered_carriers.items():
+    for category, data in filtered_categories.items():
         for i, year in enumerate(data['years']):
             data_rows.append({
-                'Resource Type': carrier,
+                'Cost Category': category,
                 'Year': year,
                 'Cost Change': data['changes'][i],
-                'Cost Change (100M CNY)': data['changes'][i] / 1e9
+                'Cost Change (Billion CNY)': data['changes'][i] / 1e9
             })
     
     # 添加净变化量数据
     for i, year in enumerate(years):
         if i < len(net_changes):
             data_rows.append({
-                'Resource Type': 'Net Change',
+                'Cost Category': 'Net Change',
                 'Year': year,
                 'Cost Change': net_changes[i],
-                'Cost Change (100M CNY)': net_changes[i] / 1e9
+                'Cost Change (Billion CNY)': net_changes[i] / 1e9
             })
     
     data_df = pd.DataFrame(data_rows)
