@@ -802,7 +802,142 @@ def calculate_price_statistics(n, label, price_statistics):
     return price_statistics
 
 
-def make_summaries(networks_dict):
+def calculate_aluminum_statistics(n, label, aluminum_statistics):
+    """
+    Calculate aluminum-related statistics including electricity costs and other metrics.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components
+    label : str
+        The label/identifier for the current scenario
+    aluminum_statistics : pd.DataFrame
+        DataFrame to store the calculated aluminum statistics
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated aluminum_statistics DataFrame with new calculations
+    """
+    
+    # Define the statistics we want to calculate
+    stats_list = [
+        "total_electricity_cost",  # 全年用电量与节点边际电价的乘积总和
+        "total_electricity_consumption",  # 全年总用电量
+        "average_electricity_price",  # 平均电价
+        "max_electricity_price",  # 最高电价
+        "min_electricity_price",  # 最低电价
+        "electricity_cost_per_mwh",  # 每MWh电力的平均成本
+        "aluminum_capacity",  # 铝冶炼产能
+        "aluminum_storage_capacity",  # 铝存储容量
+        "aluminum_utilization_rate",  # 铝冶炼利用率
+    ]
+    
+    aluminum_statistics = aluminum_statistics.reindex(
+        aluminum_statistics.index.union(pd.Index(stats_list))
+    )
+    
+    # Get electricity buses (AC carrier)
+    electricity_buses = n.buses.index[n.buses.carrier == "AC"]
+    
+    # Only use buses that exist in marginal_price data
+    available_buses = electricity_buses.intersection(n.buses_t.marginal_price.columns)
+    
+    if available_buses.empty:
+        logger.warning("No available electricity buses found for aluminum statistics")
+        # Set default values
+        for stat in stats_list:
+            aluminum_statistics.at[stat, label] = 0.0
+        return aluminum_statistics
+    
+    # Find aluminum smelter links
+    aluminum_smelters = n.links.index[n.links.carrier == "aluminum"]
+    
+    if len(aluminum_smelters) == 0:
+        logger.warning("No aluminum smelters found in the network")
+        # Set default values
+        for stat in stats_list:
+            aluminum_statistics.at[stat, label] = 0.0
+        return aluminum_statistics
+    
+    # Calculate electricity consumption and costs for aluminum smelters
+    total_electricity_cost = 0.0
+    total_electricity_consumption = 0.0
+    
+    # Process each aluminum smelter
+    for smelter in aluminum_smelters:
+        # Get the bus where the smelter is connected (bus0 for electricity input)
+        smelter_bus = n.links.loc[smelter, "bus0"]
+        
+        # Check if the bus exists in marginal price data
+        if smelter_bus not in n.buses_t.marginal_price.columns:
+            logger.warning(f"Smelter {smelter} bus {smelter_bus} not found in marginal price data")
+            continue
+        
+        # Get electricity consumption (p0 is typically negative for consumption)
+        if smelter in n.links_t.p0.columns:
+            electricity_consumption = n.links_t.p0[smelter].abs()  # Use absolute value
+            electricity_prices = n.buses_t.marginal_price[smelter_bus]
+            
+            # Calculate total electricity consumption (MWh)
+            total_consumption = (
+                electricity_consumption.multiply(n.snapshot_weightings.generators, axis=0)
+                .sum()
+            )
+            
+            # Calculate total electricity cost (EUR)
+            total_cost = (
+                electricity_consumption.multiply(n.snapshot_weightings.generators, axis=0)
+                .multiply(electricity_prices, axis=0)
+                .sum()
+            )
+            
+            total_electricity_consumption += total_consumption
+            total_electricity_cost += total_cost
+    
+    # Calculate aluminum capacity (from links)
+    aluminum_capacity = n.links.loc[aluminum_smelters, "p_nom_opt"].sum()
+    
+    # Calculate aluminum storage capacity (from stores)
+    aluminum_stores = n.stores.index[n.stores.carrier == "aluminum"]
+    aluminum_storage_capacity = n.stores.loc[aluminum_stores, "e_nom_opt"].sum() if len(aluminum_stores) > 0 else 0.0
+    
+    # Calculate utilization rate (actual consumption vs capacity)
+    if aluminum_capacity > 0:
+        # Convert capacity from MW to MWh for the year (8760 hours)
+        annual_capacity = aluminum_capacity * 8760
+        aluminum_utilization_rate = total_electricity_consumption / annual_capacity if annual_capacity > 0 else 0.0
+    else:
+        aluminum_utilization_rate = 0.0
+    
+    # Calculate average electricity cost per MWh
+    electricity_cost_per_mwh = (
+        total_electricity_cost / total_electricity_consumption 
+        if total_electricity_consumption > 0 else 0.0
+    )
+    
+    # Calculate price statistics for all electricity buses
+    all_prices = n.buses_t.marginal_price[available_buses].unstack()
+    average_electricity_price = all_prices.mean() if len(all_prices) > 0 else 0.0
+    max_electricity_price = all_prices.max() if len(all_prices) > 0 else 0.0
+    min_electricity_price = all_prices.min() if len(all_prices) > 0 else 0.0
+    
+    # Store all statistics
+    aluminum_statistics.at["total_electricity_cost", label] = total_electricity_cost
+    aluminum_statistics.at["total_electricity_consumption", label] = total_electricity_consumption
+    aluminum_statistics.at["average_electricity_price", label] = average_electricity_price
+    aluminum_statistics.at["max_electricity_price", label] = max_electricity_price
+    aluminum_statistics.at["min_electricity_price", label] = min_electricity_price
+    aluminum_statistics.at["electricity_cost_per_mwh", label] = electricity_cost_per_mwh
+    aluminum_statistics.at["aluminum_capacity", label] = aluminum_capacity
+    aluminum_statistics.at["aluminum_storage_capacity", label] = aluminum_storage_capacity
+    aluminum_statistics.at["aluminum_utilization_rate", label] = aluminum_utilization_rate
+    
+    return aluminum_statistics
+
+
+def make_summaries(networks_dict, config=None):
     outputs = [
         "nodal_costs",
         "nodal_capacities",
@@ -820,6 +955,10 @@ def make_summaries(networks_dict):
         "market_values",
         "metrics",
     ]
+    
+    # Add aluminum statistics if add_aluminum is True
+    if config and config.get("add_aluminum", False):
+        outputs.append("aluminum_statistics")
 
     columns = pd.MultiIndex.from_tuples(
         networks_dict.keys(), names=["pathway", "planning_horizons"]
@@ -871,7 +1010,7 @@ if __name__ == "__main__":
                      for topology in expand_from_wildcard("topology", config)
                      for heating_demand in expand_from_wildcard("heating_demand", config)}
 
-    df = make_summaries(networks_dict)
+    df = make_summaries(networks_dict, config)
     df["metrics"].loc["total costs"] = df["costs"].sum()
 
 
