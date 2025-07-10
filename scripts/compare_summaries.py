@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # 在这里设置要对比的版本号
 VERSION1 = "0701.1H.7"  # 基准版本
-VERSION2 = "0701.1H.8"  # 对比版本
+VERSION2 = "0701.1H.3"  # 对比版本
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
@@ -491,57 +491,47 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
     
     # 定义成本类型和资源组合的分类映射
     cost_category_mapping = {
-        # marginal (non-renewable) - 边际成本（非可再生能源）
-        ('marginal', 'coal'): 'marginal (non-renewable)',
-        ('marginal', 'coal power plant'): 'marginal (non-renewable)',
-        ('marginal', 'coal cc'): 'marginal (non-renewable)',
-        ('marginal', 'gas'): 'marginal (non-renewable)',
-        ('marginal', 'nuclear'): 'marginal (non-renewable)',
-        ('marginal', 'CHP coal'): 'marginal (non-renewable)',
-        ('marginal', 'CHP gas'): 'marginal (non-renewable)',
-        ('marginal', 'OCGT gas'): 'marginal (non-renewable)',
-        ('marginal', 'coal boiler'): 'marginal (non-renewable)',
-        ('marginal', 'gas boiler'): 'marginal (non-renewable)',
+        # variable cost-non-renewable - 非可再生能源可变成本
+        ('marginal', 'coal'): 'variable cost-non-renewable',
+        ('marginal', 'coal power plant'): 'variable cost-non-renewable',
+        ('marginal', 'coal cc'): 'variable cost-non-renewable',
+        ('marginal', 'gas'): 'variable cost-non-renewable',
+        ('marginal', 'nuclear'): 'variable cost-non-renewable',
+        ('marginal', 'CHP coal'): 'variable cost-non-renewable',
+        ('marginal', 'CHP gas'): 'variable cost-non-renewable',
+        ('marginal', 'OCGT gas'): 'variable cost-non-renewable',
+        ('marginal', 'coal boiler'): 'variable cost-non-renewable',
+        ('marginal', 'gas boiler'): 'variable cost-non-renewable',
         
-        # capital (non-renewable) - 资本成本（非可再生能源）
-        ('capital', 'coal'): 'capital (non-renewable)',
-        ('capital', 'coal power plant'): 'capital (non-renewable)',
-        ('capital', 'coal cc'): 'capital (non-renewable)',
-        ('capital', 'gas'): 'capital (non-renewable)',
-        ('capital', 'nuclear'): 'capital (non-renewable)',
-        ('capital', 'CHP coal'): 'capital (non-renewable)',
-        ('capital', 'CHP gas'): 'capital (non-renewable)',
-        ('capital', 'OCGT gas'): 'capital (non-renewable)',
-        ('capital', 'coal boiler'): 'capital (non-renewable)',
-        ('capital', 'gas boiler'): 'capital (non-renewable)',
+        # capital-non-renewable - 非可再生能源资本成本
+        ('capital', 'coal'): 'capital-non-renewable',
+        ('capital', 'coal power plant'): 'capital-non-renewable',
+        ('capital', 'coal cc'): 'capital-non-renewable',
+        ('capital', 'gas'): 'capital-non-renewable',
+        ('capital', 'nuclear'): 'capital-non-renewable',
+        ('capital', 'CHP coal'): 'capital-non-renewable',
+        ('capital', 'CHP gas'): 'capital-non-renewable',
+        ('capital', 'OCGT gas'): 'capital-non-renewable',
+        ('capital', 'coal boiler'): 'capital-non-renewable',
+        ('capital', 'gas boiler'): 'capital-non-renewable',
         
-        # capital – demand side - 需求侧资本成本
-        ('capital', 'heat pump'): 'capital – demand side',
-        ('capital', 'resistive heater'): 'capital – demand side',
+        # capital–demand side - 需求侧资本成本
+        ('capital', 'heat pump'): 'capital–demand side',
+        ('capital', 'resistive heater'): 'capital–demand side',
         
-        # capital – renewable - 可再生能源资本成本
-        ('capital', 'hydro_inflow'): 'capital – renewable',
-        ('capital', 'hydroelectricity'): 'capital – renewable',
-        ('capital', 'offwind'): 'capital – renewable',
-        ('capital', 'onwind'): 'capital – renewable',
-        ('capital', 'solar'): 'capital – renewable',
-        ('capital', 'solar thermal'): 'capital – renewable',
-        ('capital', 'biomass'): 'capital – renewable',
-        ('capital', 'biogas'): 'capital – renewable',
+        # capital–renewable - 可再生能源资本成本
+        ('capital', 'hydro_inflow'): 'capital–renewable',
+        ('capital', 'hydroelectricity'): 'capital–renewable',
+        ('capital', 'offwind'): 'capital–renewable',
+        ('capital', 'onwind'): 'capital–renewable',
+        ('capital', 'solar'): 'capital–renewable',
+        ('capital', 'solar thermal'): 'capital–renewable',
+        ('capital', 'biomass'): 'capital–renewable',
+        ('capital', 'biogas'): 'capital–renewable',
         
-        # marginal - renewable - 可再生能源边际成本
-        ('marginal', 'hydro_inflow'): 'marginal - renewable',
-        ('marginal', 'hydroelectricity'): 'marginal - renewable',
-        ('marginal', 'offwind'): 'marginal - renewable',
-        ('marginal', 'onwind'): 'marginal - renewable',
-        ('marginal', 'solar'): 'marginal - renewable',
-        ('marginal', 'solar thermal'): 'marginal - renewable',
-        ('marginal', 'biomass'): 'marginal - renewable',
-        ('marginal', 'biogas'): 'marginal - renewable',
-        
-        # power delivery (AC) - 电力传输
-        ('capital', 'AC'): 'power delivery (AC)',
-        ('capital', 'stations'): 'power delivery (AC)',
+        # transmission lines - 输电线路
+        ('capital', 'AC'): 'transmission lines',
+        ('capital', 'stations'): 'transmission lines',
         
         # batteries - 电池储能
         ('capital', 'battery'): 'batteries',
@@ -549,15 +539,15 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
         ('marginal', 'battery'): 'batteries',
         ('marginal', 'battery discharger'): 'batteries',
         
-        # long-duration storage (H2, water tank) - 长时储能
-        ('capital', 'PHS'): 'long-duration storage (H2, water tank)',
-        ('capital', 'water tanks'): 'long-duration storage (H2, water tank)',
-        ('capital', 'H2'): 'long-duration storage (H2, water tank)',
-        ('capital', 'H2 CHP'): 'long-duration storage (H2, water tank)',
-        ('marginal', 'PHS'): 'long-duration storage (H2, water tank)',
-        ('marginal', 'water tanks'): 'long-duration storage (H2, water tank)',
-        ('marginal', 'H2'): 'long-duration storage (H2, water tank)',
-        ('marginal', 'H2 CHP'): 'long-duration storage (H2, water tank)',
+        # long-duration storages - 长时储能
+        ('capital', 'PHS'): 'long-duration storages',
+        ('capital', 'water tanks'): 'long-duration storages',
+        ('capital', 'H2'): 'long-duration storages',
+        ('capital', 'H2 CHP'): 'long-duration storages',
+        ('marginal', 'PHS'): 'long-duration storages',
+        ('marginal', 'water tanks'): 'long-duration storages',
+        ('marginal', 'H2'): 'long-duration storages',
+        ('marginal', 'H2 CHP'): 'long-duration storages',
         
         # 其他分类（如果需要）
         ('capital', 'CO2 capture'): 'carbon capture',
@@ -635,32 +625,49 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
         'marginal - resistive heater'
     }
     
+    # 欧元到人民币转换率
+    EUR_TO_CNY = 7.8
+    
     for category, data in category_changes.items():
         if category == 'nan' or pd.isna(category) or category in exclude_categories:
             continue
         if any(abs(change) > 1e-6 for change in data['changes']):  # 使用小的阈值避免浮点数精度问题
+            # 将欧元转换为人民币
+            data['changes'] = [change * EUR_TO_CNY for change in data['changes']]
             filtered_categories[category] = data
     
-    # 检查synthetic fuels的数量，如果很少就不展示
-    if 'synthetic fuels' in filtered_categories:
-        synthetic_fuels_data = filtered_categories['synthetic fuels']
-        total_synthetic_fuels = sum(abs(change) for change in synthetic_fuels_data['changes'])
-        if total_synthetic_fuels < 1e9:  # 如果总量小于10亿，就不展示
-            del filtered_categories['synthetic fuels']
-            print(f"过滤掉 synthetic fuels，总量: {total_synthetic_fuels/1e9:.3f}B CNY")
+    # 检查synthetic fuels, marginal - renewable, marginal - heat pump, marginal - resistive heater的数量，如果很少就不展示
+    exclude_categories = {
+        'synthetic fuels',
+        'marginal - renewable',
+        'marginal - heat pump',
+        'marginal - resistive heater',
+        'marginal - onwind',
+        'marginal - offwind',
+        'marginal - solar',
+        'marginal - solar thermal',
+        'marginal - biomass',
+        'marginal - biogas',
+        'marginal - H2',
+        'marginal - H2 CHP',
+    }
+    for category in exclude_categories:
+        if category in filtered_categories:
+            del filtered_categories[category]
+            print(f"过滤掉 {category}")
     
     print(f"\n过滤后的分类数量: {len(filtered_categories)}")
     print("过滤后的分类名称:")
     for category in filtered_categories.keys():
         print(f"  - {category}")
     
-    # 添加调试信息：显示每个分类的变化量总和
-    print(f"\n=== 各分类变化量调试信息 ===")
+    # 添加调试信息：显示每个分类的变化量总和（人民币）
+    print(f"\n=== 各分类变化量调试信息（人民币）===")
     for category, data in filtered_categories.items():
         total_change = sum(data['changes'])
         max_change = max(data['changes']) if data['changes'] else 0
         min_change = min(data['changes']) if data['changes'] else 0
-        print(f"{category}: 总和={total_change/1e9:.3f}B, 最大值={max_change/1e9:.3f}B, 最小值={min_change/1e9:.3f}B")
+        print(f"{category}: 总和={total_change/1e9:.3f}B CNY, 最大值={max_change/1e9:.3f}B CNY, 最小值={min_change/1e9:.3f}B CNY")
     
     if not filtered_categories:
         logger.warning("没有找到有效的成本变化数据")
@@ -740,15 +747,17 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
             added_to_legend.add(carrier)
     
     # 打印净变化量数值用于调试
-    print(f"\n=== 净变化量数值调试信息 ===")
+    print(f"\n=== 净变化量数值调试信息（人民币）===")
     for i, (year, net_change) in enumerate(zip(years, net_changes)):
-        print(f"{year}年: {net_change/1e9:.3f}B CNY (原始值: {net_change:.0f})")
+        net_change_cny = net_change * EUR_TO_CNY  # 转换为人民币
+        print(f"{year}年: {net_change_cny/1e9:.3f}B CNY (原始值: {net_change:.0f} EUR)")
     
     # 绘制净变化量的黑线（加粗并确保可见）
-    ax.plot(x, net_changes, 'k-', linewidth=2, label='Net Change', marker='o', markersize=10, zorder=20)
+    net_changes_cny = [change * EUR_TO_CNY for change in net_changes]  # 转换为人民币
+    ax.plot(x, net_changes_cny, 'k-', linewidth=2, label='Net Change', marker='o', markersize=10, zorder=20)
     
     # 添加净变化量的数值标签 - 降低阈值显示所有数值
-    for i, net_change in enumerate(net_changes):
+    for i, net_change in enumerate(net_changes_cny):
         if abs(net_change) > 1e3:  # 大幅降低阈值，显示更多数值标签
             ax.annotate(f'{net_change/1e9:.1f}B',
                         xy=(i, net_change),
@@ -766,7 +775,7 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
     ax.set_xticks(x)
     ax.set_xticklabels(years, rotation=45)
     
-    # 设置y轴刻度标签为十亿单位
+    # 设置y轴刻度标签为十亿人民币单位
     y_ticks = ax.get_yticks()
     y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
     ax.set_yticklabels(y_tick_labels)
@@ -782,25 +791,26 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     logger.info(f"Cost change plot saved to: {plot_file}")
     
-    # 保存数据
+    # 保存数据（人民币）
     data_rows = []
     for category, data in filtered_categories.items():
         for i, year in enumerate(data['years']):
             data_rows.append({
                 'Cost Category': category,
                 'Year': year,
-                'Cost Change': data['changes'][i],
+                'Cost Change (CNY)': data['changes'][i],
                 'Cost Change (Billion CNY)': data['changes'][i] / 1e9
             })
     
-    # 添加净变化量数据
+    # 添加净变化量数据（人民币）
     for i, year in enumerate(years):
         if i < len(net_changes):
+            net_change_cny = net_changes[i] * EUR_TO_CNY
             data_rows.append({
                 'Cost Category': 'Net Change',
                 'Year': year,
-                'Cost Change': net_changes[i],
-                'Cost Change (Billion CNY)': net_changes[i] / 1e9
+                'Cost Change (CNY)': net_change_cny,
+                'Cost Change (Billion CNY)': net_change_cny / 1e9
             })
     
     data_df = pd.DataFrame(data_rows)
