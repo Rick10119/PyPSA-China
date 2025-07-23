@@ -263,7 +263,7 @@ if config["foresight"] == "myopic":
             province_shape="data/province_shapes/CHN_adm1.shp",
             elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
             aluminum_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
-            aluminum_production_ratio="data/p_nom/al_production_ratio.csv",
+            al_smelter_p_max="data/p_nom/al_smelter_p_max.csv",
             aluminum_demand_json="data/aluminum_demand/aluminum_primary_demand_all_scenarios.json",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_city:town_2020.h5",
@@ -288,7 +288,7 @@ if config["foresight"] == "myopic":
             province_shape="data/province_shapes/CHN_adm1.shp",
             elec_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
             aluminum_load="data/load/load_{planning_horizons}_weatheryears_1979_2016_TWh.h5",
-            aluminum_production_ratio="data/p_nom/al_production_ratio.csv",
+            al_smelter_p_max="data/p_nom/al_smelter_p_max.csv",
             aluminum_demand_json="data/aluminum_demand/aluminum_primary_demand_all_scenarios.json",
             heat_demand_profile= "data/heating/heat_demand_profile_{heating_demand}_{planning_horizons}.h5",
             central_fraction="data/heating/DH_city:town_2020.h5",
@@ -353,7 +353,7 @@ if config["foresight"] == "myopic":
             network=config['results_dir'] + 'version-' + str(config['version']) + '/prenetworks-brownfield/{heating_demand}/prenetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
             costs="data/costs/costs_{planning_horizons}.csv",
             biomass_potental= "data/p_nom/biomass_potential.h5",
-            aluminum_production_ratio = "data/p_nom/al_production_ratio.csv"
+            al_smelter_p_max = "data/p_nom/al_smelter_p_max.csv"
         output:
             network_name = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc'
         log:

@@ -304,26 +304,31 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     else:
         milp_solver_options = solver_options
     
-    # 读取生产比例数据并过滤
-    # 从snakemake.input中获取aluminum_production_ratio文件路径
+    # 读取铝冶炼厂年产量数据并过滤
+    # 从snakemake.input中获取al_smelter_p_max文件路径
     if 'snakemake' in globals():
-        production_ratio_path = snakemake.input.aluminum_production_ratio
+        al_smelter_p_nom_path = snakemake.input.al_smelter_p_max
     else:
         # 如果没有snakemake，使用默认路径
-        production_ratio_path = "data/p_nom/al_production_ratio.csv"
+        al_smelter_p_nom_path = "data/p_nom/al_smelter_p_max.csv"
     
-    production_ratio = pd.read_csv(production_ratio_path)
-    production_ratio = production_ratio.set_index('Province')['production_share_2023']
+    al_smelter_annual_production = pd.read_csv(al_smelter_p_nom_path)
+    al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
     
-    # 过滤出生产比例大于0.01的省份（与prepare_base_network保持一致）
-    production_ratio = production_ratio[production_ratio > 0.01]
+    # 过滤出年产量大于0.01 10kt/year的省份（与prepare_base_network保持一致）
+    al_smelter_annual_production = al_smelter_annual_production[al_smelter_annual_production > 0.01]
+    
+    # Convert annual production (10kt/year) to power capacity (MW)
+    # 1 ton of aluminum requires ~13.3 MWh of electricity
+    # Convert 10kt/year to MW: (10kt/year * 10000 * 13.3 MWh/ton) / (8760 hours/year) = MW
+    al_smelter_p_nom = al_smelter_annual_production * 10000 * 13.3 / 8760  # Convert to MW
     
     # 如果没有指定目标省份，返回None
     if target_province is None:
         return None
     
-    # 检查目标省份是否在生产比例列表中
-    if target_province not in production_ratio.index:
+    # 检查目标省份是否在铝冶炼厂年产量列表中
+    if target_province not in al_smelter_p_nom.index:
         return None
     
     # 找到指定省份的电解铝相关组件
@@ -568,19 +573,22 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     
 
     
-    # 读取生产比例数据，获取需要优化的省份列表
+    # 读取铝冶炼厂年产量数据，获取需要优化的省份列表
     if 'snakemake' in globals():
-        production_ratio_path = snakemake.input.aluminum_production_ratio
+        al_smelter_p_nom_path = snakemake.input.al_smelter_p_max
     else:
-        production_ratio_path = "data/p_nom/al_production_ratio.csv"
+        al_smelter_p_nom_path = "data/p_nom/al_smelter_p_max.csv"
     
-    production_ratio = pd.read_csv(production_ratio_path)
-    production_ratio = production_ratio.set_index('Province')['production_share_2023']
-    production_ratio = production_ratio[production_ratio > 0.01]
+    al_smelter_annual_production = pd.read_csv(al_smelter_p_nom_path)
+    al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
+    al_smelter_annual_production = al_smelter_annual_production[al_smelter_annual_production > 0.01]
+    
+    # Convert annual production (10kt/year) to power capacity (MW)
+    al_smelter_p_nom = al_smelter_annual_production * 10000 * 13.3 / 8760  # Convert to MW
     
     # 检查哪些省份在网络中实际存在电解铝组件
     available_provinces = []
-    for province in production_ratio.index:
+    for province in al_smelter_p_nom.index:
         # 检查该省份是否有电解铝冶炼设备
         aluminum_smelters = n.links[n.links.carrier == "aluminum"].index
         province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
@@ -791,19 +799,22 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         # 恢复电解铝启停约束
         config["aluminum_commitment"] = True
         
-        # 读取生产比例数据，获取需要优化的省份列表
+        # 读取铝冶炼厂年产量数据，获取需要优化的省份列表
         if 'snakemake' in globals():
-            production_ratio_path = snakemake.input.aluminum_production_ratio
+            al_smelter_p_nom_path = snakemake.input.al_smelter_p_max
         else:
-            production_ratio_path = "data/p_nom/al_production_ratio.csv"
+            al_smelter_p_nom_path = "data/p_nom/al_smelter_p_max.csv"
         
-        production_ratio = pd.read_csv(production_ratio_path)
-        production_ratio = production_ratio.set_index('Province')['production_share_2023']
-        production_ratio = production_ratio[production_ratio > 0.01]
+        al_smelter_annual_production = pd.read_csv(al_smelter_p_nom_path)
+        al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
+        al_smelter_annual_production = al_smelter_annual_production[al_smelter_annual_production > 0.01]
+        
+        # Convert annual production (10kt/year) to power capacity (MW)
+        al_smelter_p_nom = al_smelter_annual_production * 10000 * 13.3 / 8760  # Convert to MW
         
         # 检查哪些省份在网络中实际存在电解铝组件
         available_provinces = []
-        for province in production_ratio.index:
+        for province in al_smelter_p_nom.index:
             # 检查该省份是否有电解铝冶炼设备
             aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
             province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]

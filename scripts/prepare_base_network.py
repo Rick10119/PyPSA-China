@@ -199,61 +199,67 @@ def prepare_network(config):
         hours_per_year = 8760
         national_al_load = primary_demand_tons / hours_per_year
         
-        # Read production ratios and filter out those less than 0.01
-        production_ratio = pd.read_csv(snakemake.input.aluminum_production_ratio)
-        production_ratio = production_ratio.set_index('Province')['production_share_2023']
-        production_ratio = production_ratio.reindex(nodes).fillna(0).infer_objects(copy=False)  # Ensure all provinces are included
-        production_ratio = production_ratio[production_ratio > 0.01]  # Filter out low production ratios
+        # Read aluminum smelter capacity from CSV file (annual production in 10kt/year)
+        al_smelter_annual_production = pd.read_csv(snakemake.input.al_smelter_p_max)
+        al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
+        al_smelter_annual_production = al_smelter_annual_production.reindex(nodes).fillna(0).infer_objects(copy=False)  # Ensure all provinces are included
+        al_smelter_annual_production = al_smelter_annual_production[al_smelter_annual_production > 0.01]  # Filter out low production provinces
         
-        # Create a 2D array with shape (n_snapshots, n_provinces) using filtered production ratios
+        # Convert annual production (10kt/year) to power capacity (MW)
+        # 1 ton of aluminum requires ~13.3 MWh of electricity
+        # Convert 10kt/year to MW: (10kt/year * 10000 * 13.3 MWh/ton) / (8760 hours/year) = MW
+        al_smelter_p_nom = al_smelter_annual_production * 10000 * 13.3 / 8760  # Convert to MW
+        
+        # Create a 2D array with shape (n_snapshots, n_provinces) using capacity-based load distribution
+        # The load is the power capacity (MW) - assuming constant operation
         al_load_values = np.tile(
-            national_al_load * production_ratio.values,
+            al_smelter_p_nom.values,
             (len(network.snapshots), 1)
         )
         # Create DataFrame with the properly shaped data
         aluminum_load = pd.DataFrame(
             data=al_load_values,
             index=network.snapshots,
-            columns=production_ratio.index  # Use filtered provinces
+            columns=al_smelter_p_nom.index  # Use filtered provinces
         )
 
-        # Add aluminum smelters only for provinces with production ratio > 0.01
-        # Assuming 13.3 MWh per ton of aluminum
+        # Add aluminum smelters only for provinces with production > 0.01 10kt/year
+        # p_nom is now in MW (converted from annual production)
         
         network.madd("Link",
-                    production_ratio.index,  # Only add for filtered provinces
+                    al_smelter_p_nom.index,  # Only add for filtered provinces
                     suffix=" aluminum smelter",
-                    bus0=production_ratio.index,
-                    bus1=production_ratio.index + " aluminum",
+                    bus0=al_smelter_p_nom.index,
+                    bus1=al_smelter_p_nom.index + " aluminum",
                     carrier="aluminum",
-                    p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
+                    p_nom=al_smelter_p_nom,  # Power capacity in MW
                     p_nom_extendable=False,
                     efficiency=1.0/13.3,  # tons of aluminum per MWh (1/13.3 MWh per ton)
-                    start_up_cost=config['aluminum']['al_start_up_cost'] * 1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),
+                    start_up_cost=config['aluminum']['al_start_up_cost'] * al_smelter_p_nom,
                     committable=config['aluminum_commitment'],
                     p_min_pu=config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0,
                     )
 
-        # Add aluminum storage only for provinces with production ratio > 0.01
+        # Add aluminum storage only for provinces with production > 0.01 10kt/year
         network.madd("Store",
-                    production_ratio.index,  # Only add for filtered provinces
+                    al_smelter_p_nom.index,  # Only add for filtered provinces
                     suffix=" aluminum storage",
-                    bus=production_ratio.index + " aluminum",
+                    bus=al_smelter_p_nom.index + " aluminum",
                     carrier="aluminum",
                     e_nom_extendable=True,
                     e_cyclic=True,
                     marginal_cost_storage=config['aluminum']['al_marginal_cost_storage'])
 
-        # Add aluminum load only for provinces with production ratio > 0.01
+        # Add aluminum load only for provinces with production > 0.01 10kt/year
         network.madd("Load",
-                    production_ratio.index,  # Only add for filtered provinces
+                    al_smelter_p_nom.index,  # Only add for filtered provinces
                     suffix=" aluminum",
-                    bus=production_ratio.index + " aluminum",
-                    p_set=aluminum_load[production_ratio.index])
+                    bus=al_smelter_p_nom.index + " aluminum",
+                    p_set=aluminum_load[al_smelter_p_nom.index])
 
         # Subtract aluminum load from electric load only for affected provinces
         load_minus_al = load.copy()
-        load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index]
+        load_minus_al[al_smelter_p_nom.index] = load[al_smelter_p_nom.index] - aluminum_load[al_smelter_p_nom.index]
         network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
     else:
         network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
