@@ -179,6 +179,84 @@ def aggregate_costs(n, flatten=False, opts=None, existing_only=False):
             if c.name == 'StorageUnit':
                 p = p.loc[p > 0]
             costs[(c.list_name, 'marginal')] = (p*c.df.marginal_cost).groupby(c.df.carrier).sum()
+        
+        # Calculate startup costs for committable components (only for aluminum)
+        if (hasattr(c, 'pnl') and 'start_up_cost' in c.df.columns and
+            c.name == "Link" and "aluminum" in c.df.carrier.unique()):
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # For aluminum smelters, calculate status from power data (continuous model)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Status is 1 when power > 0, 0 when power = 0
+                status = (p0_data > 0).astype(int)
+                
+                # Calculate startup events (status changes from 0 to 1) only for aluminum
+                startup_events = (status.diff() > 0).sum()  # Count transitions from 0 to 1
+                
+                # Calculate startup costs
+                startup_costs = startup_events * c.df.loc[aluminum_smelters, 'start_up_cost']
+                costs[(c.list_name, 'startup')] = startup_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
+        
+        # Calculate shutdown costs for committable components (only for aluminum)
+        if (hasattr(c, 'pnl') and 'shut_down_cost' in c.df.columns and
+            c.name == "Link" and "aluminum" in c.df.carrier.unique()):
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # For aluminum smelters, calculate status from power data (continuous model)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Status is 1 when power > 0, 0 when power = 0
+                status = (p0_data > 0).astype(int)
+                
+                # Calculate shutdown events (status changes from 1 to 0) only for aluminum
+                shutdown_events = (status.diff() < 0).sum()  # Count transitions from 1 to 0
+                
+                # Calculate shutdown costs
+                shutdown_costs = shutdown_events * c.df.loc[aluminum_smelters, 'shut_down_cost']
+                costs[(c.list_name, 'shutdown')] = shutdown_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
+        
+        # Calculate standby costs for committable components (only for aluminum)
+        if (hasattr(c, 'pnl') and 'stand_by_cost' in c.df.columns and
+            c.name == "Link" and "aluminum" in c.df.carrier.unique()):
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # For aluminum smelters, calculate status from power data (continuous model)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Status is 1 when power > 0, 0 when power = 0
+                status = (p0_data > 0).astype(int)
+                
+                # Calculate total standby time (when status is 1 but not generating) only for aluminum
+                standby_hours = (status * n.snapshot_weightings.generators).sum()
+                
+                # Calculate standby costs
+                standby_costs = standby_hours * c.df.loc[aluminum_smelters, 'stand_by_cost']
+                costs[(c.list_name, 'standby')] = standby_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
+        
+        # Special handling for aluminum smelters in iterative optimization
+        # When iterative_optimization is True, aluminum smelters use continuous model without status
+        if (c.name == "Link" and "aluminum" in c.df.carrier.unique() and 
+            hasattr(n, 'config') and n.config.get('iterative_optimization', False) and
+            'start_up_cost' in c.df.columns):
+            
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # Calculate startup events manually for aluminum smelters
+                # Count transitions from 0 to > 0 power (only true startup events)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Create a mask for when previous power was 0 and current power > 0
+                startup_events = ((p0_data.shift(1) == 0) & (p0_data > 0)).sum()
+                
+                # Calculate startup costs
+                startup_costs = startup_events * c.df.loc[aluminum_smelters, 'start_up_cost']
+                costs[(c.list_name, 'startup')] = startup_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
+    
     costs = pd.concat(costs)
 
     if flatten:
