@@ -112,6 +112,67 @@ aluminum:
     "2055": 0.50
     "2060": 0.50
 
+  # 情景维度设置
+  scenario_dimensions:
+    # 1. 电解铝厂运行灵活性 (Smelter operational flexibility)
+    smelter_flexibility:
+      low:
+        overcapacity_rate: 0.9  # p.u.
+        p_min: 0.9  # p.u.
+        allow_restart: false
+        restart_costs: 110000  # $/MW
+      mid:
+        overcapacity_rate: 0.9  # p.u.
+        p_min: 0.9  # p.u.
+        allow_restart: true
+        restart_costs: 16000  # $/MW
+      high:
+        overcapacity_rate: 0.7  # p.u.
+        p_min: 0.7  # p.u.
+        allow_restart: true
+        restart_costs: 3200  # $/MW
+    
+    # 2. 原铝需求 (Primary aluminum demand)
+    primary_demand:
+      low:
+        domestic_demand_ratio: 0.8  # 80%
+        export_rate: 0.2  # 20%
+        recycling_rate: 0.2  # 20%
+        product_lifetime: 20  # years
+      mid:
+        domestic_demand_ratio: 0.7  # 70%
+        export_rate: 0.3  # 30%
+        recycling_rate: 0.16  # 16%
+        product_lifetime: 16  # years
+      high:
+        domestic_demand_ratio: 0.6  # 60%
+        export_rate: 0.4  # 40%
+        recycling_rate: 0.12  # 12%
+        product_lifetime: 12  # years
+    
+    # 3. 电网交互市场机会 (Grid-interaction market opportunity)
+    grid_interaction:
+      low:
+        vre_cost_reduction: 0.0  # 成本降低比例
+        battery_cost_reduction: 0.0  # 成本降低比例
+        h2_storage_cost_reduction: 0.0  # 成本降低比例
+        other_flexible_demand: 0.0  # 其他灵活需求比例
+      mid:
+        vre_cost_reduction: 0.1  # 10%成本降低
+        battery_cost_reduction: 0.1  # 10%成本降低
+        h2_storage_cost_reduction: 0.1  # 10%成本降低
+        other_flexible_demand: 0.05  # 5%其他灵活需求
+      high:
+        vre_cost_reduction: 0.2  # 20%成本降低
+        battery_cost_reduction: 0.2  # 20%成本降低
+        h2_storage_cost_reduction: 0.2  # 20%成本降低
+        other_flexible_demand: 0.1  # 10%其他灵活需求
+
+  # 当前选择的情景组合 (默认设置为mid-mid-mid)
+  current_scenario:
+    smelter_flexibility: "mid"
+    primary_demand: "mid"
+    grid_interaction: "mid"
   
   # Electrolyzer costs
   al_capital_cost: 0  # annualized capital cost of electrolyzer ($/MW/year)

@@ -207,9 +207,25 @@ def prepare_network(config):
     load.columns = pro_names
 
     if config["add_aluminum"] and config["aluminum"]["al_excess_rate"][planning_horizons] > 0.01:
-        # Calculate national total aluminum load
-        national_max_electric_load = load[nodes].max().sum()  # Get national max electric load
-        national_al_load = 0.77 * (1-config['aluminum']['al_excess_rate'][planning_horizons]) * config['aluminum']['al_demand_ratio'] * national_max_electric_load
+        # Read aluminum demand from JSON file
+        import json
+        
+        # Load aluminum demand data from JSON
+        with open(snakemake.input.aluminum_demand_json, 'r', encoding='utf-8') as f:
+            aluminum_demand_data = json.load(f)
+        
+        # Get current scenario settings
+        current_scenario = config['aluminum']['current_scenario']['primary_demand']
+        
+        # Get aluminum demand for current year and scenario (convert from 10kt to tons)
+        primary_demand_10kt = aluminum_demand_data['primary_aluminum_demand'][current_scenario][planning_horizons]
+        primary_demand_tons = primary_demand_10kt * 10000  # Convert from 10kt to tons
+        
+        # Calculate national aluminum load in MW (tons/year to MW)
+        # Assuming 13.3 MWh per ton of aluminum
+        hours_per_year = 8760
+        mwh_per_ton = 13.3
+        national_al_load_mw = (primary_demand_tons * mwh_per_ton) / hours_per_year
         
         # Read production ratios and filter out those less than 0.01
         production_ratio = pd.read_csv(snakemake.input.aluminum_production_ratio)
@@ -219,7 +235,7 @@ def prepare_network(config):
         
         # Create a 2D array with shape (n_snapshots, n_provinces) using filtered production ratios
         al_load_values = np.tile(
-            national_al_load * production_ratio.values,
+            national_al_load_mw * production_ratio.values,
             (len(network.snapshots), 1)
         )
         # Create DataFrame with the properly shaped data
@@ -238,7 +254,7 @@ def prepare_network(config):
                     carrier="aluminum",
                     p_nom=1 / (1-config['aluminum']['al_excess_rate'][planning_horizons]) * aluminum_load[production_ratio.index].max(),  # Series of max loads
                     p_nom_extendable=False,
-                    efficiency=1.0,  # Scalar value
+                    efficiency=1.0/13.3,  # tons of aluminum per MWh (1/13.3 MWh per ton)
                     )
 
         # Add aluminum storage only for provinces with production ratio > 0.01
