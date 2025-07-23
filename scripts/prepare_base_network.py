@@ -158,6 +158,11 @@ def prepare_network(config):
     if not isinstance(config['scenario']['co2_reduction'], tuple):
 
         if config['scenario']['co2_reduction'] is not None:
+            
+            # extra co2
+            # 791 TWh extra space heating demand + 286 Twh extra hot water demand
+            # 60% CHP efficiency 0.468 40% coal boiler efficiency 0.97
+            # (((791+286) * 0.6 /0.468) + ((791+286) * 0.4 /0.97))  * 0.34 * 1e6 = 0.62 * 1e9 # 2020
 
             co2_limit = (5.288987673 + 0.628275682)*1e9  * (1 - config['scenario']['co2_reduction'][pathway][planning_horizons]) # Chinese 2020 CO2 emissions of electric and heating sector
 
