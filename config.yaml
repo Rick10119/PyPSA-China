@@ -121,7 +121,7 @@ aluminum:
         p_min: 0.9  # p.u.
         allow_restart: true
         start_up_cost: 16000  # $/MW
-        stand_by_cost: 10000  # $/MW
+        stand_by_cost: 1  # $/MW
         shut_down_cost: 16000  # $/MW
       high:
         overcapacity_rate: 0.7  # p.u.

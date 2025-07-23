@@ -17,7 +17,9 @@ import os
 import numpy as np
 import pandas as pd
 import pypsa
+import matplotlib.pyplot as plt
 from add_electricity import load_costs, update_transmission_costs
+from scenario_utils import get_aluminum_smelter_operational_params
 
 idx = pd.IndexSlice
 
@@ -157,8 +159,12 @@ def calculate_nodal_costs(n, label, nodal_costs):
                 # Calculate startup events (status changes from 0 to 1) only for aluminum
                 startup_events = (status.diff() > 0).sum()  # Count transitions from 0 to 1
                 
-                # Calculate startup costs
-                c.df.loc[aluminum_smelters, "startup_costs"] = startup_events * c.df.loc[aluminum_smelters, 'start_up_cost']
+                # Calculate startup costs using operational params
+                operational_params = get_aluminum_smelter_operational_params(config, 
+                                                                          config.get('aluminum', {}).get('smelter_flexibility'),
+                                                                          c.df.loc[aluminum_smelters, 'p_nom_opt'].iloc[0] if len(aluminum_smelters) > 0 else None)
+                startup_cost_value = operational_params.get('start_up_cost', 0.0)
+                c.df.loc[aluminum_smelters, "startup_costs"] = startup_events * startup_cost_value
                 startup_costs = c.df.loc[aluminum_smelters].groupby(["location", "carrier"])["startup_costs"].sum()
                 index = pd.MultiIndex.from_tuples(
                     [(c.list_name, "startup") + t for t in startup_costs.index.to_list()]
@@ -181,8 +187,12 @@ def calculate_nodal_costs(n, label, nodal_costs):
                 # Calculate shutdown events (status changes from 1 to 0) only for aluminum
                 shutdown_events = (status.diff() < 0).sum()  # Count transitions from 1 to 0
                 
-                # Calculate shutdown costs
-                c.df.loc[aluminum_smelters, "shutdown_costs"] = shutdown_events * c.df.loc[aluminum_smelters, 'shut_down_cost']
+                # Calculate shutdown costs using operational params
+                operational_params = get_aluminum_smelter_operational_params(config, 
+                                                                          config.get('aluminum', {}).get('smelter_flexibility'),
+                                                                          c.df.loc[aluminum_smelters, 'p_nom_opt'].iloc[0] if len(aluminum_smelters) > 0 else None)
+                shutdown_cost_value = operational_params.get('shut_down_cost', 0.0)
+                c.df.loc[aluminum_smelters, "shutdown_costs"] = shutdown_events * shutdown_cost_value
                 shutdown_costs = c.df.loc[aluminum_smelters].groupby(["location", "carrier"])["shutdown_costs"].sum()
                 index = pd.MultiIndex.from_tuples(
                     [(c.list_name, "shutdown") + t for t in shutdown_costs.index.to_list()]
@@ -202,11 +212,16 @@ def calculate_nodal_costs(n, label, nodal_costs):
                 # Status is 1 when power > 0, 0 when power = 0
                 status = (p0_data > 0).astype(int)
                 
-                # Calculate total standby time (when status is 1 but not generating) only for aluminum
-                standby_hours = (status * n.snapshot_weightings.generators).sum()
+                # Calculate total standby hours by multiplying status with time weights
+                # Ensure both have the same index (time periods)
+                standby_hours = (status.multiply(n.snapshot_weightings.generators, axis=0)).sum()
                 
-                # Calculate standby costs
-                c.df.loc[aluminum_smelters, "standby_costs"] = standby_hours * c.df.loc[aluminum_smelters, 'stand_by_cost']
+                # Calculate standby costs using operational params
+                operational_params = get_aluminum_smelter_operational_params(config, 
+                                                                          config.get('aluminum', {}).get('smelter_flexibility'),
+                                                                          c.df.loc[aluminum_smelters, 'p_nom_opt'].iloc[0] if len(aluminum_smelters) > 0 else None)
+                standby_cost_value = operational_params.get('stand_by_cost', 0.0)
+                c.df.loc[aluminum_smelters, "standby_costs"] = standby_hours * standby_cost_value
                 standby_costs = c.df.loc[aluminum_smelters].groupby(["location", "carrier"])["standby_costs"].sum()
                 index = pd.MultiIndex.from_tuples(
                     [(c.list_name, "standby") + t for t in standby_costs.index.to_list()]
@@ -230,8 +245,12 @@ def calculate_nodal_costs(n, label, nodal_costs):
                 # Create a mask for when previous power was 0 and current power > 0
                 startup_events = ((p0_data.shift(1) == 0) & (p0_data > 0)).sum()
                 
-                # Calculate startup costs
-                c.df.loc[aluminum_smelters, "startup_costs"] = startup_events * c.df.loc[aluminum_smelters, 'start_up_cost']
+                # Calculate startup costs using operational params
+                operational_params = get_aluminum_smelter_operational_params(config, 
+                                                                          config.get('aluminum', {}).get('smelter_flexibility'),
+                                                                          c.df.loc[aluminum_smelters, 'p_nom_opt'].iloc[0] if len(aluminum_smelters) > 0 else None)
+                startup_cost_value = operational_params.get('start_up_cost', 0.0)
+                c.df.loc[aluminum_smelters, "startup_costs"] = startup_events * startup_cost_value
                 startup_costs = c.df.loc[aluminum_smelters].groupby(["location", "carrier"])["startup_costs"].sum()
                 index = pd.MultiIndex.from_tuples(
                     [(c.list_name, "startup") + t for t in startup_costs.index.to_list()]
@@ -304,8 +323,12 @@ def calculate_costs(n, label, costs):
                 # Calculate startup events (status changes from 0 to 1) only for aluminum
                 startup_events = (status.diff() > 0).sum()  # Count transitions from 0 to 1
                 
-                # Calculate startup costs
-                startup_costs = startup_events * c.df.loc[aluminum_smelters, 'start_up_cost']
+                # Calculate startup costs using operational params
+                operational_params = get_aluminum_smelter_operational_params(config, 
+                                                                          config.get('aluminum', {}).get('smelter_flexibility'),
+                                                                          c.df.loc[aluminum_smelters, 'p_nom_opt'].iloc[0] if len(aluminum_smelters) > 0 else None)
+                startup_cost_value = operational_params.get('start_up_cost', 0.0)
+                startup_costs = startup_events * startup_cost_value
                 startup_costs_grouped = startup_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
                 
                 # Add component type and cost type as index levels
@@ -331,8 +354,12 @@ def calculate_costs(n, label, costs):
                 # Calculate shutdown events (status changes from 1 to 0) only for aluminum
                 shutdown_events = (status.diff() < 0).sum()  # Count transitions from 1 to 0
                 
-                # Calculate shutdown costs
-                shutdown_costs = shutdown_events * c.df.loc[aluminum_smelters, 'shut_down_cost']
+                # Calculate shutdown costs using operational params
+                operational_params = get_aluminum_smelter_operational_params(config, 
+                                                                          config.get('aluminum', {}).get('smelter_flexibility'),
+                                                                          c.df.loc[aluminum_smelters, 'p_nom_opt'].iloc[0] if len(aluminum_smelters) > 0 else None)
+                shutdown_cost_value = operational_params.get('shut_down_cost', 0.0)
+                shutdown_costs = shutdown_events * shutdown_cost_value
                 shutdown_costs_grouped = shutdown_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
                 
                 # Add component type and cost type as index levels
@@ -356,10 +383,16 @@ def calculate_costs(n, label, costs):
                 status = (p0_data > 0).astype(int)
                 
                 # Calculate total standby time (when status is 1 but not generating) only for aluminum
-                standby_hours = (status * n.snapshot_weightings.generators).sum()
+                # Calculate total standby hours by multiplying status with time weights
+                # Ensure both have the same index (time periods)
+                standby_hours = (status.multiply(n.snapshot_weightings.generators, axis=0)).sum()
                 
-                # Calculate standby costs
-                standby_costs = standby_hours * c.df.loc[aluminum_smelters, 'stand_by_cost']
+                # Calculate standby costs using operational params
+                operational_params = get_aluminum_smelter_operational_params(config, 
+                                                                          config.get('aluminum', {}).get('smelter_flexibility'),
+                                                                          c.df.loc[aluminum_smelters, 'p_nom_opt'].iloc[0] if len(aluminum_smelters) > 0 else None)
+                standby_cost_value = operational_params.get('stand_by_cost', 0.0)
+                standby_costs = standby_hours * standby_cost_value
                 standby_costs_grouped = standby_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
                 
                 # Add component type and cost type as index levels
@@ -386,8 +419,12 @@ def calculate_costs(n, label, costs):
                 # Create a mask for when previous power was 0 and current power > 0
                 startup_events = ((p0_data.shift(1) == 0) & (p0_data > 0)).sum()
                 
-                # Calculate startup costs
-                startup_costs = startup_events * c.df.loc[aluminum_smelters, 'start_up_cost']
+                # Calculate startup costs using operational params
+                operational_params = get_aluminum_smelter_operational_params(config, 
+                                                                          config.get('aluminum', {}).get('smelter_flexibility'),
+                                                                          c.df.loc[aluminum_smelters, 'p_nom_opt'].iloc[0] if len(aluminum_smelters) > 0 else None)
+                startup_cost_value = operational_params.get('start_up_cost', 0.0)
+                startup_costs = startup_events * startup_cost_value
                 startup_costs_grouped = startup_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
                 
                 # Add component type and cost type as index levels
