@@ -691,6 +691,10 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                 'p_nom': n_current.links.at[smelter, 'p_nom'],
                 'p_nom_extendable': n_current.links.at[smelter, 'p_nom_extendable'],
                 'efficiency': n_current.links.at[smelter, 'efficiency'],
+                'marginal_cost': n_current.links.at[smelter, 'marginal_cost'],
+                'capital_cost': n_current.links.at[smelter, 'capital_cost'],
+                'stand_by_cost': n_current.links.at[smelter, 'stand_by_cost'],
+                'shut_down_cost': n_current.links.at[smelter, 'shut_down_cost'],
                 'start_up_cost': n_current.links.at[smelter, 'start_up_cost'],
                 'committable': n_current.links.at[smelter, 'committable'],
                 'p_min_pu': n_current.links.at[smelter, 'p_min_pu']
@@ -709,7 +713,11 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                 p_nom=params['p_nom'],
                 p_nom_extendable=params['p_nom_extendable'],
                 efficiency=params['efficiency'],
+                marginal_cost=params['marginal_cost'],
+                capital_cost=params['capital_cost'],
                 start_up_cost=params['start_up_cost'],
+                shut_down_cost=params['shut_down_cost'],
+                stand_by_cost=params['stand_by_cost'],
                 committable=False,  # 在步骤1中禁用电解铝启停约束
                 p_min_pu=0  # 在步骤1中设置最小出力为0
             )
@@ -1018,22 +1026,22 @@ if __name__ == '__main__':
 
     # 检查是否启用电解铝迭代优化
     # 条件1: 检查snakemake.params.iterative_optimization
-    # 条件2: 检查config["aluminum"]["al_excess_rate"][planning_horizons] > 0.01
+    # 条件2: 检查config["aluminum"]["grid_interaction"][planning_horizons]
     # 条件3: 检查config.get("add_aluminum", False)
     
     planning_horizons = snakemake.wildcards.planning_horizons
     
     # 检查电解铝过剩率条件
-    aluminum_excess_rate_condition = False
-    if (snakemake.config.get("aluminum", {}).get("al_excess_rate", {}).get(planning_horizons, 0) > 0.01):
-        aluminum_excess_rate_condition = True
+    aluminum_grid_interaction_condition = False
+    if (snakemake.config.get("aluminum", {}).get("grid_interaction", {}).get(planning_horizons, False)):
+        aluminum_grid_interaction_condition = True
     
     # 检查电解铝功能启用条件
     aluminum_enabled_condition = snakemake.config.get("add_aluminum", False)
     
     # 综合判断是否启用电解铝迭代优化
     if (snakemake.params.iterative_optimization and 
-        aluminum_excess_rate_condition and 
+        aluminum_grid_interaction_condition and 
         aluminum_enabled_condition):
         # 获取迭代优化参数
         max_iterations = snakemake.config.get("aluminum_max_iterations", 10)

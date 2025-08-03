@@ -170,6 +170,9 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
     # 基础参数
     operational_params = {
         'p_min_pu': smelter_params['p_min_pu'],
+        'capital_cost': 1,
+        'stand_by_cost': 1,
+        'marginal_cost': 1,
     }
     
     # 如果提供了容量，计算成本参数

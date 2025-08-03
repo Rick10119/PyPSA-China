@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0723.8H.3
+version: 0723.8H.4
 logging_level: INFO
 foresight: "myopic"
 
@@ -121,19 +121,12 @@ aluminum:
   # 当前选择的情景组合 (默认设置为mid-mid-mid)
   current_scenario:
     smelter_flexibility: "mid"
-    primary_demand: "mid"
-    grid_interaction: "mid"
-  
-  # Electrolyzer costs
-  al_capital_cost: 0  # annualized capital cost of electrolyzer ($/MW/year)
+    primary_demand: "high"
+    market_opportunity: "mid"
   
   # Aluminum storage costs ($/MWh per hour) 3.91479E-05
   al_marginal_cost_storage: 3.79E-05 # euro/MWh
   al_storage_limit: 8760  # hours (24 * 365)
-  
-  # Electrolyzer startup costs 16000 * 7.3 / 7.55  # euro/MW
-  al_start_up_cost: 15470
-  al_p_min_pu: 0.9
 
 snapshots:
   start: "2020-01-01"
