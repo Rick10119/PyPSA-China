@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0723.8H.2
+version: 0723.8H.3
 logging_level: INFO
 foresight: "myopic"
 
@@ -94,6 +94,16 @@ solving:
   mem: 150000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 aluminum:
+  grid_interaction:
+    "2020": false
+    "2025": false
+    "2030": true
+    "2035": true
+    "2040": true
+    "2045": true
+    "2050": true
+    "2055": true
+    "2060": true
 
   # 情景维度设置
   scenario_dimensions:

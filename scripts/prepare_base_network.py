@@ -180,7 +180,7 @@ def prepare_network(config):
 
     load.columns = pro_names
     
-    if config["add_aluminum"] and config["aluminum"]["al_excess_rate"][planning_horizons] > 0.01:
+    if config["add_aluminum"] and config["aluminum"]["grid_interaction"][planning_horizons]:
         # 使用改进的情景读取工具
         from scripts.scenario_utils import (
             get_aluminum_demand_for_year,
@@ -235,7 +235,7 @@ def prepare_network(config):
                     p_nom_extendable=False,
                     efficiency=1.0/13.3,
                     start_up_cost=operational_params['start_up_cost'],
-                    stand_by_cost=operational_params['stand_by_cost'],
+                    stand_by_cost=1,
                     shut_down_cost=operational_params['shut_down_cost'],
                     committable=config['aluminum_commitment'],
                     p_min_pu=operational_params['p_min_pu'] if config['aluminum_commitment'] else 0,
