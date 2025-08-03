@@ -113,10 +113,10 @@ aluminum:
         p_min_pu: 0.9  # p.u.
         restart_cost: 110000  # $/MW
       mid:
-        p_min_pu: 0.9  # p.u.
+        p_min_pu: 0.7  # p.u.
         restart_cost: 16000  # $/MW
       high:
-        p_min_pu: 0.7  # p.u.
+        p_min_pu: 0.5  # p.u.
         restart_cost: 3200  # $/MW
   # 当前选择的情景组合 (默认设置为mid-mid-mid)
   current_scenario:

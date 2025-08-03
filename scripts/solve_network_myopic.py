@@ -347,10 +347,15 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     if not target_aluminum_smelters:
         return None
     
+    # 获取电解铝厂运行参数
+    from scripts.scenario_utils import get_aluminum_smelter_operational_params
+    
     # 重新设置电解铝冶炼设备的参数
     for smelter in target_aluminum_smelters:
         n.links.at[smelter, 'committable'] = config['aluminum_commitment']
-        n.links.at[smelter, 'p_min_pu'] = config['aluminum']['al_p_min_pu'] if config['aluminum_commitment'] else 0
+        # 获取运行参数
+        operational_params = get_aluminum_smelter_operational_params(config, al_smelter_p_nom=al_smelter_p_nom[target_province])
+        n.links.at[smelter, 'p_min_pu'] = operational_params['p_min_pu'] if config['aluminum_commitment'] else 0
     
     # 移除所有非电解铝相关的组件
     for component_type in ["Generator", "StorageUnit", "Store", "Link", "Load"]:
@@ -728,10 +733,25 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         
         # 如果有固定的电解铝用能，需要添加约束
         if aluminum_usage is not None:
+            # 获取电解铝厂运行参数
+            from scripts.scenario_utils import get_aluminum_smelter_operational_params
+            
             # 根据电解铝用能模式动态设置约束
             for smelter in aluminum_usage.columns:
                 if smelter in n_current.links.index:
                     aluminum_power = aluminum_usage[smelter].values
+                    
+                    # 从冶炼设备名称中提取省份信息
+                    # 冶炼设备名称格式: "Province aluminum smelter"
+                    province = smelter.replace(" aluminum smelter", "")
+                    
+                    # 获取该省份的运行参数
+                    if province in al_smelter_p_nom.index:
+                        operational_params = get_aluminum_smelter_operational_params(config, al_smelter_p_nom=al_smelter_p_nom[province])
+                        min_pu = operational_params['p_min_pu']
+                    else:
+                        # 如果找不到省份，使用默认值
+                        min_pu = config['aluminum'].get('al_p_min_pu', 0.9)
                                      
                     # 根据用能模式设置约束
                     for i, power in enumerate(aluminum_power):
@@ -743,8 +763,6 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                             # 当用能不为0时，不固定p_set，但设置p_min_pu为最小出力比例
                             # 清除p_set约束（设为NaN表示不约束）
                             n_current.links_t.p_set.at[n_current.snapshots[i], smelter] = np.nan
-                            # 设置最小出力比例，可以根据实际需求调整
-                            min_pu = config['aluminum'].get('al_p_min_pu', 0.9)  # 默认30%最小出力
                             n_current.links_t.p_min_pu.at[n_current.snapshots[i], smelter] = min_pu
         
         # 求解网络
