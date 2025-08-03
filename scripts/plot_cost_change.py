@@ -19,8 +19,8 @@ import seaborn as sns
 logger = logging.getLogger(__name__)
 
 # 在这里设置要对比的版本号
-VERSION1 = "0701.1H.7"  # 基准版本
-VERSION2 = "0701.1H.3"  # 对比版本
+VERSION1 = "0701.1H.9"  # 基准版本
+VERSION2 = "0701.1H.10"  # 对比版本
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
@@ -256,6 +256,9 @@ def generate_summary_statistics(comparison_df, file_type, name1, name2, output_p
     output_path : Path
         输出路径
     """
+    # 欧元到人民币转换率
+    EUR_TO_CNY = 7.8
+    
     # 找出绝对差异列
     abs_diff_cols = [col for col in comparison_df.columns if col.endswith('_absolute_diff')]
     
@@ -279,16 +282,24 @@ def generate_summary_statistics(comparison_df, file_type, name1, name2, output_p
             rel_diff_col = col.replace('_absolute_diff', '_relative_diff_percent')
             rel_diff = comparison_df[rel_diff_col] if rel_diff_col in comparison_df.columns else pd.Series()
             
+            # 转换为人民币
+            orig1_sum_cny = comparison_df[orig1_col].sum() * EUR_TO_CNY
+            orig2_sum_cny = comparison_df[orig2_col].sum() * EUR_TO_CNY
+            abs_diff_sum_cny = abs_diff.sum() * EUR_TO_CNY
+            abs_diff_max_cny = abs_diff.max() * EUR_TO_CNY
+            abs_diff_min_cny = abs_diff.min() * EUR_TO_CNY
+            abs_diff_std_cny = abs_diff.std() * EUR_TO_CNY
+            
             stats = {
                 '指标': original_col,
-                f'{name1}_总值': comparison_df[orig1_col].sum(),
-                f'{name2}_总值': comparison_df[orig2_col].sum(),
-                '绝对差异总和': abs_diff.sum(),
+                f'{name1}_总值(CNY)': orig1_sum_cny,
+                f'{name2}_总值(CNY)': orig2_sum_cny,
+                '绝对差异总和(CNY)': abs_diff_sum_cny,
                 '相对差异平均值(%)': rel_diff.mean() if not rel_diff.empty else np.nan,
-                '最大绝对差异': abs_diff.max(),
-                '最小绝对差异': abs_diff.min(),
-                '标准差': abs_diff.std(),
-                '变化幅度(%)': ((comparison_df[orig2_col].sum() - comparison_df[orig1_col].sum()) / comparison_df[orig1_col].sum() * 100) if comparison_df[orig1_col].sum() != 0 else np.nan
+                '最大绝对差异(CNY)': abs_diff_max_cny,
+                '最小绝对差异(CNY)': abs_diff_min_cny,
+                '标准差(CNY)': abs_diff_std_cny,
+                '变化幅度(%)': ((orig2_sum_cny - orig1_sum_cny) / orig1_sum_cny * 100) if orig1_sum_cny != 0 else np.nan
             }
             
             summary_stats.append(stats)
@@ -302,9 +313,9 @@ def generate_summary_statistics(comparison_df, file_type, name1, name2, output_p
         # 打印主要变化
         print(f"\n=== {file_type.upper()} 主要变化 ({name1} vs {name2}) ===")
         for _, row in summary_df.iterrows():
-            if abs(row['绝对差异总和']) > 0:
-                change_direction = "增加" if row['绝对差异总和'] > 0 else "减少"
-                print(f"{row['指标']}: {change_direction} {abs(row['绝对差异总和']):.2f} "
+            if abs(row['绝对差异总和(CNY)']) > 0:
+                change_direction = "增加" if row['绝对差异总和(CNY)'] > 0 else "减少"
+                print(f"{row['指标']}: {change_direction} {abs(row['绝对差异总和(CNY)'])/1e9:.3f}B CNY "
                       f"({row['变化幅度(%)']:.2f}%)")
 
 def generate_yearly_comparison_plots(data1, data2, name1, name2, output_dir):
@@ -779,6 +790,9 @@ def generate_cost_change_plot(years_data, name1, name2, plots_dir):
     y_ticks = ax.get_yticks()
     y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
     ax.set_yticklabels(y_tick_labels)
+    
+    # 设置y轴范围，最高标尺为120B CNY
+    ax.set_ylim(bottom=None, top=120e9)
     
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax.grid(True, alpha=0.3)

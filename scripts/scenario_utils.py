@@ -169,25 +169,20 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
     
     # 基础参数
     operational_params = {
-        'overcapacity_rate': smelter_params['overcapacity_rate'],
-        'p_min': smelter_params['p_min'],
-        'allow_restart': smelter_params['allow_restart'],
-        'p_min_pu': smelter_params['p_min'],
+        'p_min_pu': smelter_params['p_min_pu'],
     }
     
     # 如果提供了容量，计算成本参数
     if al_smelter_p_nom is not None:
         operational_params.update({
-            'start_up_cost': smelter_params['start_up_cost'] * al_smelter_p_nom,
-            'stand_by_cost': smelter_params['stand_by_cost'] * al_smelter_p_nom,
-            'shut_down_cost': smelter_params['shut_down_cost'] * al_smelter_p_nom,
+            'start_up_cost': 0.5 * smelter_params['restart_cost'] * al_smelter_p_nom,
+            'shut_down_cost': 0.5 * smelter_params['restart_cost'] * al_smelter_p_nom,
         })
     else:
         # 只返回单位成本
         operational_params.update({
-            'start_up_cost_per_mw': smelter_params['start_up_cost'],
-            'stand_by_cost_per_mw': smelter_params['stand_by_cost'],
-            'shut_down_cost_per_mw': smelter_params['shut_down_cost'],
+            'start_up_cost_per_mw': 0.5 * smelter_params['restart_cost'],
+            'shut_down_cost_per_mw': 0.5 * smelter_params['restart_cost'],
         })
     
     return operational_params
@@ -331,11 +326,8 @@ def print_scenario_summary(config: Dict[str, Any], scenario_params: Dict[str, An
     # 电解铝厂参数
     smelter = scenario_params['smelter_flexibility']
     print(f"\n电解铝厂运行灵活性:")
-    print(f"  过载率: {smelter['overcapacity_rate']}")
     print(f"  最小功率: {smelter['p_min']}")
-    print(f"  允许重启: {smelter['allow_restart']}")
     print(f"  启动成本: {smelter['start_up_cost']} $/MW")
-    print(f"  待机成本: {smelter['stand_by_cost']} $/MW")
     print(f"  停机成本: {smelter['shut_down_cost']} $/MW")
     
     # 需求参数
