@@ -204,8 +204,21 @@ def prepare_network(config):
         # 计算生产比例
         production_ratio = al_smelter_annual_production / al_smelter_annual_production.sum()
         
-        # 转换为功率容量 (MW)
-        al_smelter_p_nom = al_smelter_annual_production * 10000 * 13.3 / 8760
+        # 转换为功率容量 (MW)，并根据配置的容量比例进行调整
+        base_capacity = al_smelter_annual_production * 10000 * 13.3 / 8760
+        
+        # 获取容量比例设置
+        capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
+        if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
+            capacity_ratio = config['aluminum']['capacity_ratio']
+        
+        # 应用容量比例
+        al_smelter_p_nom = base_capacity * capacity_ratio
+        
+        # 打印容量调整信息
+        print(f"电解铝厂容量比例: {capacity_ratio*100:.0f}%")
+        print(f"原始年产量: {base_capacity.sum():.2f} 吨")
+        print(f"调整后年产量: {al_smelter_p_nom.sum():.2f} 吨")
         
         # 获取铝负荷数据
         load_data = get_aluminum_load_for_network(

@@ -170,8 +170,8 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
     # 基础参数
     operational_params = {
         'p_min_pu': smelter_params['p_min_pu'],
-        'capital_cost': 1,
-        'stand_by_cost': 1,
+        'capital_cost': 163432.8,
+        'stand_by_cost': 1.5,#$/MW/h
         'marginal_cost': 1,
     }
     
@@ -180,6 +180,7 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
         operational_params.update({
             'start_up_cost': 0.5 * smelter_params['restart_cost'] * al_smelter_p_nom,
             'shut_down_cost': 0.5 * smelter_params['restart_cost'] * al_smelter_p_nom,
+            'stand_by_cost': operational_params['stand_by_cost'] * al_smelter_p_nom,
         })
     else:
         # 只返回单位成本
