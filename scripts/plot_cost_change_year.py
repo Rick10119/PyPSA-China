@@ -19,8 +19,8 @@ import seaborn as sns
 logger = logging.getLogger(__name__)
 
 # 在这里设置要对比的版本号
-VERSION1 = "0701.1H.9"  # 基准版本
-VERSION2 = "0701.1H.10"  # 对比版本
+VERSION1 = "0723.8H.5-55p"  # 基准版本
+VERSION2 = "0723.8H.5-no-aluminum"  # 对比版本
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']

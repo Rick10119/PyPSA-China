@@ -279,7 +279,34 @@ def prepare_network(config):
         load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index] * 10000 * 13.3 / 8760
         network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
     else:
-        network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
+        if config["only_other_load"]:
+            # 在else分支中，需要重新定义这些变量
+            # 读取电解铝厂容量数据
+            al_smelter_annual_production = pd.read_csv(snakemake.input.al_smelter_p_max)
+            al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
+            al_smelter_annual_production = al_smelter_annual_production.reindex(nodes).fillna(0).infer_objects(copy=False)
+            al_smelter_annual_production = al_smelter_annual_production[al_smelter_annual_production > 0.01]
+            
+            # 计算生产比例
+            production_ratio = al_smelter_annual_production / al_smelter_annual_production.sum()
+            
+            # 获取铝负荷数据
+            from scripts.scenario_utils import get_aluminum_load_for_network
+            load_data = get_aluminum_load_for_network(
+                config,
+                planning_horizons,
+                network.snapshots,
+                nodes,
+                production_ratio,
+                aluminum_demand_json_path=snakemake.input.aluminum_demand_json
+            )
+            aluminum_load = load_data['aluminum_load']
+            
+            load_minus_al = load.copy()
+            load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index] * 10000 * 13.3 / 8760
+            network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
+        else:
+            network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
 
     if config["heat_coupling"]:
 

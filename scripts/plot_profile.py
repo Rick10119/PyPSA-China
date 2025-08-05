@@ -302,6 +302,10 @@ def plot_heating_comparison(n, config=None):
     plt.close()
     logger.info(f"已保存图表: {output_file}")
 
+
+
+
+
 def export_load_data_to_csv(n, config=None):
     """
     导出电力负荷数据到CSV格式，只包含AC bus的load、heat pump和resistive heater数据。

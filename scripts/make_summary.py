@@ -1180,6 +1180,195 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
     return aluminum_statistics
 
 
+def calculate_emissions(n, label, emissions):
+    """
+    Calculate CO2 emissions based on emission factors and energy production.
+    
+    This function calculates:
+    1. Total CO2 emissions from all generators and links
+    2. Emissions breakdown by energy carrier/technology
+    3. Monthly emissions analysis
+    4. Emission intensity (emissions per unit of energy)
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components
+    label : str
+        The label/identifier for the current scenario
+    emissions : pd.DataFrame
+        DataFrame to store the calculated emissions data
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated emissions DataFrame with new calculations
+    """
+    
+    # Define the emissions metrics we want to calculate
+    emissions_list = [
+        "total_co2_emissions",  # 总CO2排放量 (tonnes CO2)
+        "total_energy_production",  # 总能源生产量 (MWh)
+        "emission_intensity",  # 排放强度 (kg CO2/MWh)
+        "emissions_coal",  # 煤炭排放量
+        "emissions_gas",  # 天然气排放量
+        "emissions_biomass",  # 生物质排放量
+        "emissions_oil",  # 石油排放量
+        "emissions_nuclear",  # 核能排放量 (通常为0)
+        "emissions_renewables",  # 可再生能源排放量 (通常为0)
+        "emissions_hydro",  # 水电排放量 (通常为0)
+        "emissions_other",  # 其他能源排放量
+        "monthly_emissions_jan",  # 1月排放量
+        "monthly_emissions_feb",  # 2月排放量
+        "monthly_emissions_mar",  # 3月排放量
+        "monthly_emissions_apr",  # 4月排放量
+        "monthly_emissions_may",  # 5月排放量
+        "monthly_emissions_jun",  # 6月排放量
+        "monthly_emissions_jul",  # 7月排放量
+        "monthly_emissions_aug",  # 8月排放量
+        "monthly_emissions_sep",  # 9月排放量
+        "monthly_emissions_oct",  # 10月排放量
+        "monthly_emissions_nov",  # 11月排放量
+        "monthly_emissions_dec",  # 12月排放量
+    ]
+    
+    emissions = emissions.reindex(
+        emissions.index.union(pd.Index(emissions_list))
+    )
+    
+    # Initialize variables
+    total_emissions = 0.0
+    total_energy = 0.0
+    emissions_by_carrier = {}
+    monthly_emissions = {}
+    
+    # Get emission factors from carriers
+    carrier_emissions = n.carriers.co2_emissions if hasattr(n.carriers, 'co2_emissions') else pd.Series(dtype=float)
+    
+    # Process generators
+    if hasattr(n, 'generators_t') and hasattr(n.generators_t, 'p'):
+        gen_dispatch = n.generators_t.p
+        
+        for generator in gen_dispatch.columns:
+            if generator in n.generators.index:
+                carrier = n.generators.at[generator, 'carrier']
+                emission_factor = carrier_emissions.get(carrier, 0.0)  # tonnes CO2/MWh
+                
+                # Calculate energy production (MWh)
+                energy_production = (
+                    gen_dispatch[generator].multiply(n.snapshot_weightings.generators, axis=0)
+                    .sum()
+                )
+                
+                # Calculate emissions (tonnes CO2)
+                generator_emissions = energy_production * emission_factor
+                
+                total_energy += energy_production
+                total_emissions += generator_emissions
+                
+                # Accumulate by carrier
+                if carrier not in emissions_by_carrier:
+                    emissions_by_carrier[carrier] = 0.0
+                emissions_by_carrier[carrier] += generator_emissions
+                
+                # Calculate monthly emissions
+                monthly_data = gen_dispatch[generator].multiply(n.snapshot_weightings.generators, axis=0)
+                monthly_energy = monthly_data.resample('M').sum()
+                monthly_gen_emissions = monthly_energy * emission_factor
+                
+                for month_idx, month_emissions in monthly_gen_emissions.items():
+                    month_key = f"monthly_emissions_{month_idx.strftime('%b').lower()}"
+                    if month_key not in monthly_emissions:
+                        monthly_emissions[month_key] = 0.0
+                    monthly_emissions[month_key] += month_emissions
+    
+    # Process links (for CHP, converters, etc.)
+    if hasattr(n, 'links_t') and hasattr(n.links_t, 'p0'):
+        link_power = n.links_t.p0
+        
+        for link in link_power.columns:
+            if link in n.links.index:
+                carrier = n.links.at[link, 'carrier']
+                emission_factor = carrier_emissions.get(carrier, 0.0)  # tonnes CO2/MWh
+                
+                # Calculate energy flow (MWh) - use absolute value for consumption
+                energy_flow = (
+                    link_power[link].abs().multiply(n.snapshot_weightings.generators, axis=0)
+                    .sum()
+                )
+                
+                # Calculate emissions (tonnes CO2)
+                link_emissions = energy_flow * emission_factor
+                
+                total_energy += energy_flow
+                total_emissions += link_emissions
+                
+                # Accumulate by carrier
+                if carrier not in emissions_by_carrier:
+                    emissions_by_carrier[carrier] = 0.0
+                emissions_by_carrier[carrier] += link_emissions
+                
+                # Calculate monthly emissions
+                monthly_data = link_power[link].abs().multiply(n.snapshot_weightings.generators, axis=0)
+                monthly_energy = monthly_data.resample('M').sum()
+                monthly_link_emissions = monthly_energy * emission_factor
+                
+                for month_idx, month_emissions in monthly_link_emissions.items():
+                    month_key = f"monthly_emissions_{month_idx.strftime('%b').lower()}"
+                    if month_key not in monthly_emissions:
+                        monthly_emissions[month_key] = 0.0
+                    monthly_emissions[month_key] += month_emissions
+    
+    # Calculate emission intensity (kg CO2/MWh)
+    emission_intensity = (total_emissions * 1000) / total_energy if total_energy > 0 else 0.0  # Convert to kg CO2/MWh
+    
+    # Categorize emissions by fuel type
+    emissions_coal = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
+                        if 'coal' in carrier.lower())
+    emissions_gas = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
+                       if 'gas' in carrier.lower())
+    emissions_biomass = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
+                           if 'biomass' in carrier.lower())
+    emissions_oil = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
+                       if 'oil' in carrier.lower())
+    emissions_nuclear = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
+                           if 'nuclear' in carrier.lower())
+    emissions_renewables = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
+                              if any(tech in carrier.lower() for tech in ['solar', 'wind', 'hydro', 'geothermal']))
+    emissions_hydro = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
+                         if 'hydro' in carrier.lower())
+    
+    # Calculate other emissions (everything else)
+    emissions_other = total_emissions - (emissions_coal + emissions_gas + emissions_biomass + 
+                                        emissions_oil + emissions_nuclear + emissions_renewables + emissions_hydro)
+    
+    # Store all emissions data
+    emissions.at["total_co2_emissions", label] = total_emissions
+    emissions.at["total_energy_production", label] = total_energy
+    emissions.at["emission_intensity", label] = emission_intensity
+    emissions.at["emissions_coal", label] = emissions_coal
+    emissions.at["emissions_gas", label] = emissions_gas
+    emissions.at["emissions_biomass", label] = emissions_biomass
+    emissions.at["emissions_oil", label] = emissions_oil
+    emissions.at["emissions_nuclear", label] = emissions_nuclear
+    emissions.at["emissions_renewables", label] = emissions_renewables
+    emissions.at["emissions_hydro", label] = emissions_hydro
+    emissions.at["emissions_other", label] = emissions_other
+    
+    # Store monthly emissions
+    for month_key, month_value in monthly_emissions.items():
+        if month_key in emissions.index:
+            emissions.at[month_key, label] = month_value
+    
+    # Log summary information
+    logger.info(f"Emissions calculation for {label}:")
+    logger.info(f"  Total CO2 emissions: {total_emissions/1e6:.2f} million tonnes CO2")
+    logger.info(f"  Total energy production: {total_energy/1e6:.2f} TWh")
+    logger.info(f"  Emission intensity: {emission_intensity:.2f} kg CO2/MWh")
+    
+    return emissions
+
+
 def make_summaries(networks_dict, config=None):
     outputs = [
         "nodal_costs",
@@ -1197,6 +1386,7 @@ def make_summaries(networks_dict, config=None):
         "price_statistics",
         "market_values",
         "metrics",
+        "emissions",  # Add emissions calculation
     ]
     
     # Add aluminum statistics if add_aluminum is True

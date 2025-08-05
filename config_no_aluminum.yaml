@@ -1,4 +1,4 @@
-version: 0723.8H.5-70p
+version: 0723.8H.5-no-aluminum
 logging_level: INFO
 foresight: myopic
 using_single_node: true
@@ -10,12 +10,12 @@ mem_per_thread: 15000
 tmin: -01-01 00:00
 tmax: -12-31 23:00
 freq: 24h
-add_aluminum: true
+add_aluminum: false
 iterative_optimization: true
 aluminum_commitment: false
 aluminum_max_iterations: 3
 aluminum_convergence_tolerance: 0.001
-aluminum_capacity_ratio: 0.7
+aluminum_capacity_ratio: 1.0
 scenario:
   line_limits:
   - opt
@@ -85,35 +85,6 @@ solving:
     noisy_costs: false
     clip_p_max_pu: 0.01
   mem: 150000
-aluminum:
-  grid_interaction:
-    '2020': false
-    '2025': false
-    '2030': true
-    '2035': true
-    '2040': true
-    '2045': true
-    '2050': true
-    '2055': true
-    '2060': true
-  capacity_ratio: 0.7
-  scenario_dimensions:
-    smelter_flexibility:
-      low:
-        p_min_pu: 0.9
-        restart_cost: 110000
-      mid:
-        p_min_pu: 0.7
-        restart_cost: 16000
-      high:
-        p_min_pu: 0.5
-        restart_cost: 3200
-  current_scenario:
-    smelter_flexibility: mid
-    primary_demand: high
-    market_opportunity: mid
-  al_marginal_cost_storage: 3.79e-05
-  al_storage_limit: 8760
 snapshots:
   start: '2020-01-01'
   end: '2021-01-01'
@@ -672,3 +643,4 @@ existing_capacities:
   - 2055
   - 2060
   threshold_capacity: 1
+only_other_load: true
