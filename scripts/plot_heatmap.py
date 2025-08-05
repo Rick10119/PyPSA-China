@@ -77,7 +77,7 @@ def creat_aluminum_df(n):
     Returns:
     --------
     tuple
-        (summary DataFrame for heatmap, base power value in MW)
+        (summary DataFrame for heatmap, base power value in MW, monthly average capacity factor)
     """
     # Get aluminum smelter links (input power from electricity bus)
     aluminum_links = n.links_t.p0.filter(like='aluminum smelter')
@@ -85,14 +85,14 @@ def creat_aluminum_df(n):
     if aluminum_links.empty:
         # If no aluminum smelters found, return empty DataFrame
         print("Warning: No aluminum smelter links found in the network")
-        return pd.DataFrame(), 0
+        return pd.DataFrame(), 0, pd.Series()
     
     # Calculate the maximum power as the base value for normalization
     base = abs(aluminum_links.sum(axis=1)).max()
     
     if base == 0:
         print("Warning: Aluminum smelter power is zero, cannot create heatmap")
-        return pd.DataFrame(), 0
+        return pd.DataFrame(), 0, pd.Series()
     
     # Normalize the power values by the base value
     df = (aluminum_links.sum(axis=1))/base
@@ -105,11 +105,15 @@ def creat_aluminum_df(n):
     date = aluminum_links.index
     df['Hour'] = date.hour
     df['Day'] = date.strftime('%m-%d')
+    df['Month'] = date.month
+    
+    # Calculate monthly average capacity factor
+    monthly_avg = df.groupby('Month')['p_smelter'].mean()
     
     # Create pivot table for heatmap visualization
     summary = pd.pivot_table(data=df,index='Hour',columns='Day',values='p_smelter')
     summary = summary.fillna(0).infer_objects(copy=False)
-    return summary, base
+    return summary, base, monthly_avg
 
 def plot_heatmap(n, config):
     """
@@ -141,14 +145,41 @@ def plot_heatmap(n, config):
     
     # Plot aluminum smelter heatmap only when aluminum is added
     if config.get("add_aluminum", False):
-        fig, ax = plt.subplots(figsize=map_figsize)
-        df, base = creat_aluminum_df(n)
+        # Create figure with two subplots: heatmap and monthly average
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(map_figsize[0], map_figsize[1]*1.5), 
+                                      gridspec_kw={'height_ratios': [3, 1]})
+        
+        df, base, monthly_avg = creat_aluminum_df(n)
         if not df.empty and base > 0:
             base = str(int(base / 1e3))  # Convert to GW for display
             
-            # Create heatmap with coolwarm colormap and normalized values
-            sns.heatmap(df, ax=ax, cmap='coolwarm', cbar_kws={'label': 'pu'},vmin=0.0, vmax=1.0)
-            ax.set_title('Aluminum Smelter heatmap with ' + freq + ' resolution in ' + planning_horizon + ' P_base = ' + base + ' GW')
+            # Create heatmap on the top subplot
+            sns.heatmap(df, ax=ax1, cmap='coolwarm', cbar_kws={'label': 'pu'}, vmin=0.0, vmax=1.0)
+            ax1.set_title('Aluminum Smelter heatmap with ' + freq + ' resolution in ' + planning_horizon + ' P_base = ' + base + ' GW')
+            
+            # Add monthly average capacity factor line on the bottom subplot
+            if not monthly_avg.empty:
+                months = monthly_avg.index
+                month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                
+                ax2.plot(months, monthly_avg.values, 'r-', linewidth=2, marker='o', markersize=6)
+                ax2.set_ylabel('Monthly Average Capacity Factor (p.u.)', color='red')
+                ax2.set_xlabel('Month')
+                ax2.set_ylim(0, 1.0)
+                ax2.set_xlim(1, 12)
+                ax2.set_xticks(months)
+                ax2.set_xticklabels([month_names[m-1] for m in months])
+                ax2.grid(True, alpha=0.3)
+                ax2.set_title('Monthly Average Capacity Factor')
+                
+                # Add value labels on the line
+                for i, (month, value) in enumerate(zip(months, monthly_avg.values)):
+                    ax2.annotate(f'{value:.2f}', (month, value), 
+                               textcoords="offset points", xytext=(0,10), 
+                               ha='center', fontsize=8)
+            
+            plt.tight_layout()
             fig.savefig(snakemake.output["aluminum"], dpi=150, bbox_inches='tight')
         plt.close()
 
