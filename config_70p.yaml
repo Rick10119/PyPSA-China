@@ -9,12 +9,12 @@ threads: 40
 mem_per_thread: 15000
 tmin: -01-01 00:00
 tmax: -12-31 23:00
-freq: 8h
+freq: 1h
 add_aluminum: true
 iterative_optimization: true
 aluminum_commitment: false
-aluminum_max_iterations: 2
-aluminum_convergence_tolerance: 0.01
+aluminum_max_iterations: 3
+aluminum_convergence_tolerance: 0.001
 aluminum_capacity_ratio: 0.7
 scenario:
   line_limits:

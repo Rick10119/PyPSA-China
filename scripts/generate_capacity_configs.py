@@ -13,7 +13,7 @@ def generate_capacity_configs():
     生成不同容量比例的配置文件
     """
     # 容量比例设置
-    capacity_ratios = [1.0, 0.9, 0.8, 0.7, 0.6]  # 100%, 90%, 80%, 70%, 60%
+    capacity_ratios = [1.0, 0.9, 0.8, 0.7, 0.6, 0.55]  # 100%, 90%, 80%, 70%, 60%
     
     # 读取原始配置文件
     with open('config.yaml', 'r', encoding='utf-8') as f:
@@ -50,7 +50,7 @@ def create_run_scripts():
     """
     为每个容量比例创建运行脚本
     """
-    capacity_ratios = [1.0, 0.9, 0.8, 0.7, 0.6]
+    capacity_ratios = [1.0, 0.9, 0.8, 0.7, 0.6, 0.55]
     
     for ratio in capacity_ratios:
         percentage = int(ratio * 100)

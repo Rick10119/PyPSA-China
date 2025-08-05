@@ -1,4 +1,4 @@
-version: 0723.8H.4-80p
+version: 0723.8H.4-55p
 logging_level: INFO
 foresight: myopic
 using_single_node: true
@@ -15,7 +15,7 @@ iterative_optimization: true
 aluminum_commitment: false
 aluminum_max_iterations: 3
 aluminum_convergence_tolerance: 0.001
-aluminum_capacity_ratio: 0.8
+aluminum_capacity_ratio: 0.55
 scenario:
   line_limits:
   - opt
@@ -96,7 +96,7 @@ aluminum:
     '2050': true
     '2055': true
     '2060': true
-  capacity_ratio: 0.8
+  capacity_ratio: 0.55
   scenario_dimensions:
     smelter_flexibility:
       low:

@@ -275,7 +275,8 @@ def prepare_network(config):
 
         # Subtract aluminum load from electric load only for affected provinces
         load_minus_al = load.copy()
-        load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index]
+        # 将铝负荷转换为功率容量 (MW)
+        load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index] * 10000 * 13.3 / 8760
         network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
     else:
         network.madd("Load", nodes, bus=nodes, p_set=load[nodes])

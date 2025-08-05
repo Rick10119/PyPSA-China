@@ -7,6 +7,6 @@ echo "版本号: 0723.8H.4-60p"
 echo
 
 # 使用指定的配置文件运行snakemake
-snakemake --configfile config_60p.yaml --cores 6
+snakemake --configfile config_60p.yaml --cores 40
 
 echo "完成 60% 容量比例的模拟"

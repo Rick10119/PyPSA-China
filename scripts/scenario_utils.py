@@ -178,8 +178,8 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
     # 如果提供了容量，计算成本参数
     if al_smelter_p_nom is not None:
         operational_params.update({
-            'start_up_cost': 0.5 * smelter_params['restart_cost'] * al_smelter_p_nom,
-            'shut_down_cost': 0.5 * smelter_params['restart_cost'] * al_smelter_p_nom,
+            'start_up_cost': smelter_params['restart_cost'] * al_smelter_p_nom,
+            'shut_down_cost': 0,
             'stand_by_cost': operational_params['stand_by_cost'] * al_smelter_p_nom,
         })
     else:
