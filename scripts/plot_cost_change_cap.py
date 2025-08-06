@@ -4,7 +4,7 @@
 
 """
 对比不同容量比例的结果summary的cost和capacity差异（仅2050年）
-生成相对于0723.8H.4的成本减少量图表
+生成相对于0723.8H.5的成本减少量图表
 """
 
 import logging
@@ -30,7 +30,7 @@ def collect_all_capacity_data(capacity_ratios, file_type):
     Parameters:
     -----------
     capacity_ratios : list
-        容量比例列表，如 ['0723.8H.4', '60p', '70p', '80p', '90p', '100p']
+        容量比例列表，如 ['0723.8H.5', '60p', '70p', '80p', '90p', '100p']
     file_type : str
         文件类型
         
@@ -43,10 +43,10 @@ def collect_all_capacity_data(capacity_ratios, file_type):
     year = 2050
     
     for ratio in capacity_ratios:
-        if ratio == '0723.8H.4':
+        if ratio == '0723.8H.5':
             version_name = ratio
         else:
-            version_name = f"0723.8H.4-{ratio}"
+            version_name = f"0723.8H.5-{ratio}"
         
         # 构建目录路径
         dir_pattern = f"postnetwork-ll-current+Neighbor-linear2050-{year}"
@@ -130,7 +130,7 @@ def load_single_csv_file(file_path):
 
 def generate_capacity_reduction_plot(capacity_data, output_dir):
     """
-    生成相对于0723.8H.4的成本减少量图表
+    生成相对于0723.8H.5的成本减少量图表
     
     Parameters:
     -----------
@@ -226,14 +226,14 @@ def generate_capacity_reduction_plot(capacity_data, output_dir):
         'marginal - H2 CHP',
     }
     
-    # 检查是否有0723.8H.4基准数据
-    if '0723.8H.4' not in capacity_data:
-        logger.error("缺少0723.8H.4基准数据，无法计算变化量")
+    # 检查是否有0723.8H.5基准数据
+    if '0723.8H.5' not in capacity_data:
+        logger.error("缺少0723.8H.5基准数据，无法计算变化量")
         return
     
-    baseline_data = capacity_data['0723.8H.4']
+    baseline_data = capacity_data['0723.8H.5']
     
-    # 计算相对于0723.8H.4的变化量
+    # 计算相对于0723.8H.5的变化量
     change_data = {}
     comparison_ratios = ['60p', '70p', '80p', '90p', '100p']
     net_changes = []
@@ -282,7 +282,7 @@ def generate_capacity_reduction_plot(capacity_data, output_dir):
                 category_name = cost_category_mapping.get(category_key, 'Power System Cost')  # 默认为电力系统成本
                 
                 if category_name not in exclude_categories:
-                    # 获取基准值（从0723.8H.4数据中读取）
+                    # 获取基准值（从0723.8H.5数据中读取）
                     baseline_value = 0
                     if idx in baseline_data.index:
                         baseline_value = baseline_data.loc[idx].iloc[0]
@@ -370,9 +370,9 @@ def generate_capacity_reduction_plot(capacity_data, output_dir):
                         bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
     
     # 设置图表属性
-    ax.set_xlabel('Capacity Ratio (vs 0723.8H.4)')
+    ax.set_xlabel('Capacity Ratio (vs 0723.8H.5)')
     ax.set_ylabel('Cost Reduction (Billion CNY)')
-    ax.set_title('Cost Reduction by Category for Different Capacity Ratios vs 0723.8H.4 (2050)')
+    ax.set_title('Cost Reduction by Category for Different Capacity Ratios vs 0723.8H.5 (2050)')
     ax.set_xticks(x)
     ax.set_xticklabels(x_labels)
     ax.legend()
@@ -387,7 +387,7 @@ def generate_capacity_reduction_plot(capacity_data, output_dir):
     plt.tight_layout()
     
     # 保存图表
-    plot_file = plots_dir / f"cost_reduction_by_capacity_ratio_vs_0723.8H.4_2050.png"
+    plot_file = plots_dir / f"cost_reduction_by_capacity_ratio_vs_0723.8H.5_2050.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     logger.info(f"Capacity ratio cost reduction plot saved to: {plot_file}")
     
@@ -413,19 +413,19 @@ def generate_capacity_reduction_plot(capacity_data, output_dir):
             })
     
     data_df = pd.DataFrame(data_rows)
-    data_file = plots_dir / f"cost_reduction_by_capacity_ratio_vs_0723.8H.4_2050.csv"
+    data_file = plots_dir / f"cost_reduction_by_capacity_ratio_vs_0723.8H.5_2050.csv"
     data_df.to_csv(data_file, index=False)
     logger.info(f"Capacity ratio cost reduction data saved to: {data_file}")
     
     plt.close()
     
     # 打印调试信息
-    print(f"\n=== 容量比例成本减少量分析（相对于0723.8H.4，人民币）===")
+    print(f"\n=== 容量比例成本减少量分析（相对于0723.8H.5，人民币）===")
     for i, ratio in enumerate(comparison_ratios):
         if i < len(net_changes):
-            print(f"{ratio.replace('p', '%')} vs 0723.8H.4: {net_changes[i]/1e9:.3f}B CNY")
+            print(f"{ratio.replace('p', '%')} vs 0723.8H.5: {net_changes[i]/1e9:.3f}B CNY")
     
-    print(f"\n=== 各分类减少量（100% vs 0723.8H.4）===")
+    print(f"\n=== 各分类减少量（100% vs 0723.8H.5）===")
     for category in filtered_categories:
         change_100p = filtered_categories[category]['100p']
         if abs(change_100p) > 1e6:  # 只显示变化量大于1M的分类
@@ -433,7 +433,7 @@ def generate_capacity_reduction_plot(capacity_data, output_dir):
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description='生成不同容量比例相对于0723.8H.4的成本减少量图表（仅2050年）')
+    parser = argparse.ArgumentParser(description='生成不同容量比例相对于0723.8H.5的成本减少量图表（仅2050年）')
     parser.add_argument('--output', default='results/comparison_results', help='输出目录')
     parser.add_argument('--verbose', '-v', action='store_true', help='详细输出')
     parser.add_argument('--results-dir', default='results', help='结果目录路径 (默认: results)')
@@ -445,7 +445,7 @@ def main():
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
     
     # 定义容量比例（包括基准版本）
-    capacity_ratios = ['0723.8H.4', '60p', '70p', '80p', '90p', '100p']
+    capacity_ratios = ['0723.8H.5', '60p', '70p', '80p', '90p', '100p']
     
     logger.info(f"开始收集容量比例 {capacity_ratios} 的2050年数据")
     

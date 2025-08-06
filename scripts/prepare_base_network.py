@@ -364,6 +364,7 @@ def prepare_network(config):
                      carrier="biomass",
                      )
 
+        # 添加生物质存储
         biomass_potential = pd.read_hdf(snakemake.input.biomass_potental)
         network.madd("Store",
                      nodes + " biomass",
@@ -374,61 +375,51 @@ def prepare_network(config):
                      carrier='biomass'
         )
 
-        network.add("Carrier", "CO2", co2_emissions=0)
+        # 添加CO2载体定义 - 参考biomass-synthetic-fuels示例
+        network.add("Carrier", "co2", co2_emissions=-1.0)
+
+        # 添加CO2大气bus和store
         network.madd('Bus',
                      nodes,
-                     suffix=" CO2",
+                     suffix=" co2 atmosphere",
                      x=pro_centroid_x,
                      y=pro_centroid_y,
-                     carrier="CO2",
+                     carrier="co2",
                      )
 
         network.madd("Store",
-                     nodes + " CO2",
-                     bus =nodes + " CO2",
-                     carrier='CO2'
+                     nodes + " co2 atmosphere",
+                     bus =nodes + " co2 atmosphere",
+                     e_nom=1e10,  # 大容量以允许负值
+                     e_min_pu=-1,  # 允许负值
+                     carrier='co2'
         )
 
-        network.add("Carrier", "CO2 capture", co2_emissions=1)
+        # 添加CO2存储bus和store
         network.madd('Bus',
                      nodes,
-                     suffix=" CO2 capture",
+                     suffix=" co2 stored",
                      x=pro_centroid_x,
-                     y=pro_centroid_y,
-                     carrier="CO2 capture",
+                     y=pro_centroid_y
         )
 
         network.madd("Store",
-                     nodes + " CO2 capture",
-                     bus =nodes + " CO2 capture",
-                     e_nom_extendable=True,
-                     carrier='CO2 capture'
+                     nodes + " co2 stored",
+                     bus =nodes + " co2 stored",
+                     e_nom=1e10,  # 大容量以允许负值
+                     e_min_pu=-1
         )
 
-        network.madd("Link",
-                     nodes + " central biomass CHP capture",
-                     bus0=nodes + " CO2",
-                     bus1=nodes + " CO2 capture",
-                     bus2=nodes,
-                     p_nom_extendable=True,
-                     carrier='CO2 capture',
-                     efficiency=costs.at["biomass CHP capture", "capture_rate"],
-                     efficiency2=-1*costs.at["biomass CHP capture", "capture_rate"]*costs.at["biomass CHP capture", "electricity-input"],
-                     capital_cost=costs.at["biomass CHP capture", "capture_rate"]*costs.at["biomass CHP capture", "capital_cost"],
-                     lifetime=costs.at["biomass CHP capture", "lifetime"]
-        )
-
+        # 添加生物质CHP（无碳捕获）
         network.madd("Link",
                      nodes + " central biomass CHP",
                      bus0=nodes + " biomass",
                      bus1=nodes,
                      bus2=nodes + " central heat",
-                     bus3=nodes + " CO2",
                      p_nom_extendable=True,
                      carrier="biomass",
                      efficiency=costs.at["biomass CHP", "efficiency"],
                      efficiency2=costs.at["biomass CHP", "efficiency-heat"],
-                     efficiency3=0.32522269504651985, # 4187.0095385594495TWh equates to 0.79*(5.24/3.04) Gt CO2  # tCO2/MWh
                      capital_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
                          "biomass CHP", "capital_cost"],
                      marginal_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
@@ -436,6 +427,28 @@ def prepare_network(config):
                      lifetime=costs.at["biomass CHP", "lifetime"]
         )
 
+        # 添加生物质CHP（带碳捕获）
+        network.madd("Link",
+                     nodes + " central biomass CHP capture",
+                     bus0=nodes + " biomass",
+                     bus1=nodes,
+                     bus2=nodes + " central heat",
+                     bus3=nodes + " co2 stored",
+                     bus4=nodes + " co2 atmosphere",
+                     p_nom_extendable=True,
+                     carrier="biomass",
+                     efficiency=costs.at["biomass CHP capture", "efficiency"],
+                     efficiency2=costs.at["biomass CHP capture", "efficiency-heat"],
+                     efficiency3=0.32522269504651985*costs.at["biomass CHP capture", "capture_rate"],  # CO2捕获率
+                     efficiency4=-0.32522269504651985*costs.at["biomass CHP capture", "capture_rate"],  # 负值表示从大气中移除
+                     capital_cost=costs.at["biomass CHP capture", "efficiency"] * costs.at[
+                         "biomass CHP capture", "capital_cost"],
+                     marginal_cost=costs.at["biomass CHP capture", "efficiency"] * costs.at[
+                         "biomass CHP capture", "marginal_cost"] + costs.at['solid biomass', 'fuel'],
+                     lifetime=costs.at["biomass CHP capture", "lifetime"]
+        )
+
+        # 添加分散式生物质锅炉（无碳捕获）
         network.madd("Link",
                      nodes + " decentral biomass boiler",
                      bus0=nodes + " biomass",
@@ -645,15 +658,31 @@ def prepare_network(config):
                      lifetime=costs.at["hydrogen storage tank type 1 including compressor","lifetime"])
 
     if config['add_methanation']:
+        # 添加直接空气捕获(DAC)过程
+        network.madd("Link",
+                     nodes + " DAC",
+                     bus0=nodes,
+                     bus1=nodes + " co2 stored",
+                     bus2=nodes + " co2 atmosphere",
+                     p_nom_extendable=True,
+                     carrier="DAC",
+                     efficiency=costs.at["direct air capture","electricity-input"],
+                     efficiency2=-1.0,  # 从大气中移除CO2
+                     capital_cost=costs.at["direct air capture","capital_cost"],
+                     lifetime=costs.at["direct air capture","lifetime"])
+        
+        # 添加甲烷化过程（Sabatier反应）
         network.madd("Link",
                      nodes + " Sabatier",
                      bus0=nodes+" H2",
                      bus1=nodes+" gas",
+                     bus2=nodes+" co2 stored",
                      p_nom_extendable=True,
                      carrier="Sabatier",
                      efficiency=costs.at["methanation","efficiency"],
-                     capital_cost=costs.at["methanation","efficiency"] * costs.at["methanation","capital_cost"] + costs.at["direct air capture","capital_cost"]*costs.at['gas', 'co2_emissions']*costs.at["methanation","efficiency"],
-                     marginal_cost=(400-5*(int(cost_year)-2020))*costs.at['gas', 'co2_emissions']*costs.at["methanation","efficiency"],
+                     efficiency2=-costs.at["methanation","efficiency"],  # 消耗CO2
+                     capital_cost=costs.at["methanation","efficiency"] * costs.at["methanation","capital_cost"],
+                     marginal_cost=costs.at["methanation","marginal_cost"],
                      lifetime=costs.at["methanation","lifetime"])
 
     # add components
@@ -858,27 +887,38 @@ def prepare_network(config):
                      lifetime=costs.at['central gas CHP', 'lifetime'])
 
     if "coal power plant" in config["Techs"]["conv_techs"]:
-            network.add("Carrier", "coal cc", co2_emissions=0.034)
-            network.madd("Generator",
+            # 带碳捕获的煤电应该使用Link组件，将CO2存储而不是排放
+            network.madd("Link",
                         nodes,
                         suffix=' coal cc',
-                        bus=nodes,
-                        carrier="coal cc",
+                        bus0=nodes + " coal",
+                        bus1=nodes,
+                        bus2=nodes + " co2 stored",
                         p_nom_extendable=True,
-                        efficiency=costs.at['coal', 'efficiency'],
-                        marginal_cost= costs.at['coal', 'marginal_cost'],
-                        capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'], #NB: capital cost is per MWel
+                        carrier="coal cc",
+                        efficiency=costs.at['coal', 'efficiency'] * 0.8,  # 带碳捕获后效率降低
+                        efficiency2=0.34 * 0.9,  # 90%的CO2被捕获到存储
+                        efficiency3=0.34 * 0.1,  # 10%的CO2排放到大气
+                        marginal_cost=costs.at['coal', 'marginal_cost'],
+                        capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'],
                         lifetime=costs.at['coal', 'lifetime'])
 
             for year in range(int(planning_horizons)-25,2021,5):
-                network.madd("Generator",
+# The above Python code snippet is creating a new link in a network model. It is adding a link representing a coal power
+# plant with carbon capture and storage (CCS) technology. Here is a breakdown of the key parameters being set for the new
+# link:
+                network.madd("Link",
                              nodes,
                              suffix=' coal-' + str(year) + "-retrofit",
-                             bus=nodes,
+                             bus0=nodes + " coal",
+                             bus1=nodes,
+                             bus2=nodes + " co2 stored",
                              carrier="coal cc",
                              p_nom_extendable=True,
                              capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'] + 2021 - year,
-                             efficiency=costs.at['coal', 'efficiency'],
+                             efficiency=costs.at['coal', 'efficiency'] * 0.8,  # 带碳捕获后效率降低
+                             efficiency2=0.34 * 0.9,  # 90%的CO2被捕获到存储
+                             efficiency3=0.34 * 0.1,  # 10%的CO2排放到大气
                              lifetime=costs.at['coal', 'lifetime'],
                              build_year=year,
                              marginal_cost=costs.at['coal', 'marginal_cost'])
