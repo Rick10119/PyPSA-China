@@ -8,7 +8,7 @@ foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
 using_single_node: True
-single_node_province: "Anhui"  # 当single_node为true时，指定要保留的省份
+single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
 summary_dir: 'summary/'
@@ -34,7 +34,7 @@ scenario:
   pathway: ['linear2050']
   topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
-    - 2050
+    - 2060
   co2_reduction:
     linear2060:
       '2020': -1.
@@ -76,7 +76,7 @@ solving:
       GURO_PAR_BARDENSETHRESH: 200
       DualReductions: 0
       OutputFlag: 1  # 关闭Gurobi输出
-      LogToConsole: 0  # 关闭控制台日志
+      LogToConsole: 1  # 关闭控制台日志
       LogFile: ''  # 关闭日志文件
     MILP:
       Threads: 192
