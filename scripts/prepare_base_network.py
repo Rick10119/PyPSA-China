@@ -445,11 +445,9 @@ def prepare_network(config):
                      efficiency4=-0.33*costs.at["biomass CHP capture", "capture_rate"],  # 负值表示从大气中移除，因为一开始的co2也是从大气中来的
                      capital_cost=0.33 * costs.at["biomass CHP capture", "capital_cost"] + costs.at["biomass CHP", "capital_cost"],
                      marginal_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
-                         "biomass CHP capture", "VOM"] + costs.at['solid biomass', 'fuel'],
+                         "biomass CHP capture", "marginal_cost"] + 0.33 * costs.at["biomass CHP capture", "marginal_cost"] + costs.at['solid biomass', 'fuel'],
                      lifetime=costs.at["biomass CHP capture", "lifetime"]
         )
-        # print biomass CHP capture
-        print(network.links.loc["Shandong central biomass CHP capture"])
 
         # 添加分散式生物质锅炉（无碳捕获）
         network.madd("Link",
@@ -661,18 +659,19 @@ def prepare_network(config):
 
     if config['add_methanation']:
         # 添加直接空气捕获(DAC)过程
-        network.add("Carrier", "DAC", co2_emissions=0)
+        network.add("Carrier", "DAC")
         network.madd("Link",
                      nodes + " DAC",
                      bus0=nodes + " co2 atmosphere",# base value is tonne of co2 in atmosphere
                      bus1=nodes + " co2 stored",
                      bus2=nodes,
+                     bus3=nodes + " central heat",
                      p_nom_extendable=True,
                      carrier="DAC",
                      efficiency=1,  # CO2从大气到存储的效率
                      efficiency2=-(costs.at["direct air capture","electricity-input"] + costs.at["direct air capture","compression-electricity-input"]),  # 消耗电力
-                     capital_cost=costs.at["direct air capture","capital_cost"],
-                     marginal_cost=0,  # DAC没有额外的边际成本，只有电力成本
+                     efficiency3=-costs.at["direct air capture","heat-input"],
+                     capital_cost=10*costs.at["direct air capture","capital_cost"],
                      lifetime=costs.at["direct air capture","lifetime"])
         
         # 添加甲烷化过程（Sabatier反应）
@@ -890,14 +889,14 @@ def prepare_network(config):
                      lifetime=costs.at['central gas CHP', 'lifetime'])
 
     if "coal power plant" in config["Techs"]["conv_techs"]:
-            network.add("Carrier", "coal cc", co2_emissions=0.0034)
+            network.add("Carrier", "coal cc", co2_emissions=0.034)
             network.madd("Generator",
                         nodes,
                         suffix=' coal cc',
                         bus=nodes,
                         carrier="coal cc",
                         p_nom_extendable=True,
-                        efficiency=costs.at['coal', 'efficiency'],
+                        efficiency=costs.at['coal', 'efficiency'] * 0.9,
                         marginal_cost= costs.at['coal', 'marginal_cost'] + costs.at['retrofit', 'VOM']*0.34,
                         capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'], #NB: capital cost is per MWel
                         lifetime=costs.at['retrofit', 'lifetime'])
@@ -910,7 +909,7 @@ def prepare_network(config):
                              carrier="coal cc",
                              p_nom_extendable=True,
                              capital_cost=costs.at['retrofit', 'capital_cost'],
-                             efficiency=costs.at['coal', 'efficiency'],
+                             efficiency=costs.at['coal', 'efficiency'] * 0.9,
                              lifetime=costs.at['retrofit', 'lifetime'],
                              build_year=year,
                              marginal_cost=costs.at['coal', 'marginal_cost'] + costs.at['retrofit', 'VOM']*0.34
