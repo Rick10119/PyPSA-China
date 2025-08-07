@@ -143,9 +143,9 @@ def prepare_network(config):
         if "coal" in carrier:
             network.add("Carrier", carrier, co2_emissions=costs.at['coal', 'co2_emissions'])
     if config["add_gas"]:
-        network.add("Carrier", "gas", co2_emissions=0)  # in t_CO2/MWht
+        network.add("Carrier", "gas", co2_emissions=costs.at['gas', 'co2_emissions'])  # in t_CO2/MWht
     if config["add_coal"]:
-        network.add("Carrier", "coal", co2_emissions=0)  # only count when boiler is used
+        network.add("Carrier", "coal", co2_emissions=costs.at['coal', 'co2_emissions'])  # only count when boiler is used
     if config["add_aluminum"]:
         network.add("Carrier", "aluminum")
     
@@ -164,7 +164,7 @@ def prepare_network(config):
             # 60% CHP efficiency 0.468 40% coal boiler efficiency 0.97
             # (((791+286) * 0.6 /0.468) + ((791+286) * 0.4 /0.97))  * 0.34 * 1e6 = 0.62 * 1e9 # 2020
 
-            co2_limit = (5.288987673 + 0.628275682)*1e9  * (1 - config['scenario']['co2_reduction'][pathway][planning_horizons]) # Chinese 2020 CO2 emissions of electric and heating sector
+            co2_limit = 0*(5.288987673 + 0.628275682)*1e9  * (1 - config['scenario']['co2_reduction'][pathway][planning_horizons]) # Chinese 2020 CO2 emissions of electric and heating sector
 
             network.add("GlobalConstraint",
                         "co2_limit",
@@ -376,7 +376,7 @@ def prepare_network(config):
         )
 
         # 添加CO2载体定义 - 参考biomass-synthetic-fuels示例
-        network.add("Carrier", "co2", co2_emissions=-1.0)
+        network.add("Carrier", "co2 atmosphere", co2_emissions=-1)
 
         # 添加CO2大气bus和store
         network.madd('Bus',
@@ -384,33 +384,36 @@ def prepare_network(config):
                      suffix=" co2 atmosphere",
                      x=pro_centroid_x,
                      y=pro_centroid_y,
-                     carrier="co2",
+                     carrier="co2 atmosphere",
                      )
 
         network.madd("Store",
                      nodes + " co2 atmosphere",
                      bus =nodes + " co2 atmosphere",
-                     e_nom=1e10,  # 大容量以允许负值
-                     e_min_pu=-1,  # 允许负值
-                     carrier='co2'
+                     e_nom_extendable=True,
+                     carrier="co2 atmosphere",
+                     e_cyclic=False
         )
+        network.add("Carrier", "co2 stored", co2_emissions=0)
 
         # 添加CO2存储bus和store
         network.madd('Bus',
                      nodes,
                      suffix=" co2 stored",
                      x=pro_centroid_x,
-                     y=pro_centroid_y
+                     y=pro_centroid_y,
+                     carrier="co2 stored"
         )
 
         network.madd("Store",
                      nodes + " co2 stored",
                      bus =nodes + " co2 stored",
-                     e_nom=1e10,  # 大容量以允许负值
-                     e_min_pu=-1
+                     e_nom_extendable=True,
+                     carrier="co2 stored",
+                     e_cyclic=False
         )
 
-        # 添加生物质CHP（无碳捕获）
+        # 添加生物质CHP（无碳捕获），不影响碳排放
         network.madd("Link",
                      nodes + " central biomass CHP",
                      bus0=nodes + " biomass",
@@ -440,7 +443,7 @@ def prepare_network(config):
                      efficiency=costs.at["biomass CHP capture", "efficiency"],
                      efficiency2=costs.at["biomass CHP capture", "efficiency-heat"],
                      efficiency3=0.32522269504651985*costs.at["biomass CHP capture", "capture_rate"],  # CO2捕获率
-                     efficiency4=-0.32522269504651985*costs.at["biomass CHP capture", "capture_rate"],  # 负值表示从大气中移除
+                     efficiency4=-0.32522269504651985*costs.at["biomass CHP capture", "capture_rate"],  # 负值表示从大气中移除，因为一开始的co2也是从大气中来的
                      capital_cost=costs.at["biomass CHP capture", "efficiency"] * costs.at[
                          "biomass CHP capture", "capital_cost"],
                      marginal_cost=costs.at["biomass CHP capture", "efficiency"] * costs.at[
@@ -661,13 +664,13 @@ def prepare_network(config):
         # 添加直接空气捕获(DAC)过程
         network.madd("Link",
                      nodes + " DAC",
-                     bus0=nodes,
+                     bus0=nodes + " co2 atmosphere",# base value is tonne of co2 in atmosphere
                      bus1=nodes + " co2 stored",
-                     bus2=nodes + " co2 atmosphere",
+                     bus2=nodes,
                      p_nom_extendable=True,
                      carrier="DAC",
-                     efficiency=costs.at["direct air capture","electricity-input"],
-                     efficiency2=-1.0,  # 从大气中移除CO2
+                     efficiency=1,
+                     efficiency2=-1.0 * costs.at["direct air capture","electricity-input"],  # 从大气中移除CO2
                      capital_cost=costs.at["direct air capture","capital_cost"],
                      lifetime=costs.at["direct air capture","lifetime"])
         
@@ -680,9 +683,8 @@ def prepare_network(config):
                      p_nom_extendable=True,
                      carrier="Sabatier",
                      efficiency=costs.at["methanation","efficiency"],
-                     efficiency2=-costs.at["methanation","efficiency"],  # 消耗CO2
-                     capital_cost=costs.at["methanation","efficiency"] * costs.at["methanation","capital_cost"],
-                     marginal_cost=costs.at["methanation","marginal_cost"],
+                     efficiency2=-2*costs.at["methanation","efficiency"],  # 消耗CO2
+                     capital_cost=costs.at["methanation","capital_cost"],
                      lifetime=costs.at["methanation","lifetime"])
 
     # add components
@@ -897,8 +899,8 @@ def prepare_network(config):
                         p_nom_extendable=True,
                         carrier="coal cc",
                         efficiency=costs.at['coal', 'efficiency'] * 0.8,  # 带碳捕获后效率降低
-                        efficiency2=0.34 * 0.9,  # 90%的CO2被捕获到存储
-                        efficiency3=0.34 * 0.1,  # 10%的CO2排放到大气
+                        efficiency2=0.34 * 0.95,  # 95%的CO2被捕获到存储
+                        efficiency3=0.34 * 0.05,  # 5%的CO2排放到大气
                         marginal_cost=costs.at['coal', 'marginal_cost'],
                         capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'],
                         lifetime=costs.at['coal', 'lifetime'])
@@ -917,8 +919,8 @@ def prepare_network(config):
                              p_nom_extendable=True,
                              capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'] + 2021 - year,
                              efficiency=costs.at['coal', 'efficiency'] * 0.8,  # 带碳捕获后效率降低
-                             efficiency2=0.34 * 0.9,  # 90%的CO2被捕获到存储
-                             efficiency3=0.34 * 0.1,  # 10%的CO2排放到大气
+                             efficiency2=0.34 * 0.95,  # 95%的CO2被捕获到存储
+                             efficiency3=0.34 * 0.05,  # 5%的CO2排放到大气
                              lifetime=costs.at['coal', 'lifetime'],
                              build_year=year,
                              marginal_cost=costs.at['coal', 'marginal_cost'])

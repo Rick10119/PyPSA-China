@@ -174,9 +174,9 @@ def prepare_network(config):
         if "coal" in carrier:
             network.add("Carrier", carrier, co2_emissions=costs.at['coal', 'co2_emissions'])
     if config["add_gas"]:
-        network.add("Carrier", "gas", co2_emissions=0)  # in t_CO2/MWht
+        network.add("Carrier", "gas", co2_emissions=costs.at['gas', 'co2_emissions'])  # in t_CO2/MWht
     if config["add_coal"]:
-        network.add("Carrier", "coal", co2_emissions=0)
+        network.add("Carrier", "coal", co2_emissions=costs.at['coal', 'co2_emissions'])
 
     #load demand data
     with pd.HDFStore(snakemake.input.elec_load, mode='r') as store:
