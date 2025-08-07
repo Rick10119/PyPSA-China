@@ -358,34 +358,36 @@ def prepare_network(config):
     # 添加CO2载体定义 - 参考biomass-synthetic-fuels示例
     network.add("Carrier", "co2 atmosphere", co2_emissions=-1)
 
-    # 添加CO2大气bus和store（全国统一）
-    network.add('Bus',
-                    "co2 atmosphere",
-                    x=pro_centroid_x.mean(),
-                    y=pro_centroid_y.mean(),
+    # 添加CO2大气bus和store
+    network.madd('Bus',
+                    nodes,
+                    suffix=" co2 atmosphere",
+                    x=pro_centroid_x,
+                    y=pro_centroid_y,
                     carrier="co2 atmosphere",
                     )
 
-    network.add("Store",
-                    "co2 atmosphere",
-                    bus="co2 atmosphere",
+    network.madd("Store",
+                    nodes + " co2 atmosphere",
+                    bus =nodes + " co2 atmosphere",
                     e_nom=1e10, 
                     e_min_pu=-1,
                     carrier="co2 atmosphere"
     )
     network.add("Carrier", "co2 stored", co2_emissions=0)
 
-    # 添加CO2存储bus和store（全国统一）
-    network.add('Bus',
-                    "co2 stored",
-                    x=pro_centroid_x.mean(),
-                    y=pro_centroid_y.mean(),
+    # 添加CO2存储bus和store
+    network.madd('Bus',
+                    nodes,
+                    suffix=" co2 stored",
+                    x=pro_centroid_x,
+                    y=pro_centroid_y,
                     carrier="co2 stored"
     )
 
-    network.add("Store",
-                    "co2 stored",
-                    bus="co2 stored",
+    network.madd("Store",
+                    nodes + " co2 stored",
+                    bus =nodes + " co2 stored",
                     e_nom=1e10, 
                     carrier="co2 stored",
                     e_min_pu=-1
@@ -434,8 +436,8 @@ def prepare_network(config):
                      bus0=nodes + " biomass",
                      bus1=nodes,
                      bus2=nodes + " central heat",
-                     bus3="co2 stored",
-                     bus4="co2 atmosphere",
+                     bus3=nodes + " co2 stored",
+                     bus4=nodes + " co2 atmosphere",
                      p_nom_extendable=True,
                      carrier="biomass",
                      efficiency=costs.at["biomass CHP capture", "efficiency"],
@@ -663,8 +665,8 @@ def prepare_network(config):
         network.add("Carrier", "DAC", co2_emissions=0)
         network.madd("Link",
                      nodes + " DAC",
-                     bus0="co2 atmosphere",# base value is tonne of co2 in atmosphere
-                     bus1="co2 stored",
+                     bus0=nodes + " co2 atmosphere",# base value is tonne of co2 in atmosphere
+                     bus1=nodes + " co2 stored",
                      bus2=nodes,
                      p_nom_extendable=True,
                      carrier="DAC",
@@ -679,7 +681,7 @@ def prepare_network(config):
                      nodes + " Sabatier",
                      bus0=nodes+" H2",
                      bus1=nodes+" gas",
-                     bus2="co2 stored",
+                     bus2=nodes+" co2 stored",
                      p_nom_extendable=True,
                      carrier="Sabatier",
                      efficiency=costs.at["methanation","efficiency"],
