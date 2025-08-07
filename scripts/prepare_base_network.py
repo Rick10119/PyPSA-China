@@ -889,38 +889,27 @@ def prepare_network(config):
                      lifetime=costs.at['central gas CHP', 'lifetime'])
 
     if "coal power plant" in config["Techs"]["conv_techs"]:
-            # 带碳捕获的煤电应该使用Link组件，将CO2存储而不是排放
-            network.madd("Link",
+            network.add("Carrier", "coal cc", co2_emissions=costs.at['coal', 'co2_emissions'])
+            network.madd("Generator",
                         nodes,
                         suffix=' coal cc',
-                        bus0=nodes + " coal",
-                        bus1=nodes,
-                        bus2=nodes + " co2 stored",
-                        p_nom_extendable=True,
+                        bus=nodes,
                         carrier="coal cc",
-                        efficiency=costs.at['coal', 'efficiency'] * 0.8,  # 带碳捕获后效率降低
-                        efficiency2=0.34 * 0.95,  # 95%的CO2被捕获到存储
-                        efficiency3=0.34 * 0.05,  # 5%的CO2排放到大气
-                        marginal_cost=costs.at['coal', 'marginal_cost'],
-                        capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'],
+                        p_nom_extendable=True,
+                        efficiency=costs.at['coal', 'efficiency'],
+                        marginal_cost= costs.at['coal', 'marginal_cost'],
+                        capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'], #NB: capital cost is per MWel
                         lifetime=costs.at['coal', 'lifetime'])
 
             for year in range(int(planning_horizons)-25,2021,5):
-# The above Python code snippet is creating a new link in a network model. It is adding a link representing a coal power
-# plant with carbon capture and storage (CCS) technology. Here is a breakdown of the key parameters being set for the new
-# link:
-                network.madd("Link",
+                network.madd("Generator",
                              nodes,
                              suffix=' coal-' + str(year) + "-retrofit",
-                             bus0=nodes + " coal",
-                             bus1=nodes,
-                             bus2=nodes + " co2 stored",
+                             bus=nodes,
                              carrier="coal cc",
                              p_nom_extendable=True,
                              capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'] + 2021 - year,
-                             efficiency=costs.at['coal', 'efficiency'] * 0.8,  # 带碳捕获后效率降低
-                             efficiency2=0.34 * 0.95,  # 95%的CO2被捕获到存储
-                             efficiency3=0.34 * 0.05,  # 5%的CO2排放到大气
+                             efficiency=costs.at['coal', 'efficiency'],
                              lifetime=costs.at['coal', 'lifetime'],
                              build_year=year,
                              marginal_cost=costs.at['coal', 'marginal_cost'])
