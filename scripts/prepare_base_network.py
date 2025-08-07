@@ -671,7 +671,8 @@ def prepare_network(config):
                      efficiency=1,  # CO2从大气到存储的效率
                      efficiency2=-(costs.at["direct air capture","electricity-input"] + costs.at["direct air capture","compression-electricity-input"]),  # 消耗电力
                      efficiency3=-costs.at["direct air capture","heat-input"],
-                     capital_cost=10*costs.at["direct air capture","capital_cost"],
+                     capital_cost=costs.at["direct air capture","capital_cost"],
+                     marginal_cost=0.9*(400-5*(int(cost_year)-2020)),
                      lifetime=costs.at["direct air capture","lifetime"])
         
         # 添加甲烷化过程（Sabatier反应）
@@ -683,8 +684,9 @@ def prepare_network(config):
                      p_nom_extendable=True,
                      carrier="Sabatier",
                      efficiency=costs.at["methanation","efficiency"],
-                     efficiency2=-2*costs.at["methanation","efficiency"],  # 消耗CO2
+                     efficiency2=-costs.at["methanation","efficiency"]*costs.at["gas", "co2_emissions"],  # 消耗CO2
                      capital_cost=costs.at["methanation","capital_cost"],
+                     marginal_cost=0.1*(400-5*(int(cost_year)-2020))*costs.at["methanation","efficiency"]*costs.at["gas", "co2_emissions"],
                      lifetime=costs.at["methanation","lifetime"])
 
     # add components
