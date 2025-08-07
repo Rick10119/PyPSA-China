@@ -423,10 +423,9 @@ def prepare_network(config):
                      carrier="biomass",
                      efficiency=costs.at["biomass CHP", "efficiency"],
                      efficiency2=costs.at["biomass CHP", "efficiency-heat"],
-                     capital_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
-                         "biomass CHP", "capital_cost"],
+                     capital_cost=costs.at["biomass CHP", "capital_cost"],
                      marginal_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
-                         "biomass CHP", "marginal_cost"] + costs.at['solid biomass', 'fuel'],
+                         "biomass CHP", "VOM"] + costs.at['solid biomass', 'fuel'],
                      lifetime=costs.at["biomass CHP", "lifetime"]
         )
 
@@ -440,16 +439,17 @@ def prepare_network(config):
                      bus4=nodes + " co2 atmosphere",
                      p_nom_extendable=True,
                      carrier="biomass",
-                     efficiency=costs.at["biomass CHP capture", "efficiency"],
-                     efficiency2=costs.at["biomass CHP capture", "efficiency-heat"],
-                     efficiency3=0.32522269504651985*costs.at["biomass CHP capture", "capture_rate"],  # CO2捕获率
-                     efficiency4=-0.32522269504651985*costs.at["biomass CHP capture", "capture_rate"],  # 负值表示从大气中移除，因为一开始的co2也是从大气中来的
-                     capital_cost=costs.at["biomass CHP capture", "efficiency"] * costs.at[
-                         "biomass CHP capture", "capital_cost"],
-                     marginal_cost=costs.at["biomass CHP capture", "efficiency"] * costs.at[
-                         "biomass CHP capture", "marginal_cost"] + costs.at['solid biomass', 'fuel'],
+                     efficiency=costs.at["biomass CHP", "efficiency"] * 0.9,
+                     efficiency2=costs.at["biomass CHP", "efficiency-heat"],
+                     efficiency3=0.33*costs.at["biomass CHP capture", "capture_rate"],  # CO2捕获率
+                     efficiency4=-0.33*costs.at["biomass CHP capture", "capture_rate"],  # 负值表示从大气中移除，因为一开始的co2也是从大气中来的
+                     capital_cost=0.33 * costs.at["biomass CHP capture", "capital_cost"] + costs.at["biomass CHP", "capital_cost"],
+                     marginal_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
+                         "biomass CHP capture", "VOM"] + costs.at['solid biomass', 'fuel'],
                      lifetime=costs.at["biomass CHP capture", "lifetime"]
         )
+        # print biomass CHP capture
+        print(network.links.loc["Shandong central biomass CHP capture"])
 
         # 添加分散式生物质锅炉（无碳捕获）
         network.madd("Link",
@@ -459,8 +459,7 @@ def prepare_network(config):
                      p_nom_extendable=True,
                      carrier="biomass",
                      efficiency=costs.at["biomass boiler", "efficiency"],
-                     capital_cost=costs.at["biomass boiler", "efficiency"] * costs.at[
-                         "biomass boiler", "capital_cost"],
+                     capital_cost=costs.at["biomass boiler", "efficiency"] * costs.at["biomass boiler", "capital_cost"],
                      marginal_cost=costs.at["biomass boiler", "efficiency"] * costs.at[
                          "biomass boiler", "marginal_cost"] + costs.at["biomass boiler", "pelletizing cost"] + costs.at['solid biomass', 'fuel'],
                      lifetime=costs.at["biomass boiler", "lifetime"]
@@ -637,7 +636,7 @@ def prepare_network(config):
                      carrier="H2 CHP",
                      efficiency=costs.at["central hydrogen CHP","efficiency"],
                      efficiency2=costs.at["central hydrogen CHP","efficiency"]/costs.at["central hydrogen CHP","c_b"],
-                     capital_cost=costs.at["central hydrogen CHP","efficiency"]*costs.at["central hydrogen CHP","capital_cost"],
+                     capital_cost=costs.at["central hydrogen CHP","efficiency"] * costs.at["central hydrogen CHP","capital_cost"],
                      lifetime=costs.at["central hydrogen CHP","lifetime"]
                      )
 
@@ -672,7 +671,7 @@ def prepare_network(config):
                      carrier="DAC",
                      efficiency=1,  # CO2从大气到存储的效率
                      efficiency2=-(costs.at["direct air capture","electricity-input"] + costs.at["direct air capture","compression-electricity-input"]),  # 消耗电力
-                     capital_cost=costs.at["direct air capture","capital_cost"] * (1 + 0.01*costs.at["direct air capture","FOM"]),
+                     capital_cost=costs.at["direct air capture","capital_cost"],
                      marginal_cost=0,  # DAC没有额外的边际成本，只有电力成本
                      lifetime=costs.at["direct air capture","lifetime"])
         
@@ -898,7 +897,7 @@ def prepare_network(config):
                         bus=nodes,
                         carrier="coal cc",
                         p_nom_extendable=True,
-                        efficiency=costs.at['coal', 'efficiency'] * 0.8,
+                        efficiency=costs.at['coal', 'efficiency'],
                         marginal_cost= costs.at['coal', 'marginal_cost'] + costs.at['retrofit', 'VOM']*0.34,
                         capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'], #NB: capital cost is per MWel
                         lifetime=costs.at['retrofit', 'lifetime'])
@@ -911,7 +910,7 @@ def prepare_network(config):
                              carrier="coal cc",
                              p_nom_extendable=True,
                              capital_cost=costs.at['retrofit', 'capital_cost'],
-                             efficiency=costs.at['coal', 'efficiency'] * 0.8,
+                             efficiency=costs.at['coal', 'efficiency'],
                              lifetime=costs.at['retrofit', 'lifetime'],
                              build_year=year,
                              marginal_cost=costs.at['coal', 'marginal_cost'] + costs.at['retrofit', 'VOM']*0.34
