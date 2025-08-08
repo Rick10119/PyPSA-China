@@ -31,6 +31,85 @@ def set_plot_style():
                     'pdf.fonttype': 42,
                     }])
 
+def filter_network_by_province(n, target_province=None):
+    """
+    Filter the network to include only components from a specific province.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The PyPSA network object containing the simulation results
+    target_province : str, optional
+        The target province name (e.g., 'Shandong'). If None, returns the full network.
+    
+    Returns:
+    --------
+    pypsa.Network
+        Filtered network containing only components from the target province
+    """
+    if target_province is None:
+        return n
+    
+    print(f"正在过滤网络，只保留 {target_province} 省份的组件...")
+    
+    # Create a copy of the network to avoid modifying the original
+    n_filtered = n.copy()
+    
+    # Find buses in the target province
+    province_buses = n_filtered.buses[n_filtered.buses.index.str.contains(target_province, case=False)].index
+    
+    if len(province_buses) == 0:
+        print(f"警告：未找到 {target_province} 省份的节点")
+        return n_filtered
+    
+    print(f"找到 {len(province_buses)} 个 {target_province} 省份的节点: {list(province_buses)}")
+    
+    # Remove generators not in the target province
+    non_province_generators = n_filtered.generators[~n_filtered.generators.bus.isin(province_buses)].index
+    if len(non_province_generators) > 0:
+        n_filtered.mremove("Generator", non_province_generators)
+        print(f"移除了 {len(non_province_generators)} 个非 {target_province} 省份的发电机")
+    
+    # Remove loads not in the target province
+    non_province_loads = n_filtered.loads[~n_filtered.loads.bus.isin(province_buses)].index
+    if len(non_province_loads) > 0:
+        n_filtered.mremove("Load", non_province_loads)
+        print(f"移除了 {len(non_province_loads)} 个非 {target_province} 省份的负荷")
+    
+    # Remove storage units not in the target province
+    non_province_storage = n_filtered.storage_units[~n_filtered.storage_units.bus.isin(province_buses)].index
+    if len(non_province_storage) > 0:
+        n_filtered.mremove("StorageUnit", non_province_storage)
+        print(f"移除了 {len(non_province_storage)} 个非 {target_province} 省份的储能单元")
+    
+    # Remove stores not in the target province
+    non_province_stores = n_filtered.stores[~n_filtered.stores.bus.isin(province_buses)].index
+    if len(non_province_stores) > 0:
+        n_filtered.mremove("Store", non_province_stores)
+        print(f"移除了 {len(non_province_stores)} 个非 {target_province} 省份的存储")
+    
+    # Remove links not connected to the target province
+    non_province_links = n_filtered.links[~(n_filtered.links.bus0.isin(province_buses) | n_filtered.links.bus1.isin(province_buses))].index
+    if len(non_province_links) > 0:
+        n_filtered.mremove("Link", non_province_links)
+        print(f"移除了 {len(non_province_links)} 个非 {target_province} 省份的连接")
+    
+    # Remove lines not connected to the target province
+    non_province_lines = n_filtered.lines[~(n_filtered.lines.bus0.isin(province_buses) | n_filtered.lines.bus1.isin(province_buses))].index
+    if len(non_province_lines) > 0:
+        n_filtered.mremove("Line", non_province_lines)
+        print(f"移除了 {len(non_province_lines)} 个非 {target_province} 省份的线路")
+    
+    # Finally remove non-province buses
+    non_province_buses = n_filtered.buses[~n_filtered.buses.index.isin(province_buses)].index
+    if len(non_province_buses) > 0:
+        n_filtered.mremove("Bus", non_province_buses)
+        print(f"移除了 {len(non_province_buses)} 个非 {target_province} 省份的节点")
+    
+    print(f"过滤完成。剩余组件：{len(n_filtered.generators)} 个发电机，{len(n_filtered.loads)} 个负荷，{len(n_filtered.links)} 个连接")
+    
+    return n_filtered
+
 def calculate_monthly_capacity_factors(n):
     """
     Calculate monthly average capacity factors for all generators and power-producing links in the network.
@@ -371,7 +450,7 @@ def calculate_monthly_load_factors(n):
     
     return monthly_load
 
-def plot_capacity_factors(n, config):
+def plot_capacity_factors(n, config, target_province=None):
     """
     Generate capacity factor plots for all energy resources.
     
@@ -381,8 +460,14 @@ def plot_capacity_factors(n, config):
         The PyPSA network object containing the simulation results
     config : dict
         Configuration dictionary containing plotting parameters
+    target_province : str, optional
+        The target province name to filter results (e.g., 'Shandong')
     """
     planning_horizon = snakemake.wildcards.planning_horizons
+    
+    # Filter network by province if specified
+    if target_province:
+        n = filter_network_by_province(n, target_province)
     
     # Calculate monthly capacity factors
     monthly_cf = calculate_monthly_capacity_factors(n)
@@ -504,15 +589,21 @@ def plot_capacity_factors(n, config):
                            ha='center', fontsize=8)
     
     plt.tight_layout()
-    fig.suptitle(f'Monthly Capacity Factors & Load Factors - {planning_horizon}', 
-                fontsize=16, fontweight='bold', y=0.98)
+    
+    # Create title with province information
+    title = f'Monthly Capacity Factors & Load Factors - {planning_horizon}'
+    if target_province:
+        title += f' ({target_province})'
+    
+    fig.suptitle(title, fontsize=16, fontweight='bold', y=0.98)
     
     # Save the plot
     fig.savefig(snakemake.output["capacity_factors"], dpi=150, bbox_inches='tight')
     plt.close()
     
     # Print summary statistics
-    print(f"\n容量因子月度统计 - {planning_horizon}")
+    province_info = f" - {target_province}" if target_province else ""
+    print(f"\n容量因子月度统计 - {planning_horizon}{province_info}")
     print("=" * 50)
     for tech, cf_data in monthly_cf.items():
         if not cf_data.empty:
@@ -521,7 +612,7 @@ def plot_capacity_factors(n, config):
             min_cf = cf_data.min()
             print(f"{tech:15s}: 平均={avg_cf:.3f}, 最大={max_cf:.3f}, 最小={min_cf:.3f}")
     
-    print(f"\n负荷因子月度统计 - {planning_horizon}")
+    print(f"\n负荷因子月度统计 - {planning_horizon}{province_info}")
     print("=" * 50)
     for load_type, load_data in monthly_load.items():
         if not load_data.empty:
@@ -550,5 +641,11 @@ if __name__ == "__main__":
     # Load the network and generate plots
     n = pypsa.Network(snakemake.input.network)
     
+    # Check if province filtering is requested
+    target_province = "Anhui"
+    if hasattr(snakemake.config, 'single_node_province') and snakemake.config.get('using_single_node', False):
+        target_province = snakemake.config['single_node_province']
+        print(f"检测到单节点模式，将过滤 {target_province} 省份的结果")
+    
     # Generate capacity factor plots
-    plot_capacity_factors(n, config) 
+    plot_capacity_factors(n, config, target_province) 
