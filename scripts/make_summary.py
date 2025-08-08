@@ -1182,14 +1182,7 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
 
 def calculate_emissions(n, label, emissions):
     """
-    Calculate CO2 emissions based on emission factors and energy production.
-    
-    This function calculates:
-    1. Total CO2 emissions from all generators and links
-    2. Emissions breakdown by energy carrier/technology
-    3. Monthly emissions analysis
-    4. Emission intensity (emissions per unit of energy)
-    5. CO2 atmosphere and storage components (for CCS and biomass systems)
+    计算煤炭和天然气的月度CO2排放量
     
     Parameters:
     -----------
@@ -1203,292 +1196,108 @@ def calculate_emissions(n, label, emissions):
     Returns:
     --------
     pd.DataFrame
-        Updated emissions DataFrame with new calculations
+        Updated emissions DataFrame with coal and gas emissions by month
     """
     
-    # Define the emissions metrics we want to calculate
+    # 定义排放指标
     emissions_list = [
-        "total_co2_emissions",  # 总CO2排放量 (tonnes CO2)
-        "total_energy_production",  # 总能源生产量 (MWh)
-        "emission_intensity",  # 排放强度 (kg CO2/MWh)
-        # 按技术类型细分的排放量
-        "emissions_coal_power",  # 煤电排放量
-        "emissions_coal_chp",  # 煤电联产排放量
-        "emissions_coal_boiler",  # 燃煤锅炉排放量
-        "emissions_gas_power",  # 天然气发电排放量
-        "emissions_gas_chp",  # 天然气联产排放量
-        "emissions_gas_boiler",  # 燃气锅炉排放量
-        "emissions_ocgt",  # 开式循环燃气轮机排放量
-        "emissions_ccgt",  # 联合循环燃气轮机排放量
-        "emissions_biomass",  # 生物质排放量
-        "emissions_biomass_chp",  # 生物质联产排放量
-        "emissions_biomass_boiler",  # 生物质锅炉排放量
-        "emissions_nuclear",  # 核能排放量 (通常为0)
-        "emissions_aluminum",  # 铝冶炼排放量 (通常为0)
-        "emissions_other",  # 其他能源排放量
-        # CO2相关组件
-        "emissions_co2_atmosphere",  # CO2大气排放量
-        "emissions_co2_stored",  # CO2存储量
-        "emissions_co2_sequestration",  # CO2封存量
-        "emissions_ccs_coal",  # 煤炭CCS排放量
-        "emissions_ccs_gas",  # 天然气CCS排放量
-        "emissions_ccs_biomass",  # 生物质CCS排放量
-        "emissions_biomass_cc",  # 生物质碳捕集排放量
-        # 月度排放量
-        "monthly_emissions_jan",  # 1月排放量
-        "monthly_emissions_feb",  # 2月排放量
-        "monthly_emissions_mar",  # 3月排放量
-        "monthly_emissions_apr",  # 4月排放量
-        "monthly_emissions_may",  # 5月排放量
-        "monthly_emissions_jun",  # 6月排放量
-        "monthly_emissions_jul",  # 7月排放量
-        "monthly_emissions_aug",  # 8月排放量
-        "monthly_emissions_sep",  # 9月排放量
-        "monthly_emissions_oct",  # 10月排放量
-        "monthly_emissions_nov",  # 11月排放量
-        "monthly_emissions_dec",  # 12月排放量
+        "total_coal_emissions",  # 煤炭总排放量
+        "total_gas_emissions",   # 天然气总排放量
+        # 月度煤炭排放量
+        "coal_emissions_jan", "coal_emissions_feb", "coal_emissions_mar", "coal_emissions_apr",
+        "coal_emissions_may", "coal_emissions_jun", "coal_emissions_jul", "coal_emissions_aug",
+        "coal_emissions_sep", "coal_emissions_oct", "coal_emissions_nov", "coal_emissions_dec",
+        # 月度天然气排放量
+        "gas_emissions_jan", "gas_emissions_feb", "gas_emissions_mar", "gas_emissions_apr",
+        "gas_emissions_may", "gas_emissions_jun", "gas_emissions_jul", "gas_emissions_aug",
+        "gas_emissions_sep", "gas_emissions_oct", "gas_emissions_nov", "gas_emissions_dec",
     ]
     
     emissions = emissions.reindex(
         emissions.index.union(pd.Index(emissions_list))
     )
     
-    # Initialize variables
-    total_emissions = 0.0
-    total_energy = 0.0
-    emissions_by_carrier = {}
-    monthly_emissions = {}
+    # 初始化月度排放量字典
+    monthly_coal_emissions = {}
+    monthly_gas_emissions = {}
     
-    # Get emission factors from carriers
+    # 获取排放因子
     carrier_emissions = n.carriers.co2_emissions if hasattr(n.carriers, 'co2_emissions') else pd.Series(dtype=float)
     
-    # Process generators
+    # 处理发电机
     if hasattr(n, 'generators_t') and hasattr(n.generators_t, 'p'):
         gen_dispatch = n.generators_t.p
         
         for generator in gen_dispatch.columns:
             if generator in n.generators.index:
                 carrier = n.generators.at[generator, 'carrier']
-                emission_factor = carrier_emissions.get(carrier, 0.0)  # tonnes CO2/MWh
+                emission_factor = carrier_emissions.get(carrier, 0.0)
                 
-                # Calculate energy production (MWh)
-                energy_production = (
-                    gen_dispatch[generator].multiply(n.snapshot_weightings.generators, axis=0)
-                    .sum()
-                )
-                
-                # Calculate emissions (tonnes CO2)
-                generator_emissions = energy_production * emission_factor
-                
-                total_energy += energy_production
-                total_emissions += generator_emissions
-                
-                # Accumulate by carrier
-                if carrier not in emissions_by_carrier:
-                    emissions_by_carrier[carrier] = 0.0
-                emissions_by_carrier[carrier] += generator_emissions
-                
-                # Calculate monthly emissions
-                monthly_data = gen_dispatch[generator].multiply(n.snapshot_weightings.generators, axis=0)
-                monthly_energy = monthly_data.resample('M').sum()
-                monthly_gen_emissions = monthly_energy * emission_factor
-                
-                for month_idx, month_emissions in monthly_gen_emissions.items():
-                    month_key = f"monthly_emissions_{month_idx.strftime('%b').lower()}"
-                    if month_key not in monthly_emissions:
-                        monthly_emissions[month_key] = 0.0
-                    monthly_emissions[month_key] += month_emissions
+                # 只处理煤炭和天然气相关技术
+                if 'coal' in carrier.lower() or 'gas' in carrier.lower():
+                    # 计算月度能源生产
+                    monthly_data = gen_dispatch[generator].multiply(n.snapshot_weightings.generators, axis=0)
+                    monthly_energy = monthly_data.resample('M').sum()
+                    monthly_gen_emissions = monthly_energy * emission_factor
+                    
+                    # 根据载波类型分配到煤炭或天然气
+                    if 'coal' in carrier.lower():
+                        for month_idx, month_emissions in monthly_gen_emissions.items():
+                            month_key = f"coal_emissions_{month_idx.strftime('%b').lower()}"
+                            monthly_coal_emissions[month_key] = monthly_coal_emissions.get(month_key, 0.0) + month_emissions
+                    elif 'gas' in carrier.lower():
+                        for month_idx, month_emissions in monthly_gen_emissions.items():
+                            month_key = f"gas_emissions_{month_idx.strftime('%b').lower()}"
+                            monthly_gas_emissions[month_key] = monthly_gas_emissions.get(month_key, 0.0) + month_emissions
     
-    # Process links (for CHP, converters, etc.)
+    # 处理链接（CHP、转换器等）
     if hasattr(n, 'links_t') and hasattr(n.links_t, 'p0'):
         link_power = n.links_t.p0
         
         for link in link_power.columns:
             if link in n.links.index:
                 carrier = n.links.at[link, 'carrier']
-                emission_factor = carrier_emissions.get(carrier, 0.0)  # tonnes CO2/MWh
+                emission_factor = carrier_emissions.get(carrier, 0.0)
                 
-                # Calculate energy flow (MWh) - use absolute value for consumption
-                energy_flow = (
-                    link_power[link].abs().multiply(n.snapshot_weightings.generators, axis=0)
-                    .sum()
-                )
-                
-                # Calculate emissions (tonnes CO2)
-                link_emissions = energy_flow * emission_factor
-                
-                total_energy += energy_flow
-                total_emissions += link_emissions
-                
-                # Accumulate by carrier
-                if carrier not in emissions_by_carrier:
-                    emissions_by_carrier[carrier] = 0.0
-                emissions_by_carrier[carrier] += link_emissions
-                
-                # Calculate monthly emissions
-                monthly_data = link_power[link].abs().multiply(n.snapshot_weightings.generators, axis=0)
-                monthly_energy = monthly_data.resample('M').sum()
-                monthly_link_emissions = monthly_energy * emission_factor
-                
-                for month_idx, month_emissions in monthly_link_emissions.items():
-                    month_key = f"monthly_emissions_{month_idx.strftime('%b').lower()}"
-                    if month_key not in monthly_emissions:
-                        monthly_emissions[month_key] = 0.0
-                    monthly_emissions[month_key] += month_emissions
-    
-    # Process stores (for CO2 atmosphere and CO2 stored)
-    if hasattr(n, 'stores_t') and hasattr(n.stores_t, 'e'):
-        store_energy = n.stores_t.e
-        
-        for store in store_energy.columns:
-            if store in n.stores.index:
-                carrier = n.stores.at[store, 'carrier']
-                
-                # Calculate energy flow (MWh) - use absolute value
-                energy_flow = (
-                    store_energy[store].abs().multiply(n.snapshot_weightings.generators, axis=0)
-                    .sum()
-                )
-                
-                # For CO2 components, we need to handle them specially
-                if carrier == 'co2':
-                    # CO2 atmosphere: positive values indicate CO2 released to atmosphere
-                    # CO2 stored: positive values indicate CO2 stored (negative emissions)
-                    co2_flow = (
-                        store_energy[store].multiply(n.snapshot_weightings.generators, axis=0)
-                        .sum()
-                    )
+                # 只处理煤炭和天然气相关技术
+                if 'coal' in carrier.lower() or 'gas' in carrier.lower():
+                    # 计算月度能源消耗
+                    monthly_data = link_power[link].abs().multiply(n.snapshot_weightings.generators, axis=0)
+                    monthly_energy = monthly_data.resample('M').sum()
+                    monthly_link_emissions = monthly_energy * emission_factor
                     
-                    if 'atmosphere' in store.lower():
-                        # CO2 released to atmosphere (positive emissions)
-                        emissions_by_carrier['co2_atmosphere'] = emissions_by_carrier.get('co2_atmosphere', 0.0) + co2_flow
-                        total_emissions += co2_flow
-                    elif 'stored' in store.lower():
-                        # CO2 stored (negative emissions, i.e., sequestration)
-                        emissions_by_carrier['co2_stored'] = emissions_by_carrier.get('co2_stored', 0.0) + co2_flow
-                        total_emissions += co2_flow  # This will be negative for sequestration
-                
-                # Calculate monthly emissions for CO2 components
-                if carrier == 'co2':
-                    monthly_data = store_energy[store].multiply(n.snapshot_weightings.generators, axis=0)
-                    monthly_co2 = monthly_data.resample('M').sum()
-                    
-                    for month_idx, month_co2 in monthly_co2.items():
-                        month_key = f"monthly_emissions_{month_idx.strftime('%b').lower()}"
-                        if month_key not in monthly_emissions:
-                            monthly_emissions[month_key] = 0.0
-                        monthly_emissions[month_key] += month_co2
+                    # 根据载波类型分配到煤炭或天然气
+                    if 'coal' in carrier.lower():
+                        for month_idx, month_emissions in monthly_link_emissions.items():
+                            month_key = f"coal_emissions_{month_idx.strftime('%b').lower()}"
+                            monthly_coal_emissions[month_key] = monthly_coal_emissions.get(month_key, 0.0) + month_emissions
+                    elif 'gas' in carrier.lower():
+                        for month_idx, month_emissions in monthly_link_emissions.items():
+                            month_key = f"gas_emissions_{month_idx.strftime('%b').lower()}"
+                            monthly_gas_emissions[month_key] = monthly_gas_emissions.get(month_key, 0.0) + month_emissions
     
-    # Calculate emission intensity (tonnes CO2/MWh)
-    emission_intensity = (total_emissions) / total_energy if total_energy > 0 else 0.0  # Convert to kg CO2/MWh
+    # 计算总排放量
+    total_coal_emissions = sum(monthly_coal_emissions.values())
+    total_gas_emissions = sum(monthly_gas_emissions.values())
     
-    # 按技术类型细分排放量
-    # 煤炭相关技术
-    emissions_coal_power = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                              if 'coal' in carrier.lower() and 'chp' not in carrier.lower() and 'boiler' not in carrier.lower() and 'cc' not in carrier.lower())
-    emissions_coal_chp = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                            if 'coal' in carrier.lower() and 'chp' in carrier.lower() and 'cc' not in carrier.lower())
-    emissions_coal_boiler = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                               if 'coal' in carrier.lower() and 'boiler' in carrier.lower() and 'cc' not in carrier.lower())
+    # 存储总排放量
+    emissions.at["total_coal_emissions", label] = total_coal_emissions
+    emissions.at["total_gas_emissions", label] = total_gas_emissions
     
-    # 天然气相关技术
-    emissions_gas_power = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                             if 'gas' in carrier.lower() and 'chp' not in carrier.lower() and 'boiler' not in carrier.lower() and 'ocgt' not in carrier.lower() and 'ccgt' not in carrier.lower() and 'cc' not in carrier.lower())
-    emissions_gas_chp = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                           if 'gas' in carrier.lower() and 'chp' in carrier.lower() and 'cc' not in carrier.lower())
-    emissions_gas_boiler = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                              if 'gas' in carrier.lower() and 'boiler' in carrier.lower() and 'cc' not in carrier.lower())
-    emissions_ocgt = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                        if 'ocgt' in carrier.lower())
-    emissions_ccgt = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                        if 'ccgt' in carrier.lower())
-    
-    # 生物质相关技术
-    emissions_biomass = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                           if 'biomass' in carrier.lower() and 'chp' not in carrier.lower() and 'boiler' not in carrier.lower() and 'cc' not in carrier.lower())
-    emissions_biomass_chp = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                               if 'biomass' in carrier.lower() and 'chp' in carrier.lower() and 'cc' not in carrier.lower())
-    emissions_biomass_boiler = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                                  if 'biomass' in carrier.lower() and 'boiler' in carrier.lower() and 'cc' not in carrier.lower())
-    
-    # 核能
-    emissions_nuclear = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                           if 'nuclear' in carrier.lower())
-    
-    # 铝冶炼
-    emissions_aluminum = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                            if 'aluminum' in carrier.lower())
-    
-    # CO2相关组件
-    emissions_co2_atmosphere = emissions_by_carrier.get('co2_atmosphere', 0.0)
-    emissions_co2_stored = emissions_by_carrier.get('co2_stored', 0.0)
-    emissions_co2_sequestration = -emissions_co2_stored  # 封存量为存储量的负值
-    
-    # CCS相关技术
-    emissions_ccs_coal = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                            if 'coal' in carrier.lower() and 'cc' in carrier.lower())
-    emissions_ccs_gas = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                           if 'gas' in carrier.lower() and 'cc' in carrier.lower())
-    emissions_ccs_biomass = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                               if 'biomass' in carrier.lower() and 'cc' in carrier.lower())
-    emissions_biomass_cc = sum(emissions_by_carrier.get(carrier, 0.0) for carrier in emissions_by_carrier 
-                              if 'biomass' in carrier.lower() and 'cc' in carrier.lower())
-    
-    # 其他排放量
-    emissions_other = total_emissions - (emissions_coal_power + emissions_coal_chp + emissions_coal_boiler + 
-                                        emissions_gas_power + emissions_gas_chp + emissions_gas_boiler + 
-                                        emissions_ocgt + emissions_ccgt + emissions_biomass + 
-                                        emissions_biomass_chp + emissions_biomass_boiler + 
-                                        emissions_nuclear + emissions_aluminum +
-                                        emissions_co2_atmosphere + emissions_co2_stored + emissions_ccs_coal + 
-                                        emissions_ccs_gas + emissions_ccs_biomass)
-    
-    # Store all emissions data
-    emissions.at["total_co2_emissions", label] = total_emissions
-    emissions.at["total_energy_production", label] = total_energy
-    emissions.at["emission_intensity", label] = emission_intensity
-    
-    # 按技术类型存储排放量
-    emissions.at["emissions_coal_power", label] = emissions_coal_power
-    emissions.at["emissions_coal_chp", label] = emissions_coal_chp
-    emissions.at["emissions_coal_boiler", label] = emissions_coal_boiler
-    emissions.at["emissions_gas_power", label] = emissions_gas_power
-    emissions.at["emissions_gas_chp", label] = emissions_gas_chp
-    emissions.at["emissions_gas_boiler", label] = emissions_gas_boiler
-    emissions.at["emissions_ocgt", label] = emissions_ocgt
-    emissions.at["emissions_ccgt", label] = emissions_ccgt
-    emissions.at["emissions_biomass", label] = emissions_biomass
-    emissions.at["emissions_biomass_chp", label] = emissions_biomass_chp
-    emissions.at["emissions_biomass_boiler", label] = emissions_biomass_boiler
-    emissions.at["emissions_nuclear", label] = emissions_nuclear
-    emissions.at["emissions_aluminum", label] = emissions_aluminum
-    emissions.at["emissions_other", label] = emissions_other
-    
-    # CO2相关组件存储
-    emissions.at["emissions_co2_atmosphere", label] = emissions_co2_atmosphere
-    emissions.at["emissions_co2_stored", label] = emissions_co2_stored
-    emissions.at["emissions_co2_sequestration", label] = emissions_co2_sequestration
-    emissions.at["emissions_ccs_coal", label] = emissions_ccs_coal
-    emissions.at["emissions_ccs_gas", label] = emissions_ccs_gas
-    emissions.at["emissions_ccs_biomass", label] = emissions_ccs_biomass
-    emissions.at["emissions_biomass_cc", label] = emissions_biomass_cc
-    
-    # Store monthly emissions
-    for month_key, month_value in monthly_emissions.items():
+    # 存储月度煤炭排放量
+    for month_key, month_value in monthly_coal_emissions.items():
         if month_key in emissions.index:
             emissions.at[month_key, label] = month_value
     
-    # Log summary information
+    # 存储月度天然气排放量
+    for month_key, month_value in monthly_gas_emissions.items():
+        if month_key in emissions.index:
+            emissions.at[month_key, label] = month_value
+    
+    # 记录摘要信息
     logger.info(f"Emissions calculation for {label}:")
-    logger.info(f"  Total CO2 emissions: {total_emissions/1e6:.2f} million tonnes CO2")
-    logger.info(f"  Total energy production: {total_energy/1e6:.2f} TWh")
-    logger.info(f"  Emission intensity: {emission_intensity:.2f} kg CO2/MWh")
-    logger.info(f"  Coal power emissions: {emissions_coal_power/1e6:.2f} million tonnes CO2")
-    logger.info(f"  Gas power emissions: {emissions_gas_power/1e6:.2f} million tonnes CO2")
-    logger.info(f"  Biomass emissions: {emissions_biomass/1e6:.2f} million tonnes CO2")
-    logger.info(f"  CO2 atmosphere: {emissions_co2_atmosphere/1e6:.2f} million tonnes CO2")
-    logger.info(f"  CO2 stored: {emissions_co2_stored/1e6:.2f} million tonnes CO2")
-    logger.info(f"  CO2 sequestration: {emissions_co2_sequestration/1e6:.2f} million tonnes CO2")
+    logger.info(f"  Total coal emissions: {total_coal_emissions/1e6:.2f} million tonnes CO2")
+    logger.info(f"  Total gas emissions: {total_gas_emissions/1e6:.2f} million tonnes CO2")
     
     return emissions
 

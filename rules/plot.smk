@@ -72,3 +72,13 @@ rule plot_profile:
         weekly_operation_non_heating = config['results_dir'] + 'version-' + str(config['version']) + '/plots/weekly_operation/{heating_demand}/weekly_operation_non_heating-{opts}-{topology}-{pathway}-{planning_horizons}.png',
         heating_comparison = config['results_dir'] + 'version-' + str(config['version']) + '/plots/heating_comparison/{heating_demand}/heating_comparison-{opts}-{topology}-{pathway}-{planning_horizons}.png',
     script:  "../scripts/plot_profile.py"
+
+rule plot_capacity_factors:
+    """
+    Generate capacity factor plots for different energy resources showing monthly variations.
+    """
+    input:
+        network = config['results_dir'] + 'version-' + str(config['version']) + '/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.nc',
+    output:
+        capacity_factors = config['results_dir'] + 'version-' + str(config['version']) + '/plots/capacity_factors/{heating_demand}/capacity_factors-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+    script:  "../scripts/plot_capacity_factors.py"
