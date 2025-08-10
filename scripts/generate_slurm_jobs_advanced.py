@@ -13,7 +13,7 @@ from typing import List, Dict, Any
 class SlurmJobGenerator:
     """SLURM作业文件生成器"""
     
-    def __init__(self, base_config="config.yaml", output_dir="."):
+    def __init__(self, base_config="config.yaml", output_dir="jobs"):
         """
         初始化生成器
         
@@ -23,24 +23,31 @@ class SlurmJobGenerator:
         """
         self.base_config = base_config
         self.output_dir = Path(output_dir)
+        # 创建jobs文件夹（如果不存在）
+        self.output_dir.mkdir(exist_ok=True)
         self.scenarios = []
         
     def discover_scenarios(self):
         """自动发现所有可用的场景配置文件"""
         print("正在发现场景配置文件...")
         
-        # 查找所有config_*.yaml文件
-        config_files = glob.glob("config_*.yaml")
+        # 查找configs文件夹中的所有config_*.yaml文件
+        configs_dir = Path("configs")
+        if not configs_dir.exists():
+            print("  ✗ configs文件夹不存在，请先运行 generate_capacity_configs.py 生成配置文件")
+            return []
+        
+        config_files = list(configs_dir.glob("config_*.yaml"))
         config_files.sort()
         
         discovered_scenarios = []
         
         for config_file in config_files:
             # 从文件名提取场景名称
-            if config_file == "config.yaml":
+            if config_file.name == "config.yaml":
                 continue
                 
-            scenario_name = config_file.replace("config_", "").replace(".yaml", "")
+            scenario_name = config_file.stem.replace("config_", "")
             
             # 读取配置文件获取更多信息
             try:
@@ -53,7 +60,7 @@ class SlurmJobGenerator:
                 
                 scenario_info = {
                     "name": scenario_name,
-                    "config_file": config_file,
+                    "config_file": str(config_file),  # 使用完整路径
                     "description": description,
                     "version": version,
                     "config_data": config_data
@@ -144,7 +151,7 @@ class SlurmJobGenerator:
         # 设置执行权限
         os.chmod(job_path, 0o755)
         
-        print(f"✓ 已生成: {job_filename}")
+        print(f"✓ 已生成: {self.output_dir}/{job_filename}")
         return job_filename
     
     def _generate_slurm_content(self, scenario: Dict[str, Any], 
@@ -293,7 +300,7 @@ def main():
     
     print()
     print("使用方法:")
-    print("1. 提交单个作业: sbatch job_100p.slurm")
+    print("1. 提交单个作业: sbatch jobs/job_100p.slurm")
     print("2. 批量提交所有作业: ./submit_multiple_jobs.sh")
     print("3. 只提交容量比例作业: ./submit_capacity_jobs.sh")
     

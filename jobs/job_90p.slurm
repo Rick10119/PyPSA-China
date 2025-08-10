@@ -19,7 +19,7 @@ echo "开始时间: $(date)"
 echo "作业ID: $SLURM_JOB_ID"
 echo "节点: $SLURM_NODELIST"
 echo "日志文件: $LOG_FILE"
-echo "版本: 0809.1H.1-90p"
+echo "版本: 0809.24H.1-90p"
 echo
 
 # 加载必要的模块
@@ -34,13 +34,13 @@ echo
 
 # 运行模拟
 echo "开始运行90%容量比例模拟..."
-echo "配置文件: config_90p.yaml"
+echo "配置文件: configs/config_90p.yaml"
 echo "开始时间: $(date)"
 echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile config_90p.yaml --cores 40; then
+if snakemake --configfile configs/config_90p.yaml --cores 40; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo "✓ 90%容量比例模拟运行成功！"

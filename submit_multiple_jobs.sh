@@ -7,13 +7,13 @@ echo
 
 # 定义要提交的作业文件（按优先级排序）
 JOBS=(
-    "job_no_aluminum.slurm"      # 不包含电解铝厂的基准场景
-    "job_100p.slurm"             # 100%容量比例
-    "job_90p.slurm"              # 90%容量比例
-    "job_80p.slurm"              # 80%容量比例
-    "job_70p.slurm"              # 70%容量比例
-    "job_60p.slurm"              # 60%容量比例
-    "job_55p.slurm"              # 55%容量比例
+    "jobs/job_no_aluminum.slurm"      # 不包含电解铝厂的基准场景
+    "jobs/job_100p.slurm"             # 100%容量比例
+    "jobs/job_90p.slurm"              # 90%容量比例
+    "jobs/job_80p.slurm"              # 80%容量比例
+    "jobs/job_70p.slurm"              # 70%容量比例
+    "jobs/job_60p.slurm"              # 60%容量比例
+    "jobs/job_55p.slurm"              # 55%容量比例
 )
 
 # 检查作业文件是否存在

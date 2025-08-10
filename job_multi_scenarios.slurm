@@ -39,13 +39,13 @@ echo
 
 # 定义场景列表和配置
 declare -A SCENARIOS=(
-    ["no_aluminum"]="config_no_aluminum.yaml"
-    ["100p"]="config_100p.yaml"
-    ["90p"]="config_90p.yaml"
-    ["80p"]="config_80p.yaml"
-    ["70p"]="config_70p.yaml"
-    ["60p"]="config_60p.yaml"
-    ["55p"]="config_55p.yaml"
+    ["no_aluminum"]="configs/config_no_aluminum.yaml"
+    ["100p"]="configs/config_100p.yaml"
+    ["90p"]="configs/config_90p.yaml"
+    ["80p"]="configs/config_80p.yaml"
+    ["70p"]="configs/config_70p.yaml"
+    ["60p"]="configs/config_60p.yaml"
+    ["55p"]="configs/config_55p.yaml"
 )
 
 # 记录开始时间
