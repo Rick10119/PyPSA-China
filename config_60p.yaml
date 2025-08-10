@@ -1,7 +1,7 @@
-version: 0809.8H.1-60p
+version: 0809.1H.1-60p
 logging_level: INFO
 foresight: myopic
-using_single_node: true
+using_single_node: false
 single_node_province: Shandong
 results_dir: results/
 summary_dir: summary/
@@ -9,7 +9,7 @@ threads: 40
 mem_per_thread: 15000
 tmin: -01-01 00:00
 tmax: -12-31 23:00
-freq: 24h
+freq: 1h
 add_aluminum: true
 only_other_load: true
 iterative_optimization: true

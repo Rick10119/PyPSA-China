@@ -2,9 +2,9 @@
 #SBATCH --job-name=pypsa-china-80p        # 作业名称
 #SBATCH --nodes=1                # 节点数量
 #SBATCH --ntasks=1               # 总任务数
-#SBATCH --cpus-per-task=20       # 每个任务的CPU核心数
+#SBATCH --cpus-per-task=40       # 每个任务的CPU核心数
 #SBATCH --mem-per-cpu=15G        # 每个CPU核心的内存
-#SBATCH --time=1:00:00          # 总运行时间限制
+#SBATCH --time=10:00:00          # 总运行时间限制
 #SBATCH --mail-type=begin        # 作业开始时发送邮件
 #SBATCH --mail-type=end          # 作业结束时发送邮件
 #SBATCH --mail-type=fail         # 作业失败时发送邮件
@@ -19,7 +19,7 @@ echo "开始时间: $(date)"
 echo "作业ID: $SLURM_JOB_ID"
 echo "节点: $SLURM_NODELIST"
 echo "日志文件: $LOG_FILE"
-echo "版本: 0809.8H.1-80p"
+echo "版本: 0809.1H.1-80p"
 echo
 
 # 加载必要的模块
@@ -40,7 +40,7 @@ echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile config_80p.yaml --cores 20; then
+if snakemake --configfile config_80p.yaml --cores 40; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo "✓ 80%容量比例模拟运行成功！"
