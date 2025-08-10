@@ -166,7 +166,6 @@ bus_suffix:
 - ' decentral heat'
 - ' gas'
 - ' coal'
-- ' aluminum'
 bus_carrier:
   ? ''
   : AC
@@ -174,7 +173,6 @@ bus_carrier:
   ' decentral heat': heat
   ' gas': gas
   ' coal': coal
-  ' aluminum': aluminum
 Techs:
   vre_techs:
   - onwind

@@ -19,7 +19,7 @@ echo "开始时间: $(date)"
 echo "作业ID: $SLURM_JOB_ID"
 echo "节点: $SLURM_NODELIST"
 echo "日志文件: $LOG_FILE"
-echo "版本: 0809.24H.1-70p"
+echo "版本: 0809.4H.1-70p"
 echo
 
 # 加载必要的模块
