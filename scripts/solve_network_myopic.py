@@ -283,7 +283,7 @@ def extra_functionality(n, snapshots, fixed_aluminum_usage=None):
     if snakemake.wildcards.planning_horizons != "2020":
         add_retrofit_constraints(n)
 
-def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, target_province=None, **kwargs):
+def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, target_province=None, national_smelter_production=None, **kwargs):
     """
     电解铝最优运行问题求解 - 单省份版本
     基于节点电价，运行以满足铝需求为约束的电解铝最优运行问题
@@ -337,9 +337,10 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     aluminum_stores = n.stores[n.stores.carrier == "aluminum"].index
     aluminum_loads = n.loads[n.loads.bus.isin(aluminum_buses)].index
     
-    # 过滤出指定省份的电解铝组件
+    # 过滤出指定省份的电解铝组件（只包括电解槽，不包括hub连接）
     target_aluminum_buses = [bus for bus in aluminum_buses if target_province in bus]
-    target_aluminum_smelters = [smelter for smelter in aluminum_smelters if target_province in smelter]
+    # 过滤掉包含"hub"的链接，只保留电解槽
+    target_aluminum_smelters = [smelter for smelter in aluminum_smelters if target_province in smelter and "hub" not in smelter]
     target_aluminum_stores = [store for store in aluminum_stores if target_province in store]
     target_aluminum_loads = [load for load in aluminum_loads if target_province in load]
     
@@ -401,6 +402,13 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
             p_nom=1e6,  # 大容量
             marginal_cost=marginal_cost)  # 使用节点边际电价作为边际成本
     
+    # 使用传入的全国优化结果中该省份的铝冶炼厂产量平均值作为负荷
+    target_aluminum_load = target_aluminum_loads[0] if target_aluminum_loads else None
+    
+    if target_aluminum_load and national_smelter_production and target_province in national_smelter_production:
+        # 更新负荷值为平均产量
+        n.loads.at[target_aluminum_load, 'p_set'] = national_smelter_production[target_province]
+    
     # 求解电解铝优化问题
     # 只保留PyPSA支持的参数
     optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
@@ -426,7 +434,7 @@ def solve_aluminum_optimization_parallel_wrapper(args):
         包含所有必要参数的元组:
         (original_network_path, original_overrides, config, solving, opts, 
          nodal_prices, target_province, solve_opts, using_single_node, 
-         single_node_province, overrides_path, **kwargs)
+         single_node_province, overrides_path, national_smelter_production, **kwargs)
     
     Returns:
     --------
@@ -435,7 +443,7 @@ def solve_aluminum_optimization_parallel_wrapper(args):
     # 解包参数
     (original_network_path, original_overrides, config, solving, opts, 
      nodal_prices, target_province, solve_opts, using_single_node, 
-     single_node_province, overrides_path, kwargs_dict) = args
+     single_node_province, overrides_path, national_smelter_production, kwargs_dict) = args
     
     # 重新创建网络
     if original_overrides:
@@ -468,6 +476,7 @@ def solve_aluminum_optimization_parallel_wrapper(args):
         opts, 
         nodal_prices=nodal_prices, 
         target_province=target_province,
+        national_smelter_production=national_smelter_production,
         **kwargs_dict
     )
     
@@ -476,7 +485,7 @@ def solve_aluminum_optimization_parallel_wrapper(args):
 def solve_aluminum_optimization_parallel(target_provinces, original_network_path, original_overrides, 
                                        config, solving, opts, current_nodal_prices, 
                                        solve_opts, using_single_node, single_node_province, 
-                                       overrides_path, max_workers=None, **kwargs):
+                                       overrides_path, national_smelter_production=None, max_workers=None, **kwargs):
     """
     并行求解多个省份的电解铝优化问题
     
@@ -525,7 +534,7 @@ def solve_aluminum_optimization_parallel(target_provinces, original_network_path
     for province in target_provinces:
         args = (original_network_path, original_overrides, config, solving, opts,
                 current_nodal_prices, province, solve_opts, using_single_node,
-                single_node_province, overrides_path, kwargs)
+                single_node_province, overrides_path, national_smelter_production, kwargs)
         args_list.append(args)
     
     # 使用进程池并行执行
@@ -594,9 +603,10 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     # 检查哪些省份在网络中实际存在电解铝组件
     available_provinces = []
     for province in al_smelter_p_nom.index:
-        # 检查该省份是否有电解铝冶炼设备
+        # 检查该省份是否有电解铝冶炼设备（只包括电解槽，不包括hub连接）
         aluminum_smelters = n.links[n.links.carrier == "aluminum"].index
-        province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
+        # 过滤掉包含"hub"的链接，只保留电解槽
+        province_smelters = [smelter for smelter in aluminum_smelters if province in smelter and "hub" not in smelter]
         
         if province_smelters:
             available_provinces.append(province)
@@ -684,7 +694,10 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                 del n_current.objective
         
         # 重新创建电解铝冶炼设备，确保在步骤1中禁用电解铝启停约束
+        # 只处理电解槽，不包括hub连接
         aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
+        # 过滤掉包含"hub"的链接，只保留电解槽
+        aluminum_smelters = [smelter for smelter in aluminum_smelters if "hub" not in smelter]
         
         # 保存原始参数
         smelter_params = {}
@@ -841,9 +854,10 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         # 检查哪些省份在网络中实际存在电解铝组件
         available_provinces = []
         for province in al_smelter_p_nom.index:
-            # 检查该省份是否有电解铝冶炼设备
+            # 检查该省份是否有电解铝冶炼设备（只包括电解槽，不包括hub连接）
             aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
-            province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
+            # 过滤掉包含"hub"的链接，只保留电解槽
+            province_smelters = [smelter for smelter in aluminum_smelters if province in smelter and "hub" not in smelter]
             
             if province_smelters:
                 available_provinces.append(province)
@@ -852,6 +866,23 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         
         if not target_provinces:
             break
+        
+        # 获取全国优化结果中各省份的铝冶炼厂产量平均值
+        national_smelter_production = {}
+        # 获取所有铝冶炼厂的产量时间序列（只包括电解槽，不包括hub连接）
+        all_aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
+        # 过滤掉包含"hub"的链接，只保留电解槽
+        smelter_links = [link for link in all_aluminum_smelters if "hub" not in link]
+        
+        for province in target_provinces:
+            # 找到该省份的电解槽（排除hub连接）
+            province_smelters = [smelter for smelter in smelter_links if province in smelter and "hub" not in smelter]
+            if province_smelters:
+                # 获取该省份所有电解槽的产量时间序列
+                province_smelter_production = n_current.links_t.p1[province_smelters]
+                # 计算平均产量（取绝对值，因为产量通常为负值）
+                average_production = province_smelter_production.abs().mean().sum()
+                national_smelter_production[province] = average_production
         
         # 求解多个省份的电解铝优化问题（支持并行和串行）
         # 获取并行计算参数
@@ -874,6 +905,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                 single_node_province=single_node_province,
                 overrides_path=overrides_path,
                 max_workers=max_workers,
+                national_smelter_production=national_smelter_production,
                 **kwargs
             )
         else:
@@ -913,6 +945,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                     opts, 
                     nodal_prices=current_nodal_prices, 
                     target_province=province,
+                    national_smelter_production=national_smelter_production,
                     **kwargs
                 )
                 

@@ -293,6 +293,7 @@ def prepare_network(config):
                        f"{province} to China aluminum hub",
                        bus0=f"{province} aluminum",
                        bus1="China aluminum hub",
+                       efficiency=1,
                        carrier="aluminum",
                        p_nom=1e10)
             
@@ -301,6 +302,7 @@ def prepare_network(config):
                        f"China aluminum hub to {province}",
                        bus0="China aluminum hub",
                        bus1=f"{province} aluminum",
+                       efficiency=1,
                        carrier="aluminum",
                        p_nom=1e10)  # 假设运营成本为0
     else:
