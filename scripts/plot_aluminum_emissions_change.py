@@ -16,6 +16,7 @@ import argparse
 from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,59 @@ logger = logging.getLogger(__name__)
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
-def collect_all_emissions_data(capacity_ratios, file_type):
+def load_config(config_path):
+    """
+    加载配置文件
+    
+    Parameters:
+    -----------
+    config_path : str or Path
+        配置文件路径
+        
+    Returns:
+    --------
+    dict
+        配置内容
+    """
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        return config
+    except Exception as e:
+        logger.error(f"加载配置文件 {config_path} 时出错: {str(e)}")
+        return None
+
+def get_base_version_from_config(config_path):
+    """
+    从配置文件中获取基准版本号
+    
+    Parameters:
+    -----------
+    config_path : str or Path
+        配置文件路径
+        
+    Returns:
+    --------
+    str
+        基准版本号（不包含容量比例后缀）
+    """
+    config = load_config(config_path)
+    if config is None:
+        logger.warning(f"无法加载配置文件 {config_path}，使用默认版本号 0723.8H.5")
+        return "0723.8H.5"
+    
+    version = config.get('version', '0723.8H.5')
+    
+    # 如果版本号包含容量比例后缀（如 -100p），则移除它
+    if '-' in version and version.endswith('p'):
+        base_version = version.rsplit('-', 1)[0]
+        logger.info(f"从配置文件 {config_path} 读取到版本号: {version}，基准版本: {base_version}")
+        return base_version
+    else:
+        logger.info(f"从配置文件 {config_path} 读取到版本号: {version}")
+        return version
+
+def collect_all_emissions_data(capacity_ratios, file_type, base_version):
     """
     从所有容量比例目录中收集2050年排放数据
     
@@ -33,6 +86,8 @@ def collect_all_emissions_data(capacity_ratios, file_type):
         容量比例列表，如 ['no_aluminum', '55p', '60p', '70p', '80p', '90p', '100p']
     file_type : str
         文件类型
+    base_version : str
+        基础版本号
         
     Returns:
     --------
@@ -44,9 +99,9 @@ def collect_all_emissions_data(capacity_ratios, file_type):
     
     for ratio in capacity_ratios:
         if ratio == 'no_aluminum':
-            version_name = "0723.8H.5-no-aluminum"
+            version_name = f"{base_version}-no-aluminum"
         else:
-            version_name = f"0723.8H.5-{ratio}"
+            version_name = f"{base_version}-{ratio}"
         
         # 构建目录路径
         dir_pattern = f"postnetwork-ll-current+Neighbor-linear2050-{year}"
@@ -143,15 +198,15 @@ def generate_aluminum_emissions_plot(emissions_data, output_dir):
     plots_dir = output_dir / "plots"
     plots_dir.mkdir(parents=True, exist_ok=True)
     
-    # 检查是否有55p基准数据
-    if '55p' not in emissions_data:
-        logger.error("缺少55p基准数据，无法计算变化量")
+    # 检查是否有no_aluminum基准数据
+    if 'no_aluminum' not in emissions_data:
+        logger.error("缺少no_aluminum基准数据，无法计算变化量")
         return
     
-    baseline_data = emissions_data['55p']
+    baseline_data = emissions_data['no_aluminum']
     
-    # 计算相对于55p的变化量
-    comparison_ratios = ['60p', '70p', '80p', '90p', '100p']
+    # 计算相对于no_aluminum的变化量
+    comparison_ratios = ['55p', '60p', '70p', '80p', '90p', '100p']
     
     # 月份标签
     month_labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
@@ -202,12 +257,16 @@ def generate_aluminum_emissions_plot(emissions_data, output_dir):
     # 创建图表
     fig, ax1 = plt.subplots(figsize=(15, 8))
     
-    # 设置颜色
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+    # 设置颜色 - 自适应容量比例数量
+    base_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+    # 如果容量比例数量超过基础颜色数量，循环使用颜色
+    colors = base_colors * (len(comparison_ratios) // len(base_colors) + 1)
+    colors = colors[:len(comparison_ratios)]  # 只取需要的颜色数量
     
     # 月度总排放变化
     x = np.arange(len(month_labels))
-    bar_width = 0.15
+    # 自适应柱状图宽度 - 根据容量比例数量调整
+    bar_width = min(0.15, 0.8 / len(comparison_ratios))  # 确保柱状图不会重叠
     opacity = 0.8
     
     for i, ratio in enumerate(comparison_ratios):
@@ -218,8 +277,10 @@ def generate_aluminum_emissions_plot(emissions_data, output_dir):
     
     ax1.set_xlabel('Month')
     ax1.set_ylabel('Total Emissions Change (tonnes CO2)')
-    ax1.set_title('Monthly Total Emissions Change Due to Aluminum Production')
-    ax1.set_xticks(x + bar_width * 2.5)
+    ax1.set_title('Monthly Total Emissions Change Due to Aluminum Production (vs no_aluminum)')
+    # 自适应X轴刻度位置 - 根据容量比例数量调整
+    center_offset = bar_width * (len(comparison_ratios) - 1) / 2
+    ax1.set_xticks(x + center_offset)
     ax1.set_xticklabels(month_labels)
     ax1.legend()
     ax1.grid(True, alpha=0.3)
@@ -258,7 +319,7 @@ def generate_aluminum_emissions_plot(emissions_data, output_dir):
                         ha='center', va='bottom' if total > 0 else 'top', 
                         fontsize=10, weight='bold')
     
-    ax3.set_xlabel('Capacity Ratio (vs 55%)')
+    ax3.set_xlabel('Capacity Ratio (vs no_aluminum)')
     ax3.set_ylabel('Annual Emissions Change (tonnes CO2)')
     ax3.set_title('Annual Total Emissions Change Due to Aluminum Production (2050)')
     ax3.set_xticks(x)
@@ -308,19 +369,20 @@ def generate_aluminum_emissions_plot(emissions_data, output_dir):
     plt.close(fig2)
     
     # 打印调试信息
-    print(f"\n=== 电解铝导致的年度碳排放变化（相对于55%）===")
+    print(f"\n=== 电解铝导致的年度碳排放变化（相对于no_aluminum）===")
     for ratio in comparison_ratios:
         if ratio in total_changes:
             total_change = total_changes[ratio]
-            print(f"{ratio.replace('p', '%')} vs 55%:")
+            print(f"{ratio.replace('p', '%')} vs no_aluminum:")
             print(f"  总排放增加: {total_change/1e6:.3f}M tonnes CO2")
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description='生成电解铝导致的碳排放变化图表（相对于55%基准）')
+    parser = argparse.ArgumentParser(description='生成电解铝导致的碳排放变化图表（相对于no_aluminum基准）')
     parser.add_argument('--output', default='results/comparison_results', help='输出目录')
     parser.add_argument('--verbose', '-v', action='store_true', help='详细输出')
     parser.add_argument('--results-dir', default='results', help='结果目录路径 (默认: results)')
+    parser.add_argument('--config', default='config.yaml', help='配置文件路径 (默认: config.yaml)')
     
     args = parser.parse_args()
     
@@ -328,13 +390,17 @@ def main():
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
     
+    # 从配置文件读取基础版本号
+    base_version = get_base_version_from_config(args.config)
+    
     # 定义容量比例（包括基准版本）
-    capacity_ratios = ['55p', '60p', '70p', '80p', '90p', '100p']
+    capacity_ratios = ['no_aluminum', '55p', '60p', '70p', '80p', '90p', '100p']
     
     logger.info(f"开始收集容量比例 {capacity_ratios} 的2050年排放数据")
+    logger.info(f"基础版本号: {base_version}")
     
     # 收集所有容量比例的排放数据
-    emissions_data = collect_all_emissions_data(capacity_ratios, 'emissions')
+    emissions_data = collect_all_emissions_data(capacity_ratios, 'emissions', base_version)
     
     if not emissions_data:
         logger.error("没有找到任何容量比例的排放数据")
