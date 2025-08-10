@@ -155,7 +155,29 @@ def plot_heatmap(n, config):
             sns.heatmap(df, ax=ax, cmap='coolwarm', cbar_kws={'label': 'pu'}, vmin=0.0, vmax=1.0)
             ax.set_title('Aluminum Smelter heatmap with ' + freq + ' resolution in ' + planning_horizon + ' P_base = ' + base + ' GW')
             
-            fig.savefig(snakemake.output["aluminum"], dpi=150, bbox_inches='tight')
+            # Check if aluminum output is defined in snakemake
+            if hasattr(snakemake.output, "aluminum"):
+                fig.savefig(snakemake.output["aluminum"], dpi=150, bbox_inches='tight')
+            else:
+                # Save to a default location similar to other heatmap files
+                # Get the directory from other heatmap outputs
+                if hasattr(snakemake.output, "H2"):
+                    # Extract directory from H2 output path
+                    import os
+                    h2_dir = os.path.dirname(snakemake.output["H2"])
+                    # Go up one level to get the heatmap directory
+                    heatmap_dir = os.path.dirname(h2_dir)
+                    # Create aluminum subdirectory
+                    aluminum_dir = os.path.join(heatmap_dir, "aluminum")
+                    os.makedirs(aluminum_dir, exist_ok=True)
+                    # Create filename similar to other heatmaps
+                    default_path = os.path.join(aluminum_dir, f"aluminum-{snakemake.wildcards.opts}-{snakemake.wildcards.topology}-{snakemake.wildcards.pathway}-{planning_horizon}.png")
+                else:
+                    # Fallback to current directory if no other outputs available
+                    default_path = f"aluminum_heatmap_{planning_horizon}.png"
+                
+                fig.savefig(default_path, dpi=150, bbox_inches='tight')
+                print(f"Aluminum heatmap saved to default location: {default_path}")
             plt.close()
         else:
             print("Skipping aluminum heatmap: No aluminum smelter data found or power is zero")
