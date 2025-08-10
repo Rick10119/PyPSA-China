@@ -1,4 +1,4 @@
-version: 0723.8H.5-no-aluminum
+version: 0809.8H.1-no-aluminum
 logging_level: INFO
 foresight: myopic
 using_single_node: true
@@ -9,7 +9,7 @@ threads: 40
 mem_per_thread: 15000
 tmin: -01-01 00:00
 tmax: -12-31 23:00
-freq: 4h
+freq: 24h
 add_aluminum: false
 only_other_load: true
 iterative_optimization: true
