@@ -882,7 +882,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                 province_smelter_production = n_current.links_t.p1[province_smelters]
                 # 计算平均产量（取绝对值，因为产量通常为负值）
                 average_production = province_smelter_production.abs().mean().sum()
-                national_smelter_production[province] = average_production
+                national_smelter_production[province] = average_production if average_production >= 1 else 0
         
         # 求解多个省份的电解铝优化问题（支持并行和串行）
         # 获取并行计算参数
