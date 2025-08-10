@@ -278,6 +278,31 @@ def prepare_network(config):
         # 将铝负荷转换为功率容量 (MW)
         load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index] * 10000 * 13.3 / 8760
         network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
+        
+        # 添加中国的aluminum bus（等效为满足全国铝需求）
+        
+        network.add("Bus", 
+                   "China aluminum hub", 
+                   carrier="aluminum")
+        
+        # 添加从各省份aluminum bus到中国aluminum hub的links
+        # 支持双向转移，转移效率为1
+        for province in production_ratio.index:
+            # 从省份到中国hub的link
+            network.add("Link",
+                       f"{province} to China aluminum hub",
+                       bus0=f"{province} aluminum",
+                       bus1="China aluminum hub",
+                       carrier="aluminum",
+                       p_nom=1e10)
+            
+            # 从中国hub到省份的link（反向）
+            network.add("Link",
+                       f"China aluminum hub to {province}",
+                       bus0="China aluminum hub",
+                       bus1=f"{province} aluminum",
+                       carrier="aluminum",
+                       p_nom=1e10)  # 假设运营成本为0
     else:
         if config["only_other_load"]:
             # 在else分支中，需要重新定义这些变量
