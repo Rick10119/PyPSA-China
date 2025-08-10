@@ -9,8 +9,6 @@
 #SBATCH --mail-type=end          # 作业结束时发送邮件
 #SBATCH --mail-type=fail         # 作业失败时发送邮件
 #SBATCH --mail-user=rl8728@princeton.edu
-#SBATCH --output=slurm_90p_%j.out    # 标准输出文件
-#SBATCH --error=slurm_90p_%j.err     # 标准错误文件
 
 # 设置日志文件
 LOG_FILE="job_90p_$(date +%Y%m%d_%H%M%S).log"

@@ -165,8 +165,6 @@ class SlurmJobGenerator:
 #SBATCH --mail-type=end          # 作业结束时发送邮件
 #SBATCH --mail-type=fail         # 作业失败时发送邮件
 #SBATCH --mail-user={params['mail_user']}
-#SBATCH --output=slurm_{scenario['name']}_%j.out    # 标准输出文件
-#SBATCH --error=slurm_{scenario['name']}_%j.err     # 标准错误文件
 
 # 设置日志文件
 LOG_FILE="job_{scenario['name']}_$(date +%Y%m%d_%H%M%S).log"

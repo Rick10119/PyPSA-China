@@ -19,3 +19,13 @@ git restore .
 git pull
 snakemake --unlock
 sbatch job.slurm
+
+cd /scratch/gpfs/rl8728/PyPSA-China
+module load anaconda3/2024.6
+conda activate pypsa-plot
+
+git restore .
+git pull
+snakemake --unlock
+chmod +x submit_multiple_jobs.sh 
+./submit_multiple_jobs.sh
