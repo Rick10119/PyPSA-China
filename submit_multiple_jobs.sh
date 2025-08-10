@@ -7,7 +7,7 @@ echo
 
 # 定义要提交的作业文件（按优先级排序）
 JOBS=(
-    "job_no_aluminum.slurm"      # 不包含电解铝厂的基准场景
+    # "job_no_aluminum.slurm"      # 不包含电解铝厂的基准场景
     "job_100p.slurm"             # 100%容量比例
     "job_90p.slurm"              # 90%容量比例
     "job_80p.slurm"              # 80%容量比例
