@@ -174,7 +174,7 @@ class SlurmJobGenerator:
 #SBATCH --mail-user={params['mail_user']}
 
 # 设置日志文件
-LOG_FILE="job_{scenario['name']}_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="logs/job_{scenario['name']}_$(date +%Y%m%d_%H%M%S).log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "=== PyPSA-China {scenario['description']}作业开始 ==="
