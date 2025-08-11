@@ -183,8 +183,19 @@ def aggregate_costs(n, flatten=False, opts=None, existing_only=False):
         # Calculate startup costs for committable components (only for aluminum)
         if (hasattr(c, 'pnl') and 'start_up_cost' in c.df.columns and
             c.name == "Link" and "aluminum" in c.df.carrier.unique()):
-            # Find aluminum smelters
-            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            # Find aluminum smelters (exclude China hub connections)
+            all_aluminum_links = c.df.index[c.df.carrier == "aluminum"]
+            
+            # Filter out links connected to China aluminum hub
+            aluminum_smelters = []
+            for link in all_aluminum_links:
+                # Check if the link is connected to China aluminum hub
+                bus0 = c.df.loc[link, "bus0"]
+                bus1 = c.df.loc[link, "bus1"]
+                
+                # Exclude links that connect to "China aluminum hub"
+                if "China aluminum hub" not in bus0 and "China aluminum hub" not in bus1:
+                    aluminum_smelters.append(link)
             
             if len(aluminum_smelters) > 0:
                 # For aluminum smelters, calculate status from power data (continuous model)
@@ -202,8 +213,19 @@ def aggregate_costs(n, flatten=False, opts=None, existing_only=False):
         # Calculate shutdown costs for committable components (only for aluminum)
         if (hasattr(c, 'pnl') and 'shut_down_cost' in c.df.columns and
             c.name == "Link" and "aluminum" in c.df.carrier.unique()):
-            # Find aluminum smelters
-            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            # Find aluminum smelters (exclude China hub connections)
+            all_aluminum_links = c.df.index[c.df.carrier == "aluminum"]
+            
+            # Filter out links connected to China aluminum hub
+            aluminum_smelters = []
+            for link in all_aluminum_links:
+                # Check if the link is connected to China aluminum hub
+                bus0 = c.df.loc[link, "bus0"]
+                bus1 = c.df.loc[link, "bus1"]
+                
+                # Exclude links that connect to "China aluminum hub"
+                if "China aluminum hub" not in bus0 and "China aluminum hub" not in bus1:
+                    aluminum_smelters.append(link)
             
             if len(aluminum_smelters) > 0:
                 # For aluminum smelters, calculate status from power data (continuous model)
@@ -221,8 +243,19 @@ def aggregate_costs(n, flatten=False, opts=None, existing_only=False):
         # Calculate standby costs for committable components (only for aluminum)
         if (hasattr(c, 'pnl') and 'stand_by_cost' in c.df.columns and
             c.name == "Link" and "aluminum" in c.df.carrier.unique()):
-            # Find aluminum smelters
-            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            # Find aluminum smelters (exclude China hub connections)
+            all_aluminum_links = c.df.index[c.df.carrier == "aluminum"]
+            
+            # Filter out links connected to China aluminum hub
+            aluminum_smelters = []
+            for link in all_aluminum_links:
+                # Check if the link is connected to China aluminum hub
+                bus0 = c.df.loc[link, "bus0"]
+                bus1 = c.df.loc[link, "bus1"]
+                
+                # Exclude links that connect to "China aluminum hub"
+                if "China aluminum hub" not in bus0 and "China aluminum hub" not in bus1:
+                    aluminum_smelters.append(link)
             
             if len(aluminum_smelters) > 0:
                 # For aluminum smelters, calculate status from power data (continuous model)
@@ -243,8 +276,19 @@ def aggregate_costs(n, flatten=False, opts=None, existing_only=False):
             hasattr(n, 'config') and n.config.get('iterative_optimization', False) and
             'start_up_cost' in c.df.columns):
             
-            # Find aluminum smelters
-            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            # Find aluminum smelters (exclude China hub connections)
+            all_aluminum_links = c.df.index[c.df.carrier == "aluminum"]
+            
+            # Filter out links connected to China aluminum hub
+            aluminum_smelters = []
+            for link in all_aluminum_links:
+                # Check if the link is connected to China aluminum hub
+                bus0 = c.df.loc[link, "bus0"]
+                bus1 = c.df.loc[link, "bus1"]
+                
+                # Exclude links that connect to "China aluminum hub"
+                if "China aluminum hub" not in bus0 and "China aluminum hub" not in bus1:
+                    aluminum_smelters.append(link)
             
             if len(aluminum_smelters) > 0:
                 # Calculate startup events manually for aluminum smelters

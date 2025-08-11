@@ -30,7 +30,7 @@ if config["foresight"] == "myopic":
         input:
             expand(
                 config['results_dir'] + 'version-' + str(
-                config['version']) + '/plots/heatmap/{heating_demand}/water_tank/water_tank-{opts}-{topology}-{pathway}-{planning_horizons}.png',
+                config['version']) + '/plots/heatmap/{heating_demand}/H2/H2-{opts}-{topology}-{pathway}-{planning_horizons}.png',
                 ** config["scenario"]
             ),
             # expand(
