@@ -282,7 +282,7 @@ def prepare_network(config):
         
         network.add("Bus", 
                    "China aluminum hub", 
-                   carrier="aluminum")
+                   carrier="aluminum transfer")
         
         # 添加从各省份aluminum bus到中国aluminum hub的links
         # 支持双向转移，转移效率为1
@@ -293,7 +293,7 @@ def prepare_network(config):
                        bus0=f"{province} aluminum",
                        bus1="China aluminum hub",
                        efficiency=1,
-                       carrier="aluminum",
+                       carrier="aluminum transfer",
                        p_nom=1e10)
             
             # 从中国hub到省份的link（反向）
@@ -302,7 +302,7 @@ def prepare_network(config):
                        bus0="China aluminum hub",
                        bus1=f"{province} aluminum",
                        efficiency=1,
-                       carrier="aluminum",
+                       carrier="aluminum transfer",
                        p_nom=1e10)  # 假设运营成本为0
     else:
         if config["only_other_load"]:

@@ -337,10 +337,10 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     aluminum_stores = n.stores[n.stores.carrier == "aluminum"].index
     aluminum_loads = n.loads[n.loads.bus.isin(aluminum_buses)].index
     
-    # 过滤出指定省份的电解铝组件（只包括电解槽，不包括hub连接）
+    # 过滤出指定省份的电解铝组件
     target_aluminum_buses = [bus for bus in aluminum_buses if target_province in bus]
-    # 过滤掉包含"hub"的链接，只保留电解槽
-    target_aluminum_smelters = [smelter for smelter in aluminum_smelters if target_province in smelter and "hub" not in smelter]
+    # 过滤出指定省份的电解槽
+    target_aluminum_smelters = [smelter for smelter in aluminum_smelters if target_province in smelter]
     target_aluminum_stores = [store for store in aluminum_stores if target_province in store]
     target_aluminum_loads = [load for load in aluminum_loads if target_province in load]
     
@@ -603,10 +603,10 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     # 检查哪些省份在网络中实际存在电解铝组件
     available_provinces = []
     for province in al_smelter_p_nom.index:
-        # 检查该省份是否有电解铝冶炼设备（只包括电解槽，不包括hub连接）
+        # 检查该省份是否有电解铝冶炼设备
         aluminum_smelters = n.links[n.links.carrier == "aluminum"].index
-        # 过滤掉包含"hub"的链接，只保留电解槽
-        province_smelters = [smelter for smelter in aluminum_smelters if province in smelter and "hub" not in smelter]
+        # 过滤出该省份的电解槽
+        province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
         
         if province_smelters:
             available_provinces.append(province)
@@ -694,10 +694,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                 del n_current.objective
         
         # 重新创建电解铝冶炼设备，确保在步骤1中禁用电解铝启停约束
-        # 只处理电解槽，不包括hub连接
         aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
-        # 过滤掉包含"hub"的链接，只保留电解槽
-        aluminum_smelters = [smelter for smelter in aluminum_smelters if "hub" not in smelter]
         
         # 保存原始参数
         smelter_params = {}
@@ -853,10 +850,10 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         # 检查哪些省份在网络中实际存在电解铝组件
         available_provinces = []
         for province in al_smelter_p_nom.index:
-            # 检查该省份是否有电解铝冶炼设备（只包括电解槽，不包括hub连接）
+            # 检查该省份是否有电解铝冶炼设备
             aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
-            # 过滤掉包含"hub"的链接，只保留电解槽
-            province_smelters = [smelter for smelter in aluminum_smelters if province in smelter and "hub" not in smelter]
+            # 过滤出该省份的电解槽
+            province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
             
             if province_smelters:
                 available_provinces.append(province)
@@ -868,14 +865,12 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         
         # 获取全国优化结果中各省份的铝冶炼厂产量平均值
         national_smelter_production = {}
-        # 获取所有铝冶炼厂的产量时间序列（只包括电解槽，不包括hub连接）
+        # 获取所有铝冶炼厂的产量时间序列
         all_aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
-        # 过滤掉包含"hub"的链接，只保留电解槽
-        smelter_links = [link for link in all_aluminum_smelters if "hub" not in link]
         
         for province in target_provinces:
-            # 找到该省份的电解槽（排除hub连接）
-            province_smelters = [smelter for smelter in smelter_links if province in smelter and "hub" not in smelter]
+            # 找到该省份的电解槽
+            province_smelters = [smelter for smelter in all_aluminum_smelters if province in smelter]
             if province_smelters:
                 # 获取该省份所有电解槽的产量时间序列
                 province_smelter_production = n_current.links_t.p1[province_smelters]
