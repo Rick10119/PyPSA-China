@@ -1130,6 +1130,8 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
         "aluminum_capacity",  # 铝冶炼产能
         "aluminum_storage_capacity",  # 铝存储容量
         "aluminum_utilization_rate",  # 铝冶炼利用率
+        "total_startup_events",  # 总启动次数
+        "total_shutdown_events",  # 总关闭次数
     ]
     
     aluminum_statistics = aluminum_statistics.reindex(
@@ -1174,6 +1176,14 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
     total_electricity_cost = 0.0
     total_electricity_consumption = 0.0
     
+    # 统计启停次数
+    total_startup_events = 0
+    total_shutdown_events = 0
+    
+    # 按省份统计启停次数
+    province_startup_events = {}
+    province_shutdown_events = {}
+    
     # Process each aluminum smelter
     for smelter in aluminum_smelters:
         # Get the bus where the smelter is connected (bus0 for electricity input)
@@ -1204,6 +1214,55 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
             
             total_electricity_consumption += total_consumption
             total_electricity_cost += total_cost
+            
+            # 计算启停次数
+            # 状态：当功率 > 0 时为运行状态(1)，当功率 = 0 时为停止状态(0)
+            status = (electricity_consumption > 0).astype(int)
+            
+            # 启动事件：状态从0变为1 (从停止到运行)
+            startup_events = (status.diff() > 0).sum()
+            # 关闭事件：状态从1变为0 (从运行到停止)
+            shutdown_events = (status.diff() < 0).sum()
+            
+            total_startup_events += startup_events
+            total_shutdown_events += shutdown_events
+            
+            # 按省份统计启停次数
+            # 从smelter名称中提取省份信息
+            province = None
+            for prov in ["Anhui", "Shandong", "Henan", "Xinjiang", "InnerMongolia", "Gansu", "Qinghai", "Ningxia", "Yunnan", "Guizhou", "Sichuan", "Chongqing", "Hubei", "Hunan", "Jiangxi", "Fujian", "Guangdong", "Guangxi", "Hainan", "Tibet"]:
+                if prov in smelter:
+                    province = prov
+                    break
+            
+            if province is None:
+                # 如果无法从名称中识别省份，尝试从bus名称中识别
+                for prov in ["Anhui", "Shandong", "Henan", "Xinjiang", "InnerMongolia", "Gansu", "Qinghai", "Ningxia", "Yunnan", "Guizhou", "Sichuan", "Chongqing", "Hubei", "Hunan", "Jiangxi", "Fujian", "Guangdong", "Guangxi", "Hainan", "Tibet"]:
+                    if prov in smelter_bus:
+                        province = prov
+                        break
+            
+            if province is None:
+                province = "Unknown"
+            
+            # 累加该省份的启停次数
+            if province not in province_startup_events:
+                province_startup_events[province] = 0
+                province_shutdown_events[province] = 0
+            
+            province_startup_events[province] += startup_events
+            province_shutdown_events[province] += shutdown_events
+    
+    # 打印各省份的启停次数统计
+    logger.info(f"=== 电解铝启停次数统计 ({label}) ===")
+    logger.info(f"总启动次数: {total_startup_events}")
+    logger.info(f"总关闭次数: {total_shutdown_events}")
+    logger.info("各省份启停次数详情:")
+    
+    for province in sorted(province_startup_events.keys()):
+        startup_count = province_startup_events[province]
+        shutdown_count = province_shutdown_events[province]
+        logger.info(f"  {province}: 启动 {startup_count} 次, 关闭 {shutdown_count} 次")
     
     # Calculate aluminum capacity (from links)
     aluminum_capacity = n.links.loc[aluminum_smelters, "p_nom_opt"].sum()
@@ -1242,6 +1301,8 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
     aluminum_statistics.at["aluminum_capacity", label] = aluminum_capacity
     aluminum_statistics.at["aluminum_storage_capacity", label] = aluminum_storage_capacity
     aluminum_statistics.at["aluminum_utilization_rate", label] = aluminum_utilization_rate
+    aluminum_statistics.at["total_startup_events", label] = total_startup_events
+    aluminum_statistics.at["total_shutdown_events", label] = total_shutdown_events
     
     return aluminum_statistics
 

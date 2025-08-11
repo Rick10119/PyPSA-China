@@ -250,8 +250,8 @@ def prepare_network(config):
                     capital_cost=operational_params['capital_cost'],
                     stand_by_cost=operational_params['stand_by_cost'],
                     marginal_cost=operational_params['marginal_cost'],
-                    start_up_cost=operational_params['start_up_cost'],
-                    shut_down_cost=operational_params['shut_down_cost'],
+                    start_up_cost=0.5*operational_params['start_up_cost'],
+                    shut_down_cost=0.5*operational_params['start_up_cost'],
                     committable=config['aluminum_commitment'],
                     p_min_pu=operational_params['p_min_pu'] if config['aluminum_commitment'] else 0,
                     )
@@ -263,8 +263,7 @@ def prepare_network(config):
                     bus=production_ratio.index + " aluminum",
                     carrier="aluminum",
                     e_nom_extendable=True,
-                    e_cyclic=True,
-                    marginal_cost_storage=config['aluminum']['al_marginal_cost_storage'])
+                    e_cyclic=True)
 
         # Add aluminum load only for provinces with production > 0.01 10kt/year
         network.madd("Load",

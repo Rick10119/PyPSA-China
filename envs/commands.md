@@ -38,3 +38,5 @@ conda activate pypsa-linux
 
 conda deactivate
 conda activate pypsa-plot
+
+sh_scripts/run_all_scenarios.sh

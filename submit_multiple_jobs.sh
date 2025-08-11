@@ -141,8 +141,8 @@ create_job_file() {
 #SBATCH --mail-type=end          # 作业结束时发送邮件
 #SBATCH --mail-type=fail         # 作业失败时发送邮件
 #SBATCH --mail-user=rl8728@princeton.edu
-#SBATCH --output=slurm_${scenario_name}_%j.out    # 标准输出文件
-#SBATCH --error=slurm_${scenario_name}_%j.err     # 标准错误文件
+#SBATCH --output=logs/slurm_${scenario_name}_%j.out    # 标准输出文件
+#SBATCH --error=logs/slurm_${scenario_name}_%j.err     # 标准错误文件
 
 # 设置日志文件
 LOG_FILE="job_${scenario_name}_\$(date +%Y%m%d_%H%M%S).log"
