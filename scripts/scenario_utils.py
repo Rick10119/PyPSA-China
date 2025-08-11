@@ -170,9 +170,9 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
     # 基础参数
     operational_params = {
         'p_min_pu': smelter_params['p_min_pu'],
-        'capital_cost': 163432.8,
-        'stand_by_cost': 1.5,#$/MW/h
-        'marginal_cost': 1,
+        'capital_cost': 0*163432.8,
+        'stand_by_cost': 0*1.5,#$/MW/h
+        'marginal_cost': 0*1,
     }
     
     # 如果提供了容量，计算成本参数
@@ -251,21 +251,20 @@ def get_aluminum_load_for_network(config: Dict[str, Any],
         config, year, primary_demand_scenario, aluminum_demand_json_path
     )
     
-    # 计算全国铝负荷 (MW) - 现在返回全国统一需求
+    # 计算全国铝负荷 (MW)
     hours_per_year = 8760
     national_al_load = primary_demand_tons / hours_per_year
     
-    # 创建全国统一的铝负荷时间序列
+    # 创建铝负荷时间序列
     al_load_values = np.tile(
-        national_al_load,  # 全国统一需求
+        national_al_load * production_ratio.values,
         (len(network_snapshots), 1)
     )
     
-    # 创建全国统一的铝负荷DataFrame
     aluminum_load = pd.DataFrame(
         data=al_load_values,
         index=network_snapshots,
-        columns=["China"]  # 全国统一节点
+        columns=production_ratio.index
     )
     
     return {

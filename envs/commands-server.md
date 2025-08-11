@@ -18,7 +18,7 @@ conda activate pypsa-plot
 git restore .
 git pull
 snakemake --unlock
-sbatch job_plot.slurm
+sbatch job.slurm
 
 cd /scratch/gpfs/rl8728/PyPSA-China
 module load anaconda3/2024.6
