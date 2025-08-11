@@ -764,18 +764,17 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                         min_pu = operational_params['p_min_pu']
                     else:
                         # 如果找不到省份，使用默认值
-                        min_pu = config['aluminum'].get('al_p_min_pu', 0.9)
+                        min_pu = config['aluminum'].get('al_p_min_pu', 0.7)
                                      
                     # 根据用能模式设置约束
                     for i, power in enumerate(aluminum_power):
-                        if power == 0:
-                            # 当用能为0时，固定p_set为0，p_min_pu为0
-                            n_current.links_t.p_set.at[n_current.snapshots[i], smelter] = 0
+                        if power < 1:# threshold set by me
+                            # 当用能为0时，固定p_max_pu为0，p_min_pu为0
+                            n_current.links_t.p_max_pu.at[n_current.snapshots[i], smelter] = 0
                             n_current.links_t.p_min_pu.at[n_current.snapshots[i], smelter] = 0
                         else:
-                            # 当用能不为0时，不固定p_set，但设置p_min_pu为最小出力比例
-                            # 清除p_set约束（设为NaN表示不约束）
-                            n_current.links_t.p_set.at[n_current.snapshots[i], smelter] = np.nan
+                            # 当用能不为0时，不固定p_max_pu，但设置p_min_pu为最小出力比例
+                            n_current.links_t.p_max_pu.at[n_current.snapshots[i], smelter] = 1
                             n_current.links_t.p_min_pu.at[n_current.snapshots[i], smelter] = min_pu
         
         # 求解网络

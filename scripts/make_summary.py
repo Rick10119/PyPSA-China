@@ -164,8 +164,8 @@ def calculate_nodal_costs(n, label, nodal_costs):
             if len(aluminum_smelters) > 0:
                 # For aluminum smelters, calculate status from power data (continuous model)
                 p0_data = c.pnl.p0[aluminum_smelters]
-                # Status is 1 when power > 0, 0 when power = 0
-                status = (p0_data > 0).astype(int)
+                # Status is 1 when power > 1 (MW, threshold set by me), 0 when power = 0
+                status = (p0_data > 1).astype(int)
                 
                 # Calculate startup events (status changes from 0 to 1) only for aluminum
                 startup_events = (status.diff() > 0).sum()  # Count transitions from 0 to 1
@@ -203,8 +203,8 @@ def calculate_nodal_costs(n, label, nodal_costs):
             if len(aluminum_smelters) > 0:
                 # For aluminum smelters, calculate status from power data (continuous model)
                 p0_data = c.pnl.p0[aluminum_smelters]
-                # Status is 1 when power > 0, 0 when power = 0
-                status = (p0_data > 0).astype(int)
+                # Status is 1 when power > 1 (MW, threshold set by me), 0 when power = 0
+                status = (p0_data > 1).astype(int)
                 
                 # Calculate shutdown events (status changes from 1 to 0) only for aluminum
                 shutdown_events = (status.diff() < 0).sum()  # Count transitions from 1 to 0
@@ -361,8 +361,8 @@ def calculate_costs(n, label, costs):
             if len(aluminum_smelters) > 0:
                 # For aluminum smelters, calculate status from power data (continuous model)
                 p0_data = c.pnl.p0[aluminum_smelters]
-                # Status is 1 when power > 0, 0 when power = 0
-                status = (p0_data > 0).astype(int)
+                # Status is 1 when power > 1 (MW, threshold set by me), 0 when power = 0
+                status = (p0_data > 1).astype(int)
                 
                 # Calculate startup events (status changes from 0 to 1) only for aluminum
                 startup_events = (status.diff() > 0).sum()  # Count transitions from 0 to 1
