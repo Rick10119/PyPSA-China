@@ -11,7 +11,7 @@
 #SBATCH --mail-user=rl8728@princeton.edu
 
 # 设置日志文件
-LOG_FILE="job_90p_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="logs/job_90p_$(date +%Y%m%d_%H%M%S).log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "=== PyPSA-China 90%容量比例作业开始 ==="
@@ -19,7 +19,7 @@ echo "开始时间: $(date)"
 echo "作业ID: $SLURM_JOB_ID"
 echo "节点: $SLURM_NODELIST"
 echo "日志文件: $LOG_FILE"
-echo "版本: 0809.24H.1-90p"
+echo "版本: 0809.4H.1-90p"
 echo
 
 # 加载必要的模块

@@ -1,20 +1,20 @@
-version: 0809.24H.1-55p
+version: 0809.4H.1-55p
 logging_level: INFO
 foresight: myopic
 using_single_node: false
-single_node_province: Gansu
+single_node_province: Shandong
 results_dir: results/
 summary_dir: summary/
 threads: 40
 mem_per_thread: 15000
 tmin: -01-01 00:00
 tmax: -12-31 23:00
-freq: 24h
+freq: 4h
 add_aluminum: true
 only_other_load: true
 iterative_optimization: true
 aluminum_commitment: false
-aluminum_max_iterations: 3
+aluminum_max_iterations: 2
 aluminum_convergence_tolerance: 0.001
 aluminum_capacity_ratio: 0.55
 scenario:
