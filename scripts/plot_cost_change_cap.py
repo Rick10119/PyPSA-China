@@ -82,7 +82,7 @@ def get_base_version_from_config(config_path):
 
 def collect_all_capacity_data(capacity_ratios, file_type, base_version):
     """
-    从所有容量比例目录中收集2050年数据
+    从所有容量比例目录中收集2050年数据，自适应跳过不存在的年份数据
     
     Parameters:
     -----------
@@ -130,14 +130,22 @@ def collect_all_capacity_data(capacity_ratios, file_type, base_version):
                         capacity_data[ratio] = df
                         logger.info(f"成功加载 {version_name} 的 {file_type} 数据")
                     else:
-                        logger.warning(f"无法加载 {version_name} 的 {file_type} 数据")
+                        logger.warning(f"无法加载 {version_name} 的 {file_type} 数据，将使用空数据")
+                        # 创建空的DataFrame，确保数据结构一致
+                        capacity_data[ratio] = pd.DataFrame()
                         
                 except Exception as e:
-                    logger.warning(f"加载 {version_name} 的 {file_type} 数据时出错: {str(e)}")
+                    logger.warning(f"加载 {version_name} 的 {file_type} 数据时出错: {str(e)}，将使用空数据")
+                    # 创建空的DataFrame，确保数据结构一致
+                    capacity_data[ratio] = pd.DataFrame()
             else:
-                logger.warning(f"在 {version_name} 目录中未找到 {file_type}.csv 文件")
+                logger.warning(f"在 {version_name} 目录中未找到 {file_type}.csv 文件，将使用空数据")
+                # 创建空的DataFrame，确保数据结构一致
+                capacity_data[ratio] = pd.DataFrame()
         else:
-            logger.warning(f"版本 {version_name} 的目录不存在")
+            logger.warning(f"版本 {version_name} 的目录不存在，将使用空数据")
+            # 创建空的DataFrame，确保数据结构一致
+            capacity_data[ratio] = pd.DataFrame()
     
     return capacity_data
 
@@ -356,9 +364,9 @@ def generate_capacity_reduction_plot(capacity_data, output_dir, base_version):
                         if pd.isna(baseline_value):
                             baseline_value = 0
                     
-                    # 获取对比值
+                    # 获取对比值 - 如果数据为空或缺失，设为0
                     comparison_value = 0
-                    if idx in comparison_data.index:
+                    if not comparison_data.empty and idx in comparison_data.index:
                         comparison_value = comparison_data.loc[idx].iloc[0]
                         if pd.isna(comparison_value):
                             comparison_value = 0
@@ -412,13 +420,13 @@ def generate_capacity_reduction_plot(capacity_data, output_dir, base_version):
     
     # 电力系统成本
     if 'Power System Cost' in filtered_categories:
-        power_values = [filtered_categories['Power System Cost'][ratio] for ratio in comparison_ratios]
+        power_values = [filtered_categories['Power System Cost'].get(ratio, 0) for ratio in comparison_ratios]
         bars1 = ax.bar(x - bar_width/2, power_values, bar_width, 
                       color='#1f77b4', alpha=opacity, label='Power System Cost')
     
     # 电解铝运行成本
     if 'Aluminum Operation Cost' in filtered_categories:
-        aluminum_values = [filtered_categories['Aluminum Operation Cost'][ratio] for ratio in comparison_ratios]
+        aluminum_values = [filtered_categories['Aluminum Operation Cost'].get(ratio, 0) for ratio in comparison_ratios]
         bars2 = ax.bar(x + bar_width/2, aluminum_values, bar_width, 
                       color='#ff7f0e', alpha=opacity, label='Aluminum Operation Cost')
     
@@ -462,11 +470,13 @@ def generate_capacity_reduction_plot(capacity_data, output_dir, base_version):
     data_rows = []
     for category, ratios_data in filtered_categories.items():
         for ratio in comparison_ratios:
+            # 如果某个容量比例的数据缺失，设为0
+            cost_reduction = ratios_data.get(ratio, 0)
             data_rows.append({
                 'Cost Category': category,
                 'Capacity Ratio': ratio.replace('p', '%'),
-                'Cost Reduction (CNY)': ratios_data[ratio],
-                'Cost Reduction (Billion CNY)': ratios_data[ratio] / 1e9
+                'Cost Reduction (CNY)': cost_reduction,
+                'Cost Reduction (Billion CNY)': cost_reduction / 1e9
             })
     
     # 添加净变化量数据
@@ -491,12 +501,25 @@ def generate_capacity_reduction_plot(capacity_data, output_dir, base_version):
     for i, ratio in enumerate(comparison_ratios):
         if i < len(net_changes):
             print(f"{ratio.replace('p', '%')} vs 55%: {net_changes[i]/1e9:.3f}B CNY")
+        else:
+            print(f"{ratio.replace('p', '%')} vs 55%: 数据缺失")
     
     print(f"\n=== 各分类减少量（100% vs 55%）===")
     for category in filtered_categories:
-        change_100p = filtered_categories[category]['100p']
+        change_100p = filtered_categories[category].get('100p', 0)
         if abs(change_100p) > 1e6:  # 只显示变化量大于1M的分类
             print(f"{category}: {change_100p/1e9:.3f}B CNY")
+    
+    # 添加缺失数据统计
+    print(f"\n=== 数据完整性统计 ===")
+    for ratio in capacity_ratios:
+        if ratio in capacity_data:
+            if capacity_data[ratio].empty:
+                print(f"{ratio}: 数据缺失（空DataFrame）")
+            else:
+                print(f"{ratio}: 数据完整（{len(capacity_data[ratio].index)} 个成本项）")
+        else:
+            print(f"{ratio}: 数据缺失（未找到）")
 
 def main():
     """主函数"""
