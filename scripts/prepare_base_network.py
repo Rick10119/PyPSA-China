@@ -279,10 +279,25 @@ def prepare_network(config):
         network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
         
         # 添加中国的aluminum bus（等效为满足全国铝需求）
-        
+        # add carrier aluminum transfer
+        network.add("Carrier", "aluminum transfer")
         network.add("Bus", 
                    "China aluminum hub", 
                    carrier="aluminum transfer")
+        
+        # add generator to China aluminum hub, for monitoring load shedding
+        # network.add("Generator",
+        #              "China aluminum hub load shedding",
+        #              bus="China aluminum hub",
+        #              carrier="aluminum transfer",
+        #              p_nom=1e10,
+        #              marginal_cost=1e6)
+        # network.add("Generator",
+        #              "China aluminum hub load abandon",
+        #              bus="China aluminum hub",
+        #              carrier="aluminum transfer",
+        #              p_nom=-1e10,
+        #              marginal_cost=-1e6)
         
         # 添加从各省份aluminum bus到中国aluminum hub的links
         # 支持双向转移，转移效率为1

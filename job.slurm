@@ -14,4 +14,4 @@ module purge
 module load anaconda3/2024.10
 conda activate pypsa-plot
 module load gurobi/12.0.0
-./run_all_capacities.sh
+snakemake --cores 40 --configfile config.yaml
