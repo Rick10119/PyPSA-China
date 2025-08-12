@@ -9,6 +9,11 @@ echo "=== 运行不包含电解铝厂的场景 ==="
 ./sh_scripts/run_no_aluminum.sh
 echo
 
+# 运行non-flexible场景
+echo "=== 运行non-flexible场景 ==="
+./sh_scripts/run_non_flexible.sh
+echo
+
 # 运行100%容量比例
 echo "=== 运行 100% 容量比例 ==="
 ./sh_scripts/run_100p.sh
