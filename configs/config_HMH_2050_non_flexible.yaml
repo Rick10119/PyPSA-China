@@ -1,4 +1,4 @@
-version: 0813.1H.1-HMH-2050-non_flexible
+version: 0813.4H.1-HMH-2050-non_flexible
 logging_level: INFO
 foresight: myopic
 using_single_node: false
@@ -9,7 +9,7 @@ threads: 40
 mem_per_thread: 15000
 tmin: -01-01 00:00
 tmax: -12-31 23:00
-freq: 1h
+freq: 4h
 add_aluminum: false
 only_other_load: false
 iterative_optimization: true

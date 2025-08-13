@@ -1,4 +1,4 @@
-version: 0813.1H.1-HMH-2050-100p
+version: 0813.4H.1-HMH-2050-100p
 logging_level: INFO
 foresight: myopic
 using_single_node: false
@@ -9,7 +9,7 @@ threads: 40
 mem_per_thread: 15000
 tmin: -01-01 00:00
 tmax: -12-31 23:00
-freq: 1h
+freq: 4h
 add_aluminum: true
 only_other_load: true
 iterative_optimization: true
@@ -112,6 +112,22 @@ aluminum:
       non_constrained:
         p_min_pu: 0.0
         restart_cost: 0
+    market_opportunity:
+      low:
+        vre_cost_factor: 0.8
+        battery_cost_factor: 0.8
+        h2_cost_factor: 0.8
+        sabatier_cost_factor: 0.8
+      mid:
+        vre_cost_factor: 1.0
+        battery_cost_factor: 1.0
+        h2_cost_factor: 1.0
+        sabatier_cost_factor: 1.0
+      high:
+        vre_cost_factor: 1.0
+        battery_cost_factor: 1.5
+        h2_cost_factor: 1.5
+        sabatier_cost_factor: 1.5
   current_scenario:
     smelter_flexibility: high
     primary_demand: mid
