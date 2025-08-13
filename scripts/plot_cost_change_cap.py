@@ -512,7 +512,9 @@ def generate_capacity_reduction_plot(capacity_data, output_dir, base_version):
     
     # 添加缺失数据统计
     print(f"\n=== 数据完整性统计 ===")
-    for ratio in capacity_ratios:
+    # 使用comparison_ratios和base_version来构建完整的容量比例列表
+    all_ratios = [base_version] + comparison_ratios
+    for ratio in all_ratios:
         if ratio in capacity_data:
             if capacity_data[ratio].empty:
                 print(f"{ratio}: 数据缺失（空DataFrame）")
