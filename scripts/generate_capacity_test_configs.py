@@ -57,7 +57,12 @@ def generate_capacity_test_configs():
     demand_level = 'mid'  # 固定为M
     market_levels = ['low', 'mid', 'high']  # L, M, H
     years = [2030, 2040, 2050]  # 年份
-    capacity_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]  # 10p, 20p, ..., 100p
+    
+    # 定义过剩产能保留比例 (Cap值)
+    # Cap=10%意味着保留过剩产能的10%，对应实际容量比例约为70%
+    # Cap=20%意味着保留过剩产能的20%，对应实际容量比例约为80%
+    # 等等
+    cap_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]  # 10%, 20%, ..., 100%
     
     # 将级别映射为简短的标识符
     flex_map = {'low': 'L', 'mid': 'M', 'high': 'H', 'non_constrained': 'N'}
@@ -74,7 +79,7 @@ def generate_capacity_test_configs():
                 # 生成non-flexible配置
                 config_non_flex = generate_single_config(
                     base_config, base_version, flex, demand_level, market, 
-                    capacity_ratio=None, year=year, config_type='non_flexible'
+                    cap_ratio=None, year=year, config_type='non_flexible'
                 )
                 
                 # 保存non-flexible配置文件
@@ -92,7 +97,7 @@ def generate_capacity_test_configs():
                 # 生成no aluminum配置
                 config_no_al = generate_single_config(
                     base_config, base_version, flex, demand_level, market, 
-                    capacity_ratio=None, year=year, config_type='no_aluminum'
+                    cap_ratio=None, year=year, config_type='no_aluminum'
                 )
                 
                 # 保存no aluminum配置文件
@@ -107,30 +112,62 @@ def generate_capacity_test_configs():
                 print(f"  Flexibility: {flex}, Demand: {demand_level}, Market: {market}, Year: {year}, Capacity: no_aluminum")
                 print()
                 
-                # 生成各种容量比例的配置
-                for capacity_ratio in capacity_ratios:
+                # 生成各种过剩产能保留比例的配置
+                for cap_ratio in cap_ratios:
+                    # 计算实际容量比例
+                    actual_capacity_ratio = calculate_actual_capacity_ratio(year, cap_ratio, demand_level)
+                    
                     # 生成配置文件
                     config = generate_single_config(
                         base_config, base_version, flex, demand_level, market, 
-                        capacity_ratio, year, config_type='capacity'
+                        cap_ratio, year, config_type='capacity', actual_capacity_ratio=actual_capacity_ratio
                     )
                     
-                    # 保存配置文件
-                    percentage = int(capacity_ratio * 100)
-                    config_filename = configs_dir / f"config_{scenario_suffix}_{year}_{percentage}p.yaml"
+                    # 保存配置文件 - 保持原有命名模式
+                    cap_percentage = int(cap_ratio * 100)
+                    config_filename = configs_dir / f"config_{scenario_suffix}_{year}_{cap_percentage}p.yaml"
                     
                     with open(config_filename, 'w', encoding='utf-8') as f:
                         yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
                     
                     config_count += 1
                     print(f"已生成配置文件 {config_count}/468:")
-                    print(f"  {scenario_suffix}_{year}_{percentage}p.yaml - 版本: {config['version']}")
-                    print(f"  Flexibility: {flex}, Demand: {demand_level}, Market: {market}, Year: {year}, Capacity: {percentage}%")
+                    print(f"  {scenario_suffix}_{year}_{cap_percentage}p.yaml - 版本: {config['version']}")
+                    print(f"  Flexibility: {flex}, Demand: {demand_level}, Market: {market}, Year: {year}, Cap: {cap_percentage}%, Actual: {actual_capacity_ratio:.1%}")
                     print()
     
     print(f"总共生成了 {config_count} 个配置文件")
 
-def generate_single_config(base_config, base_version, flex, demand, market, capacity_ratio, year, config_type):
+def calculate_actual_capacity_ratio(year: int, cap_ratio: float, demand_level: str) -> float:
+    """
+    计算实际容量比例
+    
+    Args:
+        year: 年份
+        cap_ratio: 过剩产能保留比例 (如0.1表示10%)
+        demand_level: 需求级别 ('mid')
+        
+    Returns:
+        实际容量比例
+    """
+    # 总产能
+    total_capacity = 4500
+    
+    # 根据年份设置需求 (使用实际数据)
+    demand_by_year = {
+        "2030": 2902.417177819193,
+        "2040": 1508.1703393209764,
+        "2050": 1166.6836345743664,
+    }
+    
+    demand = demand_by_year.get(str(year), 2902.417177819193)
+    
+    # 计算实际容量比例: demand/capacity × (1-cap) + cap
+    actual_ratio = (demand / total_capacity) * (1 - cap_ratio) + cap_ratio
+    
+    return actual_ratio
+
+def generate_single_config(base_config, base_version, flex, demand, market, cap_ratio, year, config_type, actual_capacity_ratio=None):
     """
     生成单个配置文件
     
@@ -140,9 +177,10 @@ def generate_single_config(base_config, base_version, flex, demand, market, capa
         flex: 灵活性级别 (low/mid/high/non_constrained)
         demand: 需求级别 (固定为mid)
         market: 市场机会级别 (low/mid/high)
-        capacity_ratio: 容量比例 (0.1-1.0) 或 None
+        cap_ratio: 过剩产能保留比例 (0.1-1.0) 或 None
         year: 年份 (2030, 2040, 2050)
         config_type: 配置类型 ('non_flexible', 'no_aluminum', 'capacity')
+        actual_capacity_ratio: 实际容量比例 (如果config_type为'capacity')
     """
     # 创建新的配置副本
     new_config = base_config.copy()
@@ -173,14 +211,14 @@ def generate_single_config(base_config, base_version, flex, demand, market, capa
         if 'aluminum' in new_config:
             del new_config['aluminum']
     else:
-        # 容量比例配置
-        percentage = int(capacity_ratio * 100)
-        new_config['version'] = f"{base_version}-{scenario_suffix}-{year}-{percentage}p"
+        # 容量配置 - 保持原有命名模式
+        cap_percentage = int(cap_ratio * 100)
+        new_config['version'] = f"{base_version}-{scenario_suffix}-{year}-{cap_percentage}p"
         
         # 设置电解铝厂参数
         new_config['add_aluminum'] = True
         new_config['only_other_load'] = True
-        new_config['aluminum_capacity_ratio'] = capacity_ratio
+        new_config['aluminum_capacity_ratio'] = actual_capacity_ratio
         
         # 如果是non_constrained配置，设置相应的参数
         if flex == 'non_constrained':
@@ -189,7 +227,7 @@ def generate_single_config(base_config, base_version, flex, demand, market, capa
         
         # 更新电解铝配置
         if 'aluminum' in new_config:
-            new_config['aluminum']['capacity_ratio'] = capacity_ratio
+            new_config['aluminum']['capacity_ratio'] = actual_capacity_ratio
             
             # 更新当前scenario设置
             if 'current_scenario' not in new_config['aluminum']:
@@ -221,7 +259,7 @@ def create_run_scripts():
     demand_level = 'mid'
     market_levels = ['low', 'mid', 'high']
     years = [2030, 2040, 2050]
-    capacity_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    cap_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     
     # 将级别映射为简短的标识符
     flex_map = {'low': 'L', 'mid': 'M', 'high': 'H', 'non_constrained': 'N'}
@@ -259,13 +297,13 @@ def create_run_scripts():
                 print(f"已生成运行脚本 {script_count}/468:")
                 print(f"  run_{scenario_suffix}_{year}_no_aluminum.sh")
                 
-                # 创建各种容量比例的运行脚本
-                for capacity_ratio in capacity_ratios:
-                    percentage = int(capacity_ratio * 100)
+                # 创建各种过剩产能保留比例的运行脚本
+                for cap_ratio in cap_ratios:
+                    cap_percentage = int(cap_ratio * 100)
                     
-                    # 创建运行脚本
-                    script_content = create_single_run_script(scenario_suffix, year, percentage, flex, demand_level, market)
-                    script_filename = sh_scripts_dir / f"run_{scenario_suffix}_{year}_{percentage}p.sh"
+                    # 创建运行脚本 - 保持原有命名模式
+                    script_content = create_single_run_script(scenario_suffix, year, f"{cap_percentage}p", flex, demand_level, market)
+                    script_filename = sh_scripts_dir / f"run_{scenario_suffix}_{year}_{cap_percentage}p.sh"
                     
                     with open(script_filename, 'w') as f:
                         f.write(script_content)
@@ -273,7 +311,7 @@ def create_run_scripts():
                     
                     script_count += 1
                     print(f"已生成运行脚本 {script_count}/468:")
-                    print(f"  run_{scenario_suffix}_{year}_{percentage}p.sh")
+                    print(f"  run_{scenario_suffix}_{year}_{cap_percentage}p.sh")
     
     print(f"总共生成了 {script_count} 个运行脚本")
 
@@ -284,7 +322,7 @@ def create_single_run_script(scenario_suffix, year, capacity_type, flex, demand,
     Args:
         scenario_suffix: 场景标识符 (如 LMM)
         year: 年份
-        capacity_type: 容量类型 (no_aluminum 或 百分比数字)
+        capacity_type: 容量类型 (non_flexible, no_aluminum, 10p, 20p等)
         flex: 灵活性级别
         demand: 需求级别
         market: 市场机会级别
@@ -298,9 +336,9 @@ def create_single_run_script(scenario_suffix, year, capacity_type, flex, demand,
         description = f"No aluminum场景的模拟 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
         config_desc = "no_aluminum配置"
     else:
-        config_file = f"configs/config_{scenario_suffix}_{year}_{capacity_type}p.yaml"
-        description = f"{capacity_type}%容量比例的模拟 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
-        config_desc = f"{capacity_type}p配置"
+        config_file = f"configs/config_{scenario_suffix}_{year}_{capacity_type}.yaml"
+        description = f"{capacity_type}过剩产能保留比例的模拟 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
+        config_desc = f"{capacity_type}配置"
     
     script_content = f"""#!/bin/bash
 # {description}
@@ -331,7 +369,7 @@ def create_batch_run_script():
     demand_level = 'mid'
     market_levels = ['low', 'mid', 'high']
     years = [2030, 2040, 2050]
-    capacity_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    cap_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     
     # 将级别映射为简短的标识符
     flex_map = {'low': 'L', 'mid': 'M', 'high': 'H', 'non_constrained': 'N'}
@@ -377,13 +415,13 @@ echo
 
 """
                 
-                for capacity_ratio in capacity_ratios:
-                    percentage = int(capacity_ratio * 100)
+                for cap_ratio in cap_ratios:
+                    cap_percentage = int(cap_ratio * 100)
                     
                     script_content += f"""
-# 运行 {percentage}p 配置
-echo "--- 运行 {percentage}p 配置 ---"
-./sh_scripts/run_{scenario_suffix}_{year}_{percentage}p.sh
+# 运行 {cap_percentage}p 配置
+echo "--- 运行 {cap_percentage}p 配置 ---"
+./sh_scripts/run_{scenario_suffix}_{year}_{cap_percentage}p.sh
 config_count=$((config_count + 1))
 echo "进度: $config_count/$total_configs"
 echo
@@ -433,16 +471,18 @@ def main():
     print("所有文件生成完成！")
     print()
     print("使用方法:")
-    print("1. 运行单个配置: ./sh_scripts/run_LMM_2030_100p.sh")
+    print("1. 运行单个配置: ./sh_scripts/run_LMM_2030_10p.sh")
     print("2. 运行所有配置: ./sh_scripts/run_all_configs.sh")
-    print("3. 手动运行: snakemake --configfile configs/config_LMM_2030_100p.yaml --cores 40")
+    print("3. 手动运行: snakemake --configfile configs/config_LMM_2030_10p.yaml --cores 40")
     print()
     print("配置说明:")
     print("- 灵活性(Flexibility): L=low, M=mid, H=high, N=non_constrained")
     print("- 需求(Demand): 固定为M=mid")
     print("- 市场机会(Market): L=low, M=mid, H=high")
     print("- 年份(Year): 2030, 2040, 2050")
-    print("- 容量设置: non_flexible, no_aluminum, 10p, 20p, 30p, ..., 100p (13种)")
+    print("- 容量设置: non_flexible, no_aluminum, 10p, 20p, ..., 100p (13种)")
+    print("- Cap含义: 过剩产能保留比例，如10p=保留10%过剩产能")
+    print("- 实际容量比例: demand/capacity × (1-cap) + cap")
     print("- 总配置数: 4×1×3×3×13 = 468个")
 
 if __name__ == "__main__":

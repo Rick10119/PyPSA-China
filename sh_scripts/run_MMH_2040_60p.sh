@@ -1,7 +1,7 @@
 #!/bin/bash
-# 60%容量比例的模拟 (Flexibility: mid, Demand: mid, Market: high, Year: 2040)
+# 60p过剩产能保留比例的模拟 (Flexibility: mid, Demand: mid, Market: high, Year: 2040)
 
-echo "开始运行 MMH_2040_60 的模拟..."
+echo "开始运行 MMH_2040_60p 的模拟..."
 echo "配置文件: configs/config_MMH_2040_60p.yaml"
 echo "配置类型: 60p配置"
 echo "Scenario: Flexibility=mid, Demand=mid, Market=high, Year=2040 (MMH)"
@@ -10,4 +10,4 @@ echo
 # 使用指定的配置文件运行snakemake
 snakemake --configfile configs/config_MMH_2040_60p.yaml --cores 40
 
-echo "完成 MMH_2040_60 的模拟"
+echo "完成 MMH_2040_60p 的模拟"

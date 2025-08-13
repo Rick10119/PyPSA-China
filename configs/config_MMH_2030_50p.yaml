@@ -16,7 +16,7 @@ iterative_optimization: true
 aluminum_commitment: false
 aluminum_max_iterations: 3
 aluminum_convergence_tolerance: 0.001
-aluminum_capacity_ratio: 0.5
+aluminum_capacity_ratio: 0.8224907975354658
 scenario:
   line_limits:
   - opt
@@ -97,7 +97,7 @@ aluminum:
     '2050': true
     '2055': true
     '2060': true
-  capacity_ratio: 0.5
+  capacity_ratio: 0.8224907975354658
   scenario_dimensions:
     smelter_flexibility:
       low:
