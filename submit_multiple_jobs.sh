@@ -5,35 +5,55 @@ echo "=== 批量提交多个PyPSA-China SLURM作业 ==="
 echo "开始时间: $(date)"
 echo
 
-# 定义要提交的作业文件（按优先级排序）
-JOBS=(
-    "jobs/job_no_aluminum.slurm"      # 不包含电解铝厂的基准场景
-    "jobs/job_100p.slurm"             # 100%容量比例
-    "jobs/job_90p.slurm"              # 90%容量比例
-    "jobs/job_80p.slurm"              # 80%容量比例
-    "jobs/job_70p.slurm"              # 70%容量比例
-    "jobs/job_60p.slurm"              # 60%容量比例
-    "jobs/job_55p.slurm"              # 55%容量比例
-)
+# 检查jobs文件夹是否存在
+if [ ! -d "jobs" ]; then
+    echo "✗ jobs文件夹不存在，请先运行 generate_slurm_jobs_advanced.py 生成SLURM作业文件"
+    exit 1
+fi
 
-# 检查作业文件是否存在
-echo "检查作业文件..."
-for job_file in "${JOBS[@]}"; do
+# 自动发现所有可用的SLURM作业文件
+echo "正在发现可用的SLURM作业文件..."
+JOBS=()
+for job_file in jobs/job_*.slurm; do
     if [ -f "$job_file" ]; then
-        echo "  ✓ $job_file"
-    else
-        echo "  ✗ $job_file (不存在)"
+        JOBS+=("$job_file")
+        echo "  ✓ 发现作业文件: $(basename "$job_file")"
     fi
 done
+
+if [ ${#JOBS[@]} -eq 0 ]; then
+    echo "✗ 未发现任何SLURM作业文件，请先运行 generate_slurm_jobs_advanced.py 生成作业文件"
+    exit 1
+fi
+
+echo "共发现 ${#JOBS[@]} 个作业文件"
 echo
 
-# 创建作业文件（如果不存在）
-echo "创建缺失的作业文件..."
+# 按优先级排序作业（100p优先，然后按字母顺序）
+echo "按优先级排序作业文件..."
+JOBS_SORTED=()
+# 先添加100p作业
 for job_file in "${JOBS[@]}"; do
-    if [ ! -f "$job_file" ]; then
-        echo "创建 $job_file..."
-        create_job_file "$job_file"
+    if [[ "$job_file" == *"100p"* ]]; then
+        JOBS_SORTED+=("$job_file")
     fi
+done
+# 再添加non_flexible作业
+for job_file in "${JOBS[@]}"; do
+    if [[ "$job_file" == *"non_flexible"* ]]; then
+        JOBS_SORTED+=("$job_file")
+    fi
+done
+# 最后添加其他作业
+for job_file in "${JOBS[@]}"; do
+    if [[ "$job_file" != *"100p"* ]] && [[ "$job_file" != *"non_flexible"* ]]; then
+        JOBS_SORTED+=("$job_file")
+    fi
+done
+
+echo "排序后的作业顺序:"
+for i in "${!JOBS_SORTED[@]}"; do
+    echo "  $((i+1)). $(basename "${JOBS_SORTED[$i]}")"
 done
 echo
 
@@ -45,8 +65,8 @@ declare -A JOB_IDS
 SUBMITTED_COUNT=0
 FAILED_COUNT=0
 
-for job_file in "${JOBS[@]}"; do
-    echo "提交作业: $job_file"
+for job_file in "${JOBS_SORTED[@]}"; do
+    echo "提交作业: $(basename "$job_file")"
     
     # 提交作业并获取作业ID
     JOB_ID=$(sbatch "$job_file" | awk '{print $4}')
@@ -73,9 +93,9 @@ echo
 
 if [ $SUBMITTED_COUNT -gt 0 ]; then
     echo "成功提交的作业:"
-    for job_file in "${JOBS[@]}"; do
+    for job_file in "${JOBS_SORTED[@]}"; do
         if [[ -n "${JOB_IDS[$job_file]}" ]]; then
-            echo "  $job_file -> 作业ID: ${JOB_IDS[$job_file]}"
+            echo "  $(basename "$job_file") -> 作业ID: ${JOB_IDS[$job_file]}"
         fi
     done
     echo
@@ -84,9 +104,9 @@ if [ $SUBMITTED_COUNT -gt 0 ]; then
     echo "批量作业信息 - $(date)" > "batch_jobs_info.txt"
     echo "========================" >> "batch_jobs_info.txt"
     echo "作业提交顺序:" >> "batch_jobs_info.txt"
-    for job_file in "${JOBS[@]}"; do
+    for job_file in "${JOBS_SORTED[@]}"; do
         if [[ -n "${JOB_IDS[$job_file]}" ]]; then
-            echo "$job_file -> ${JOB_IDS[$job_file]}" >> "batch_jobs_info.txt"
+            echo "$(basename "$job_file") -> ${JOB_IDS[$job_file]}" >> "batch_jobs_info.txt"
         fi
     done
     
@@ -111,84 +131,4 @@ fi
 
 echo
 echo "=== 批量提交完成 ==="
-echo "完成时间: $(date)"
-
-# 函数：创建作业文件
-create_job_file() {
-    local job_file="$1"
-    local scenario_name=$(echo "$job_file" | sed 's/job_\(.*\)\.slurm/\1/')
-    
-    # 根据场景名称设置不同的参数
-    if [ "$scenario_name" = "no_aluminum" ]; then
-        local percentage="不包含电解铝厂"
-        local config_file="config_no_aluminum.yaml"
-        local description="不包含电解铝厂的基准场景"
-    else
-        local percentage=$(echo "$scenario_name" | sed 's/p$/%/')
-        local config_file="config_${scenario_name}.yaml"
-        local description="${percentage}容量比例"
-    fi
-    
-    cat > "$job_file" << EOF
-#!/bin/bash
-#SBATCH --job-name=pypsa-china-${scenario_name}        # 作业名称
-#SBATCH --nodes=1                # 节点数量
-#SBATCH --ntasks=1               # 总任务数
-#SBATCH --cpus-per-task=40       # 每个任务的CPU核心数
-#SBATCH --mem-per-cpu=15G        # 每个CPU核心的内存
-#SBATCH --time=12:00:00          # 总运行时间限制 (12小时)
-#SBATCH --mail-type=begin        # 作业开始时发送邮件
-#SBATCH --mail-type=end          # 作业结束时发送邮件
-#SBATCH --mail-type=fail         # 作业失败时发送邮件
-#SBATCH --mail-user=rl8728@princeton.edu
-#SBATCH --output=logs/slurm_${scenario_name}_%j.out    # 标准输出文件
-#SBATCH --error=logs/slurm_${scenario_name}_%j.err     # 标准错误文件
-
-# 设置日志文件
-LOG_FILE="job_${scenario_name}_\$(date +%Y%m%d_%H%M%S).log"
-exec > >(tee -a "\$LOG_FILE") 2>&1
-
-echo "=== PyPSA-China ${description}作业开始 ==="
-echo "开始时间: \$(date)"
-echo "作业ID: \$SLURM_JOB_ID"
-echo "节点: \$SLURM_NODELIST"
-echo "日志文件: \$LOG_FILE"
-echo
-
-# 加载必要的模块
-echo "正在加载模块..."
-module purge
-module load anaconda3/2024.10
-conda activate pypsa-plot
-module load gurobi/12.0.0
-
-echo "模块加载完成"
-echo
-
-# 运行模拟
-echo "开始运行${description}模拟..."
-echo "配置文件: ${config_file}"
-echo "开始时间: \$(date)"
-echo
-
-START_TIME=\$(date +%s)
-
-if snakemake --configfile ${config_file} --cores 40; then
-    END_TIME=\$(date +%s)
-    DURATION=\$((END_TIME - START_TIME))
-    echo "✓ ${description}模拟运行成功！"
-    echo "运行时间: \$((DURATION / 3600))小时 \$((DURATION % 3600 / 60))分钟 \$((DURATION % 60))秒"
-else
-    echo "✗ ${description}模拟运行失败！"
-    exit 1
-fi
-
-echo
-echo "=== PyPSA-China ${description}作业完成 ==="
-echo "完成时间: \$(date)"
-echo "日志文件: \$LOG_FILE"
-EOF
-
-    # 设置执行权限
-    chmod +x "$job_file"
-} 
+echo "完成时间: $(date)" 

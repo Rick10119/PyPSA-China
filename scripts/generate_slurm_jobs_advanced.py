@@ -23,8 +23,19 @@ class SlurmJobGenerator:
         """
         self.base_config = base_config
         self.output_dir = Path(output_dir)
-        # 创建jobs文件夹（如果不存在）
-        self.output_dir.mkdir(exist_ok=True)
+        
+        # 清理并重新创建jobs文件夹
+        if self.output_dir.exists():
+            # 删除所有.slurm文件
+            for file_path in self.output_dir.glob('*.slurm'):
+                if file_path.is_file():
+                    file_path.unlink()
+                    print(f"已删除旧的SLURM文件: {file_path}")
+            print("jobs文件夹中的旧SLURM文件已清空")
+        else:
+            self.output_dir.mkdir(exist_ok=True)
+            print("创建jobs文件夹")
+        
         self.scenarios = []
         
     def discover_scenarios(self):
@@ -81,6 +92,30 @@ class SlurmJobGenerator:
     def _generate_description(self, scenario_name: str, config_data: Dict[str, Any]) -> str:
         """根据场景名称和配置数据生成描述"""
         
+        # 新的命名规则: config_LMM_100p.yaml 或 config_LMM_non_flexible.yaml
+        if '_' in scenario_name:
+            parts = scenario_name.split('_')
+            if len(parts) >= 2:
+                # 第一部分是flexibility+demand+market组合 (如 LMM)
+                scenario_code = parts[0]
+                # 第二部分是配置类型 (如 100p 或 non_flexible)
+                config_type = parts[1]
+                
+                # 解析scenario代码
+                flex_map = {'L': 'low', 'M': 'mid', 'H': 'high', 'N': 'non_constrained'}
+                if len(scenario_code) == 3:
+                    flex = flex_map.get(scenario_code[0], 'unknown')
+                    demand = flex_map.get(scenario_code[1], 'unknown')
+                    market = flex_map.get(scenario_code[2], 'unknown')
+                    
+                    if config_type == '100p':
+                        return f"100%容量比例 (Flexibility: {flex}, Demand: {demand}, Market: {market})"
+                    elif config_type == 'non_flexible':
+                        return f"Non-flexible基准组 (Flexibility: {flex}, Demand: {demand}, Market: {market})"
+                    else:
+                        return f"{config_type}配置 (Flexibility: {flex}, Demand: {demand}, Market: {market})"
+        
+        # 兼容旧的命名规则
         if scenario_name == "no_aluminum":
             return "不包含电解铝厂的基准场景"
         
