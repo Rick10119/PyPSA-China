@@ -168,7 +168,7 @@ class SlurmJobGenerator:
             "ntasks": 1,
             "cpus_per_task": 40,
             "mem_per_cpu": "15G",
-            "time_limit": "4:00:00",
+            "time_limit": "12:00:00",
             "mail_user": "rl8728@princeton.edu",
             "modules": [
                 "module purge",
@@ -212,8 +212,6 @@ class SlurmJobGenerator:
 #SBATCH --cpus-per-task={params['cpus_per_task']}       # 每个任务的CPU核心数
 #SBATCH --mem-per-cpu={params['mem_per_cpu']}        # 每个CPU核心的内存
 #SBATCH --time={params['time_limit']}          # 总运行时间限制
-#SBATCH --mail-type=begin        # 作业开始时发送邮件
-#SBATCH --mail-type=end          # 作业结束时发送邮件
 #SBATCH --mail-type=fail         # 作业失败时发送邮件
 #SBATCH --mail-user={params['mail_user']}
 

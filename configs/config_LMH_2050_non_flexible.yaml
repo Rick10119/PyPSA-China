@@ -1,4 +1,4 @@
-version: 0813.4H.1-LMH-2050-non_flexible
+version: 0813.4H.2-LMH-2050-non_flexible
 logging_level: INFO
 foresight: myopic
 using_single_node: false
