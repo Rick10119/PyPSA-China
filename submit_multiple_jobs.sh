@@ -29,24 +29,34 @@ fi
 echo "共发现 ${#JOBS[@]} 个作业文件"
 echo
 
-# 按优先级排序作业（100p优先，然后按字母顺序）
+# 按优先级排序作业（non_flexible优先，然后100p，然后按字母顺序）
 echo "按优先级排序作业文件..."
 JOBS_SORTED=()
-# 先添加100p作业
-for job_file in "${JOBS[@]}"; do
-    if [[ "$job_file" == *"100p"* ]]; then
-        JOBS_SORTED+=("$job_file")
-    fi
-done
-# 再添加non_flexible作业
+
+# 先添加non_flexible作业（基准组）
 for job_file in "${JOBS[@]}"; do
     if [[ "$job_file" == *"non_flexible"* ]]; then
         JOBS_SORTED+=("$job_file")
     fi
 done
-# 最后添加其他作业
+
+# 再添加100p作业
 for job_file in "${JOBS[@]}"; do
-    if [[ "$job_file" != *"100p"* ]] && [[ "$job_file" != *"non_flexible"* ]]; then
+    if [[ "$job_file" == *"100p"* ]]; then
+        JOBS_SORTED+=("$job_file")
+    fi
+done
+
+# 再添加no_aluminum作业
+for job_file in "${JOBS[@]}"; do
+    if [[ "$job_file" == *"no_aluminum"* ]]; then
+        JOBS_SORTED+=("$job_file")
+    fi
+done
+
+# 最后添加其他容量比例的作业
+for job_file in "${JOBS[@]}"; do
+    if [[ "$job_file" != *"non_flexible"* ]] && [[ "$job_file" != *"100p"* ]] && [[ "$job_file" != *"no_aluminum"* ]]; then
         JOBS_SORTED+=("$job_file")
     fi
 done

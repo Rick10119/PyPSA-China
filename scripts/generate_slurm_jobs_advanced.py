@@ -92,14 +92,16 @@ class SlurmJobGenerator:
     def _generate_description(self, scenario_name: str, config_data: Dict[str, Any]) -> str:
         """根据场景名称和配置数据生成描述"""
         
-        # 新的命名规则: config_LMM_100p.yaml 或 config_LMM_non_flexible.yaml
+        # 新的命名规则: config_LMM_2030_100p.yaml 或 config_LMM_2030_no_aluminum.yaml 或 config_LMM_2050_non_flexible.yaml
         if '_' in scenario_name:
             parts = scenario_name.split('_')
-            if len(parts) >= 2:
+            if len(parts) >= 3:
                 # 第一部分是flexibility+demand+market组合 (如 LMM)
                 scenario_code = parts[0]
-                # 第二部分是配置类型 (如 100p 或 non_flexible)
-                config_type = parts[1]
+                # 第二部分是年份 (如 2030, 2050)
+                year = parts[1]
+                # 第三部分及之后是容量类型 (如 100p, no_aluminum, non_flexible)
+                capacity_part = '_'.join(parts[2:])
                 
                 # 解析scenario代码
                 flex_map = {'L': 'low', 'M': 'mid', 'H': 'high', 'N': 'non_constrained'}
@@ -108,12 +110,19 @@ class SlurmJobGenerator:
                     demand = flex_map.get(scenario_code[1], 'unknown')
                     market = flex_map.get(scenario_code[2], 'unknown')
                     
-                    if config_type == '100p':
-                        return f"100%容量比例 (Flexibility: {flex}, Demand: {demand}, Market: {market})"
-                    elif config_type == 'non_flexible':
-                        return f"Non-flexible基准组 (Flexibility: {flex}, Demand: {demand}, Market: {market})"
+                    # 解析容量类型
+                    if capacity_part == 'no_aluminum':
+                        return f"No aluminum场景 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
+                    elif capacity_part == 'non_flexible':
+                        return f"Non-flexible基准组 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
+                    elif capacity_part.endswith('p'):
+                        try:
+                            percentage = int(capacity_part.replace('p', ''))
+                            return f"{percentage}%容量比例 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
+                        except ValueError:
+                            pass
                     else:
-                        return f"{config_type}配置 (Flexibility: {flex}, Demand: {demand}, Market: {market})"
+                        return f"{capacity_part}配置 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
         
         # 兼容旧的命名规则
         if scenario_name == "no_aluminum":

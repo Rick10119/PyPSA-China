@@ -284,7 +284,7 @@ if config["foresight"] == "myopic":
 
     rule prepare_base_networks:
         input:
-            config = "config.yaml",
+            # config = "config.yaml",
             overrides = "data/override_component_attrs",
             edges = "data/grids/edges.txt",
             solar_thermal_name="data/heating/solar_thermal-{angle}.h5".format(angle=config['solar_thermal_angle']),

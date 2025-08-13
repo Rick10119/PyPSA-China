@@ -1,0 +1,449 @@
+#!/usr/bin/env python3
+"""
+生成不同电解铝厂灵活性、市场机会、年份和容量比例的配置文件
+"""
+
+import yaml
+import os
+import shutil
+from pathlib import Path
+
+def clean_directories():
+    """
+    清空configs和sh_scripts文件夹中的所有文件
+    """
+    # 清理configs文件夹
+    configs_dir = Path('configs')
+    if configs_dir.exists():
+        # 删除所有文件
+        for file_path in configs_dir.glob('*'):
+            if file_path.is_file():
+                file_path.unlink()
+                print(f"已删除: {file_path}")
+        print("configs文件夹已清空")
+    else:
+        configs_dir.mkdir(exist_ok=True)
+        print("创建configs文件夹")
+    
+    # 清理sh_scripts文件夹
+    sh_scripts_dir = Path('sh_scripts')
+    if sh_scripts_dir.exists():
+        # 删除所有.sh文件
+        for file_path in sh_scripts_dir.glob('*.sh'):
+            if file_path.is_file():
+                file_path.unlink()
+                print(f"已删除: {file_path}")
+        print("sh_scripts文件夹中的.sh文件已清空")
+    else:
+        sh_scripts_dir.mkdir(exist_ok=True)
+        print("创建sh_scripts文件夹")
+
+def generate_capacity_test_configs():
+    """
+    生成468个配置文件：4种flexibility × 1种demand × 3种market × 3种年份 × 13种容量设置
+    """
+    # 创建configs文件夹（如果不存在）
+    configs_dir = Path('configs')
+    configs_dir.mkdir(exist_ok=True)
+    
+    # 读取原始配置文件
+    with open('config.yaml', 'r', encoding='utf-8') as f:
+        base_config = yaml.safe_load(f)
+    
+    base_version = base_config['version']
+    
+    # 定义所有可能的组合
+    flexibility_levels = ['low', 'mid', 'high', 'non_constrained']  # L, M, H, N
+    demand_level = 'mid'  # 固定为M
+    market_levels = ['low', 'mid', 'high']  # L, M, H
+    years = [2030, 2040, 2050]  # 年份
+    capacity_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]  # 10p, 20p, ..., 100p
+    
+    # 将级别映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H', 'non_constrained': 'N'}
+    demand_map = {'mid': 'M'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    config_count = 0
+    
+    for flex in flexibility_levels:
+        for market in market_levels:
+            for year in years:
+                scenario_suffix = f"{flex_map[flex]}{demand_map[demand_level]}{market_map[market]}"
+                
+                # 生成non-flexible配置
+                config_non_flex = generate_single_config(
+                    base_config, base_version, flex, demand_level, market, 
+                    capacity_ratio=None, year=year, config_type='non_flexible'
+                )
+                
+                # 保存non-flexible配置文件
+                config_filename_non_flex = configs_dir / f"config_{scenario_suffix}_{year}_non_flexible.yaml"
+                
+                with open(config_filename_non_flex, 'w', encoding='utf-8') as f:
+                    yaml.dump(config_non_flex, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                
+                config_count += 1
+                print(f"已生成配置文件 {config_count}/468:")
+                print(f"  {scenario_suffix}_{year}_non_flexible.yaml - 版本: {config_non_flex['version']}")
+                print(f"  Flexibility: {flex}, Demand: {demand_level}, Market: {market}, Year: {year}, Capacity: non_flexible")
+                print()
+                
+                # 生成no aluminum配置
+                config_no_al = generate_single_config(
+                    base_config, base_version, flex, demand_level, market, 
+                    capacity_ratio=None, year=year, config_type='no_aluminum'
+                )
+                
+                # 保存no aluminum配置文件
+                config_filename_no_al = configs_dir / f"config_{scenario_suffix}_{year}_no_aluminum.yaml"
+                
+                with open(config_filename_no_al, 'w', encoding='utf-8') as f:
+                    yaml.dump(config_no_al, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                
+                config_count += 1
+                print(f"已生成配置文件 {config_count}/468:")
+                print(f"  {scenario_suffix}_{year}_no_aluminum.yaml - 版本: {config_no_al['version']}")
+                print(f"  Flexibility: {flex}, Demand: {demand_level}, Market: {market}, Year: {year}, Capacity: no_aluminum")
+                print()
+                
+                # 生成各种容量比例的配置
+                for capacity_ratio in capacity_ratios:
+                    # 生成配置文件
+                    config = generate_single_config(
+                        base_config, base_version, flex, demand_level, market, 
+                        capacity_ratio, year, config_type='capacity'
+                    )
+                    
+                    # 保存配置文件
+                    percentage = int(capacity_ratio * 100)
+                    config_filename = configs_dir / f"config_{scenario_suffix}_{year}_{percentage}p.yaml"
+                    
+                    with open(config_filename, 'w', encoding='utf-8') as f:
+                        yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                    
+                    config_count += 1
+                    print(f"已生成配置文件 {config_count}/468:")
+                    print(f"  {scenario_suffix}_{year}_{percentage}p.yaml - 版本: {config['version']}")
+                    print(f"  Flexibility: {flex}, Demand: {demand_level}, Market: {market}, Year: {year}, Capacity: {percentage}%")
+                    print()
+    
+    print(f"总共生成了 {config_count} 个配置文件")
+
+def generate_single_config(base_config, base_version, flex, demand, market, capacity_ratio, year, config_type):
+    """
+    生成单个配置文件
+    
+    Args:
+        base_config: 基础配置
+        base_version: 基础版本号
+        flex: 灵活性级别 (low/mid/high/non_constrained)
+        demand: 需求级别 (固定为mid)
+        market: 市场机会级别 (low/mid/high)
+        capacity_ratio: 容量比例 (0.1-1.0) 或 None
+        year: 年份 (2030, 2040, 2050)
+        config_type: 配置类型 ('non_flexible', 'no_aluminum', 'capacity')
+    """
+    # 创建新的配置副本
+    new_config = base_config.copy()
+    
+    # 将级别映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H', 'non_constrained': 'N'}
+    demand_map = {'mid': 'M'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    scenario_suffix = f"{flex_map[flex]}{demand_map[demand]}{market_map[market]}"
+    
+    if config_type == 'non_flexible':
+        # non-flexible配置
+        new_config['version'] = f"{base_version}-{scenario_suffix}-{year}-non_flexible"
+        new_config['add_aluminum'] = False
+        new_config['only_other_load'] = False
+        
+        # 移除电解铝相关的配置
+        if 'aluminum' in new_config:
+            del new_config['aluminum']
+    elif config_type == 'no_aluminum':
+        # no aluminum配置
+        new_config['version'] = f"{base_version}-{scenario_suffix}-{year}-no_aluminum"
+        new_config['add_aluminum'] = False
+        new_config['only_other_load'] = True
+        
+        # 移除电解铝相关的配置
+        if 'aluminum' in new_config:
+            del new_config['aluminum']
+    else:
+        # 容量比例配置
+        percentage = int(capacity_ratio * 100)
+        new_config['version'] = f"{base_version}-{scenario_suffix}-{year}-{percentage}p"
+        
+        # 设置电解铝厂参数
+        new_config['add_aluminum'] = True
+        new_config['only_other_load'] = True
+        new_config['aluminum_capacity_ratio'] = capacity_ratio
+        
+        # 如果是non_constrained配置，设置相应的参数
+        if flex == 'non_constrained':
+            new_config['iterative_optimization'] = False
+            new_config['aluminum_commitment'] = False
+        
+        # 更新电解铝配置
+        if 'aluminum' in new_config:
+            new_config['aluminum']['capacity_ratio'] = capacity_ratio
+            
+            # 更新当前scenario设置
+            if 'current_scenario' not in new_config['aluminum']:
+                new_config['aluminum']['current_scenario'] = {}
+            
+            new_config['aluminum']['current_scenario']['smelter_flexibility'] = flex
+            new_config['aluminum']['current_scenario']['primary_demand'] = demand
+            new_config['aluminum']['current_scenario']['market_opportunity'] = market
+    
+    # 更新年份相关设置
+    new_config['costs']['year'] = year
+    
+    # 根据年份设置对应的planning_horizon
+    if 'scenario' in new_config:
+        new_config['scenario']['planning_horizons'] = [year]
+    
+    return new_config
+
+def create_run_scripts():
+    """
+    为每个配置创建运行脚本
+    """
+    # 创建sh_scripts文件夹（如果不存在）
+    sh_scripts_dir = Path('sh_scripts')
+    sh_scripts_dir.mkdir(exist_ok=True)
+    
+    # 定义所有可能的组合
+    flexibility_levels = ['low', 'mid', 'high', 'non_constrained']
+    demand_level = 'mid'
+    market_levels = ['low', 'mid', 'high']
+    years = [2030, 2040, 2050]
+    capacity_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    
+    # 将级别映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H', 'non_constrained': 'N'}
+    demand_map = {'mid': 'M'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    script_count = 0
+    
+    for flex in flexibility_levels:
+        for market in market_levels:
+            for year in years:
+                scenario_suffix = f"{flex_map[flex]}{demand_map[demand_level]}{market_map[market]}"
+                
+                # 创建non-flexible运行脚本
+                script_non_flex = create_single_run_script(scenario_suffix, year, "non_flexible", flex, demand_level, market)
+                script_filename_non_flex = sh_scripts_dir / f"run_{scenario_suffix}_{year}_non_flexible.sh"
+                
+                with open(script_filename_non_flex, 'w') as f:
+                    f.write(script_non_flex)
+                os.chmod(script_filename_non_flex, 0o755)
+                
+                script_count += 1
+                print(f"已生成运行脚本 {script_count}/468:")
+                print(f"  run_{scenario_suffix}_{year}_non_flexible.sh")
+                
+                # 创建no aluminum运行脚本
+                script_no_al = create_single_run_script(scenario_suffix, year, "no_aluminum", flex, demand_level, market)
+                script_filename_no_al = sh_scripts_dir / f"run_{scenario_suffix}_{year}_no_aluminum.sh"
+                
+                with open(script_filename_no_al, 'w') as f:
+                    f.write(script_no_al)
+                os.chmod(script_filename_no_al, 0o755)
+                
+                script_count += 1
+                print(f"已生成运行脚本 {script_count}/468:")
+                print(f"  run_{scenario_suffix}_{year}_no_aluminum.sh")
+                
+                # 创建各种容量比例的运行脚本
+                for capacity_ratio in capacity_ratios:
+                    percentage = int(capacity_ratio * 100)
+                    
+                    # 创建运行脚本
+                    script_content = create_single_run_script(scenario_suffix, year, percentage, flex, demand_level, market)
+                    script_filename = sh_scripts_dir / f"run_{scenario_suffix}_{year}_{percentage}p.sh"
+                    
+                    with open(script_filename, 'w') as f:
+                        f.write(script_content)
+                    os.chmod(script_filename, 0o755)
+                    
+                    script_count += 1
+                    print(f"已生成运行脚本 {script_count}/468:")
+                    print(f"  run_{scenario_suffix}_{year}_{percentage}p.sh")
+    
+    print(f"总共生成了 {script_count} 个运行脚本")
+
+def create_single_run_script(scenario_suffix, year, capacity_type, flex, demand, market):
+    """
+    创建单个运行脚本
+    
+    Args:
+        scenario_suffix: 场景标识符 (如 LMM)
+        year: 年份
+        capacity_type: 容量类型 (no_aluminum 或 百分比数字)
+        flex: 灵活性级别
+        demand: 需求级别
+        market: 市场机会级别
+    """
+    if capacity_type == "non_flexible":
+        config_file = f"configs/config_{scenario_suffix}_{year}_non_flexible.yaml"
+        description = f"Non-flexible场景的模拟 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
+        config_desc = "non_flexible配置"
+    elif capacity_type == "no_aluminum":
+        config_file = f"configs/config_{scenario_suffix}_{year}_no_aluminum.yaml"
+        description = f"No aluminum场景的模拟 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
+        config_desc = "no_aluminum配置"
+    else:
+        config_file = f"configs/config_{scenario_suffix}_{year}_{capacity_type}p.yaml"
+        description = f"{capacity_type}%容量比例的模拟 (Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year})"
+        config_desc = f"{capacity_type}p配置"
+    
+    script_content = f"""#!/bin/bash
+# {description}
+
+echo "开始运行 {scenario_suffix}_{year}_{capacity_type} 的模拟..."
+echo "配置文件: {config_file}"
+echo "配置类型: {config_desc}"
+echo "Scenario: Flexibility={flex}, Demand={demand}, Market={market}, Year={year} ({scenario_suffix})"
+echo
+
+# 使用指定的配置文件运行snakemake
+snakemake --configfile {config_file} --cores 40
+
+echo "完成 {scenario_suffix}_{year}_{capacity_type} 的模拟"
+"""
+    
+    return script_content
+
+def create_batch_run_script():
+    """
+    创建批量运行所有配置的脚本
+    """
+    sh_scripts_dir = Path('sh_scripts')
+    sh_scripts_dir.mkdir(exist_ok=True)
+    
+    # 定义所有可能的组合
+    flexibility_levels = ['low', 'mid', 'high', 'non_constrained']
+    demand_level = 'mid'
+    market_levels = ['low', 'mid', 'high']
+    years = [2030, 2040, 2050]
+    capacity_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    
+    # 将级别映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H', 'non_constrained': 'N'}
+    demand_map = {'mid': 'M'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    script_content = """#!/bin/bash
+# 批量运行所有配置的模拟
+
+echo "开始批量运行所有配置的模拟..."
+echo "总共468个配置: 4种flexibility × 1种demand × 3种market × 3种年份 × 13种容量设置"
+echo
+
+config_count=0
+total_configs=468
+
+"""
+    
+    for flex in flexibility_levels:
+        for market in market_levels:
+            for year in years:
+                scenario_suffix = f"{flex_map[flex]}{demand_map[demand_level]}{market_map[market]}"
+                
+                script_content += f"""
+# 运行 {scenario_suffix}_{year} 场景
+echo "=== 运行 {scenario_suffix}_{year} 场景 ==="
+echo "Flexibility: {flex}, Demand: {demand_level}, Market: {market}, Year: {year}"
+echo
+
+# 运行non-flexible配置
+echo "--- 运行 non-flexible 配置 ---"
+./sh_scripts/run_{scenario_suffix}_{year}_non_flexible.sh
+config_count=$((config_count + 1))
+echo "进度: $config_count/$total_configs"
+echo
+
+# 运行no aluminum配置
+echo "--- 运行 no aluminum 配置 ---"
+./sh_scripts/run_{scenario_suffix}_{year}_no_aluminum.sh
+config_count=$((config_count + 1))
+echo "进度: $config_count/$total_configs"
+echo
+
+"""
+                
+                for capacity_ratio in capacity_ratios:
+                    percentage = int(capacity_ratio * 100)
+                    
+                    script_content += f"""
+# 运行 {percentage}p 配置
+echo "--- 运行 {percentage}p 配置 ---"
+./sh_scripts/run_{scenario_suffix}_{year}_{percentage}p.sh
+config_count=$((config_count + 1))
+echo "进度: $config_count/$total_configs"
+echo
+
+"""
+    
+    script_content += """
+echo "所有配置的模拟已完成！"
+echo "总共运行了 $total_configs 个配置"
+echo "结果文件位于: results/version-*/"
+"""
+    
+    script_filename = sh_scripts_dir / "run_all_configs.sh"
+    with open(script_filename, 'w') as f:
+        f.write(script_content)
+    
+    os.chmod(script_filename, 0o755)
+    print("已生成批量运行脚本: sh_scripts/run_all_configs.sh")
+
+def main():
+    """
+    主函数
+    """
+    print("开始生成不同场景的配置文件...")
+    print()
+    
+    # 清空configs文件夹
+    print("=== 清空configs文件夹 ===")
+    clean_directories()
+    print()
+    
+    # 生成468个配置文件
+    print("=== 生成468个配置文件 ===")
+    generate_capacity_test_configs()
+    print()
+    
+    # 生成运行脚本
+    print("=== 生成运行脚本 ===")
+    create_run_scripts()
+    print()
+    
+    # 生成批量运行脚本
+    print("=== 生成批量运行脚本 ===")
+    create_batch_run_script()
+    print()
+    
+    print("所有文件生成完成！")
+    print()
+    print("使用方法:")
+    print("1. 运行单个配置: ./sh_scripts/run_LMM_2030_100p.sh")
+    print("2. 运行所有配置: ./sh_scripts/run_all_configs.sh")
+    print("3. 手动运行: snakemake --configfile configs/config_LMM_2030_100p.yaml --cores 40")
+    print()
+    print("配置说明:")
+    print("- 灵活性(Flexibility): L=low, M=mid, H=high, N=non_constrained")
+    print("- 需求(Demand): 固定为M=mid")
+    print("- 市场机会(Market): L=low, M=mid, H=high")
+    print("- 年份(Year): 2030, 2040, 2050")
+    print("- 容量设置: non_flexible, no_aluminum, 10p, 20p, 30p, ..., 100p (13种)")
+    print("- 总配置数: 4×1×3×3×13 = 468个")
+
+if __name__ == "__main__":
+    main()
