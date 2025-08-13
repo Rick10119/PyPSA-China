@@ -145,6 +145,11 @@ def load_network_for_plots(fn, tech_costs, config,cost_year, combine_hydro_ps=Tr
 
     Nyears = n.snapshot_weightings.objective.sum() / 8760.
     costs = load_costs(tech_costs, config['costs'], config['electricity'], cost_year, Nyears)
+    
+    # 应用市场情景成本调整
+    from add_electricity import apply_market_scenario_costs
+    costs = apply_market_scenario_costs(costs, config)
+    
     update_transmission_costs(n, costs)
 
     return n

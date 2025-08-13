@@ -367,7 +367,11 @@ if __name__ == "__main__":
     config = snakemake.config
     tech_costs = snakemake.input.tech_costs
     cost_year = snakemake.wildcards.planning_horizons
-    costs = load_costs(tech_costs,config['costs'],config['electricity'],cost_year, Nyears)
+    costs = load_costs(tech_costs, config['costs'], config['electricity'], cost_year, Nyears)
+    
+    # 应用市场情景成本调整
+    from add_electricity import apply_market_scenario_costs
+    costs = apply_market_scenario_costs(costs, config)
 
     grouping_years = config['existing_capacities']['grouping_years']
     add_power_capacities_installed_before_baseyear(n, grouping_years, costs, baseyear, config)

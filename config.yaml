@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0813.1H.1
+version: 0813.24H.4
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: False
+using_single_node: True
 single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
@@ -17,7 +17,7 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1h'
+freq: '24h'
 
 add_aluminum: True
 only_other_load: True
@@ -128,11 +128,29 @@ aluminum:
       non_constrained:
         p_min_pu: 0.0  # p.u.
         restart_cost: 0  # $/MW
+    
+    # 2. 市场机会情景 (Market opportunity scenarios)
+    market_opportunity:
+      low:
+        vre_cost_factor: 0.8      # VRE成本调整系数
+        battery_cost_factor: 0.8  # 电池成本调整系数
+        h2_cost_factor: 0.8       # H2/water tank成本调整系数
+        sabatier_cost_factor: 0.8 # Sabatier成本调整系数
+      mid:
+        vre_cost_factor: 1.0      # VRE成本调整系数
+        battery_cost_factor: 1.0  # 电池成本调整系数
+        h2_cost_factor: 1.0       # H2/water tank成本调整系数
+        sabatier_cost_factor: 1.0 # Sabatier成本调整系数
+      high:
+        vre_cost_factor: 1.0      # VRE成本调整系数
+        battery_cost_factor: 1.5  # 电池成本调整系数
+        h2_cost_factor: 1.5       # H2/water tank成本调整系数
+        sabatier_cost_factor: 1.5 # Sabatier成本调整系数
   # 当前选择的情景组合 (默认设置为mid-mid-mid)
   current_scenario:
     smelter_flexibility: "low"
     primary_demand: "high"
-    market_opportunity: "mid"
+    market_opportunity: "high"
   
   # Aluminum storage costs ($/MWh per hour) 3.91479E-05
   al_marginal_cost_storage: 3.79E-05 # euro/MWh

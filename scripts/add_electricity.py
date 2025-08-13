@@ -24,6 +24,66 @@ def calculate_annuity(n, r):
     else:
         return 1 / n
 
+def apply_market_scenario_costs(costs, config):
+    """
+    根据市场情景调整技术成本
+    
+    Parameters:
+    -----------
+    costs : pandas.DataFrame
+        技术成本数据框
+    config : dict
+        包含市场情景配置的配置字典
+    
+    Returns:
+    --------
+    pandas.DataFrame
+        调整后的成本数据框
+    """
+    # 根据市场情景调整成本
+    if 'aluminum' in config and 'current_scenario' in config['aluminum']:
+        market_scenario = config['aluminum']['current_scenario'].get('market_opportunity', 'mid')
+        
+        if market_scenario in config['aluminum']['scenario_dimensions']['market_opportunity']:
+            market_factors = config['aluminum']['scenario_dimensions']['market_opportunity'][market_scenario]
+            
+            # 应用VRE成本调整系数
+            vre_techs = ['solar', 'onwind', 'offwind', 'solar-rooftop', 'solar-utility']
+            for tech in vre_techs:
+                if tech in costs.index:
+                    costs.loc[tech, 'capital_cost'] *= market_factors['vre_cost_factor']
+            
+            # 应用电池成本调整系数
+            battery_techs = ['battery', 'battery storage', 'battery inverter']
+            for tech in battery_techs:
+                if tech in costs.index:
+                    costs.loc[tech, 'capital_cost'] *= market_factors['battery_cost_factor']
+            
+            # 应用H2相关成本调整系数
+            h2_techs = ['H2', 'hydrogen storage tank type 1', 'fuel cell', 'electrolysis']
+            for tech in h2_techs:
+                if tech in costs.index:
+                    costs.loc[tech, 'capital_cost'] *= market_factors['h2_cost_factor']
+            
+            # 应用Sabatier成本调整系数
+            sabatier_techs = ['Sabatier']
+            for tech in sabatier_techs:
+                if tech in costs.index:
+                    costs.loc[tech, 'capital_cost'] *= market_factors['sabatier_cost_factor']
+            
+            # 记录应用的市场情景成本调整
+            try:
+                logger.info(f"Applied market opportunity cost factors for scenario '{market_scenario}': "
+                           f"VRE={market_factors['vre_cost_factor']}, "
+                           f"Battery={market_factors['battery_cost_factor']}, "
+                           f"H2={market_factors['h2_cost_factor']}, "
+                           f"Sabatier={market_factors['sabatier_cost_factor']}")
+            except Exception as e:
+                print(f"WARNING: Logger failed: {e}")
+    
+    return costs
+
+
 def load_costs(tech_costs, config, elec_config,cost_year, Nyears):
 
     # set all asset costs and other parameters
@@ -79,6 +139,9 @@ def load_costs(tech_costs, config, elec_config,cost_year, Nyears):
     costs.loc["H2"] = \
         costs_for_storage(costs.loc["hydrogen storage tank type 1"], costs.loc["fuel cell"],
                           costs.loc["electrolysis"], max_hours=max_hours['H2'])
+
+    # 根据市场情景调整成本
+    costs = apply_market_scenario_costs(costs, config)
 
     for attr in ('marginal_cost', 'capital_cost'):
         overwrites = config.get(attr)

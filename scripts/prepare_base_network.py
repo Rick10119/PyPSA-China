@@ -76,7 +76,11 @@ def prepare_network(config):
 
     tech_costs = snakemake.input.tech_costs
     cost_year = snakemake.wildcards.planning_horizons
-    costs = load_costs(tech_costs,config['costs'],config['electricity'],cost_year, Nyears)
+    costs = load_costs(tech_costs, config['costs'], config['electricity'], cost_year, Nyears)
+    
+    # 应用市场情景成本调整
+    from add_electricity import apply_market_scenario_costs
+    costs = apply_market_scenario_costs(costs, config)
 
     date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
     date_range = date_range.map(lambda t: t.replace(year=2020))
