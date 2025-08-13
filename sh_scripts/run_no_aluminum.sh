@@ -3,7 +3,8 @@
 
 echo "开始运行不包含电解铝厂的模拟..."
 echo "配置文件: configs/config_no_aluminum.yaml"
-echo "版本号: 0811.1H.1-no-aluminum"
+echo "版本号: 0811.1H.1-MHM-no-aluminum"
+echo "Scenario: mid-high-mid (MHM)"
 echo "设置: add_aluminum=False, only_other_load=True"
 echo
 

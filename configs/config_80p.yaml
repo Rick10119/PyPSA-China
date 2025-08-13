@@ -1,4 +1,4 @@
-version: 0811.1H.1-80p
+version: 0811.1H.1-MHM-80p
 logging_level: INFO
 foresight: myopic
 using_single_node: false
@@ -110,7 +110,7 @@ aluminum:
         p_min_pu: 0.5
         restart_cost: 3200
   current_scenario:
-    smelter_flexibility: mid
+    smelter_flexibility: high
     primary_demand: high
     market_opportunity: mid
   al_marginal_cost_storage: 3.79e-05

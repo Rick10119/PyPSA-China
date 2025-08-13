@@ -2,6 +2,7 @@
 # 批量运行所有场景的模拟
 
 echo "开始批量运行所有场景的模拟..."
+echo "Scenario: mid-high-mid (MHM)"
 echo
 
 # 运行不包含电解铝厂的场景
@@ -45,4 +46,4 @@ echo "=== 运行 55% 容量比例 ==="
 echo
 
 echo "所有场景的模拟已完成！"
-echo "结果文件位于: results/version-0723.8H.5-*/"
+echo "结果文件位于: results/version-MHM-*/"

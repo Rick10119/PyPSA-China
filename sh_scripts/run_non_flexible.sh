@@ -3,7 +3,8 @@
 
 echo "开始运行non-flexible场景的模拟..."
 echo "配置文件: configs/config_non_flexible.yaml"
-echo "版本号: 0811.1H.1-non-flexible"
+echo "版本号: 0811.1H.1-MHM-non-flexible"
+echo "Scenario: mid-high-mid (MHM)"
 echo "设置: add_aluminum=False, only_other_load=False"
 echo
 

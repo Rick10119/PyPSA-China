@@ -1,4 +1,4 @@
-version: 0811.1H.1-non-flexible
+version: 0811.1H.1-MHM-non-flexible
 logging_level: INFO
 foresight: myopic
 using_single_node: false

@@ -25,13 +25,26 @@ def generate_capacity_configs():
     
     base_version = config['version']
     
+    # 获取当前scenario设置
+    current_scenario = config.get('current_scenario', {})
+    smelter_flex = current_scenario.get('smelter_flexibility', 'mid')
+    primary_demand = current_scenario.get('primary_demand', 'high')
+    market_opp = current_scenario.get('market_opportunity', 'mid')
+    
+    # 将scenario映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    demand_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    scenario_suffix = f"{flex_map[smelter_flex]}{demand_map[primary_demand]}{market_map[market_opp]}"
+    
     for ratio in capacity_ratios:
         # 创建新的配置副本
         new_config = config.copy()
         
-        # 更新版本号，添加容量比例标识
+        # 更新版本号，添加scenario和容量比例标识
         percentage = int(ratio * 100)
-        new_config['version'] = f"{base_version}-{percentage}p"
+        new_config['version'] = f"{base_version}-{scenario_suffix}-{percentage}p"
         
         # 更新容量比例设置
         new_config['aluminum_capacity_ratio'] = ratio
@@ -47,6 +60,7 @@ def generate_capacity_configs():
         
         print(f"已生成配置文件: {config_filename}")
         print(f"  版本号: {new_config['version']}")
+        print(f"  Scenario: {smelter_flex}-{primary_demand}-{market_opp} ({scenario_suffix})")
         print(f"  容量比例: {percentage}%")
         print()
 
@@ -60,11 +74,24 @@ def generate_no_aluminum_config():
     
     base_version = config['version']
     
+    # 获取当前scenario设置
+    current_scenario = config.get('current_scenario', {})
+    smelter_flex = current_scenario.get('smelter_flexibility', 'mid')
+    primary_demand = current_scenario.get('primary_demand', 'high')
+    market_opp = current_scenario.get('market_opportunity', 'mid')
+    
+    # 将scenario映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    demand_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    scenario_suffix = f"{flex_map[smelter_flex]}{demand_map[primary_demand]}{market_map[market_opp]}"
+    
     # 创建新的配置副本
     new_config = config.copy()
     
-    # 更新版本号，添加no-aluminum标识
-    new_config['version'] = f"{base_version}-no-aluminum"
+    # 更新版本号，添加scenario和no-aluminum标识
+    new_config['version'] = f"{base_version}-{scenario_suffix}-no-aluminum"
     
     # 设置不包含电解铝厂
     new_config['add_aluminum'] = False
@@ -96,11 +123,24 @@ def generate_non_flexible_config():
     
     base_version = config['version']
     
+    # 获取当前scenario设置
+    current_scenario = config.get('current_scenario', {})
+    smelter_flex = current_scenario.get('smelter_flexibility', 'mid')
+    primary_demand = current_scenario.get('primary_demand', 'high')
+    market_opp = current_scenario.get('market_opportunity', 'mid')
+    
+    # 将scenario映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    demand_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    scenario_suffix = f"{flex_map[smelter_flex]}{demand_map[primary_demand]}{market_map[market_opp]}"
+    
     # 创建新的配置副本
     new_config = config.copy()
     
-    # 更新版本号，添加non-flexible标识
-    new_config['version'] = f"{base_version}-non-flexible"
+    # 更新版本号，添加scenario和non-flexible标识
+    new_config['version'] = f"{base_version}-{scenario_suffix}-non-flexible"
     
     # 设置non-flexible场景
     new_config['add_aluminum'] = False
@@ -130,6 +170,22 @@ def create_run_sh_scripts(base_version):
     sh_scripts_dir = Path('sh_scripts')
     sh_scripts_dir.mkdir(exist_ok=True)
     
+    # 读取原始配置文件获取scenario信息
+    with open('config.yaml', 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    current_scenario = config.get('current_scenario', {})
+    smelter_flex = current_scenario.get('smelter_flexibility', 'mid')
+    primary_demand = current_scenario.get('primary_demand', 'high')
+    market_opp = current_scenario.get('market_opportunity', 'mid')
+    
+    # 将scenario映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    demand_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    scenario_suffix = f"{flex_map[smelter_flex]}{demand_map[primary_demand]}{market_map[market_opp]}"
+    
     capacity_ratios = [1.0, 0.9, 0.8, 0.7, 0.6, 0.55]
     
     for ratio in capacity_ratios:
@@ -142,7 +198,8 @@ def create_run_sh_scripts(base_version):
 
 echo "开始运行 {percentage}% 容量比例的模拟..."
 echo "配置文件: {config_file}"
-echo "版本号: {base_version}-{percentage}p"
+echo "版本号: {base_version}-{scenario_suffix}-{percentage}p"
+echo "Scenario: {smelter_flex}-{primary_demand}-{market_opp} ({scenario_suffix})"
 echo
 
 # 使用指定的配置文件运行snakemake
@@ -171,12 +228,29 @@ def create_no_aluminum_run_script(base_version):
     sh_scripts_dir = Path('sh_scripts')
     sh_scripts_dir.mkdir(exist_ok=True)
     
+    # 读取原始配置文件获取scenario信息
+    with open('config.yaml', 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    current_scenario = config.get('current_scenario', {})
+    smelter_flex = current_scenario.get('smelter_flexibility', 'mid')
+    primary_demand = current_scenario.get('primary_demand', 'high')
+    market_opp = current_scenario.get('market_opportunity', 'mid')
+    
+    # 将scenario映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    demand_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    scenario_suffix = f"{flex_map[smelter_flex]}{demand_map[primary_demand]}{market_map[market_opp]}"
+    
     script_content = f"""#!/bin/bash
 # 运行不包含电解铝厂的模拟
 
 echo "开始运行不包含电解铝厂的模拟..."
 echo "配置文件: configs/config_no_aluminum.yaml"
-echo "版本号: {base_version}-no-aluminum"
+echo "版本号: {base_version}-{scenario_suffix}-no-aluminum"
+echo "Scenario: {smelter_flex}-{primary_demand}-{market_opp} ({scenario_suffix})"
 echo "设置: add_aluminum=False, only_other_load=True"
 echo
 
@@ -203,12 +277,29 @@ def create_non_flexible_run_script(base_version):
     sh_scripts_dir = Path('sh_scripts')
     sh_scripts_dir.mkdir(exist_ok=True)
     
+    # 读取原始配置文件获取scenario信息
+    with open('config.yaml', 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    current_scenario = config.get('current_scenario', {})
+    smelter_flex = current_scenario.get('smelter_flexibility', 'mid')
+    primary_demand = current_scenario.get('primary_demand', 'high')
+    market_opp = current_scenario.get('market_opportunity', 'mid')
+    
+    # 将scenario映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    demand_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    scenario_suffix = f"{flex_map[smelter_flex]}{demand_map[primary_demand]}{market_map[market_opp]}"
+    
     script_content = f"""#!/bin/bash
 # 运行non-flexible场景的模拟
 
 echo "开始运行non-flexible场景的模拟..."
 echo "配置文件: configs/config_non_flexible.yaml"
-echo "版本号: {base_version}-non-flexible"
+echo "版本号: {base_version}-{scenario_suffix}-non-flexible"
+echo "Scenario: {smelter_flex}-{primary_demand}-{market_opp} ({scenario_suffix})"
 echo "设置: add_aluminum=False, only_other_load=False"
 echo
 
@@ -235,10 +326,27 @@ def create_batch_run_script():
     sh_scripts_dir = Path('sh_scripts')
     sh_scripts_dir.mkdir(exist_ok=True)
     
-    script_content = """#!/bin/bash
+    # 读取原始配置文件获取scenario信息
+    with open('config.yaml', 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    current_scenario = config.get('current_scenario', {})
+    smelter_flex = current_scenario.get('smelter_flexibility', 'mid')
+    primary_demand = current_scenario.get('primary_demand', 'high')
+    market_opp = current_scenario.get('market_opportunity', 'mid')
+    
+    # 将scenario映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    demand_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    scenario_suffix = f"{flex_map[smelter_flex]}{demand_map[primary_demand]}{market_map[market_opp]}"
+    
+    script_content = f"""#!/bin/bash
 # 批量运行所有容量比例的模拟
 
 echo "开始批量运行所有容量比例的模拟..."
+echo "Scenario: {smelter_flex}-{primary_demand}-{market_opp} ({scenario_suffix})"
 echo
 
 # 运行100%容量比例
@@ -272,7 +380,7 @@ echo "=== 运行 55% 容量比例 ==="
 echo
 
 echo "所有容量比例的模拟已完成！"
-echo "结果文件位于: results/version-0723.8H.5-*p/"
+echo "结果文件位于: results/version-{scenario_suffix}-*p/"
 """
     
     script_filename = sh_scripts_dir / "run_all_capacities.sh"
@@ -290,10 +398,27 @@ def create_all_scenarios_run_script():
     sh_scripts_dir = Path('sh_scripts')
     sh_scripts_dir.mkdir(exist_ok=True)
     
-    script_content = """#!/bin/bash
+    # 读取原始配置文件获取scenario信息
+    with open('config.yaml', 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    current_scenario = config.get('current_scenario', {})
+    smelter_flex = current_scenario.get('smelter_flexibility', 'mid')
+    primary_demand = current_scenario.get('primary_demand', 'high')
+    market_opp = current_scenario.get('market_opportunity', 'mid')
+    
+    # 将scenario映射为简短的标识符
+    flex_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    demand_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    market_map = {'low': 'L', 'mid': 'M', 'high': 'H'}
+    
+    scenario_suffix = f"{flex_map[smelter_flex]}{demand_map[primary_demand]}{market_map[market_opp]}"
+    
+    script_content = f"""#!/bin/bash
 # 批量运行所有场景的模拟
 
 echo "开始批量运行所有场景的模拟..."
+echo "Scenario: {smelter_flex}-{primary_demand}-{market_opp} ({scenario_suffix})"
 echo
 
 # 运行不包含电解铝厂的场景
@@ -337,7 +462,7 @@ echo "=== 运行 55% 容量比例 ==="
 echo
 
 echo "所有场景的模拟已完成！"
-echo "结果文件位于: results/version-0723.8H.5-*/"
+echo "结果文件位于: results/version-{scenario_suffix}-*/"
 """
     
     script_filename = sh_scripts_dir / "run_all_scenarios.sh"

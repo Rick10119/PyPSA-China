@@ -1,4 +1,4 @@
-version: 0811.1H.1-no-aluminum
+version: 0811.1H.1-MHM-no-aluminum
 logging_level: INFO
 foresight: myopic
 using_single_node: false

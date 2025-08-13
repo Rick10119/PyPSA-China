@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1               # 总任务数
 #SBATCH --cpus-per-task=40       # 每个任务的CPU核心数
 #SBATCH --mem-per-cpu=15G        # 每个CPU核心的内存
-#SBATCH --time=16:00:00          # 总运行时间限制
+#SBATCH --time=12:00:00          # 总运行时间限制
 #SBATCH --mail-type=begin        # 作业开始时发送邮件
 #SBATCH --mail-type=end          # 作业结束时发送邮件
 #SBATCH --mail-type=fail         # 作业失败时发送邮件
@@ -19,7 +19,7 @@ echo "开始时间: $(date)"
 echo "作业ID: $SLURM_JOB_ID"
 echo "节点: $SLURM_NODELIST"
 echo "日志文件: $LOG_FILE"
-echo "版本: 0811.1H.1-55p"
+echo "版本: 0811.1H.1-MHM-55p"
 echo
 
 # 加载必要的模块
