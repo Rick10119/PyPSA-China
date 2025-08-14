@@ -171,15 +171,12 @@ def load_scenario_data(scenario_info, file_type='costs'):
                         # 创建空的DataFrame，确保数据结构一致
                         data[config_type] = pd.DataFrame()
                 else:
-                    logger.warning(f"文件不存在: {file_path}，将使用空数据")
                     # 创建空的DataFrame，确保数据结构一致
                     data[config_type] = pd.DataFrame()
             else:
-                logger.warning(f"年份目录不存在: {year_dir}，将使用空数据")
                 # 创建空的DataFrame，确保数据结构一致
                 data[config_type] = pd.DataFrame()
         else:
-            logger.warning(f"Summary目录不存在: {summary_dir}，将使用空数据")
             # 创建空的DataFrame，确保数据结构一致
             data[config_type] = pd.DataFrame()
     
@@ -319,8 +316,8 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
         # 其他分类
         ('capital', 'CO2 capture'): 'carbon capture',
         ('marginal', 'CO2 capture'): 'carbon capture',
-        ('capital', 'Sabatier'): 'synthetic fuels',
-        ('marginal', 'Sabatier'): 'synthetic fuels',
+        ('capital', 'Sabatier'): 'carbon capture',
+        ('marginal', 'Sabatier'): 'carbon capture',
         ('capital', 'CO2'): 'carbon management',
         ('marginal', 'CO2'): 'carbon management',
     }
@@ -368,7 +365,6 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
     
     # 过滤掉不需要展示的分类
     exclude_categories = {
-        'synthetic fuels',
         'marginal - renewable',
         'marginal - heat pump',
         'marginal - resistive heater',
@@ -426,6 +422,8 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     plots_dir = output_dir / "scenario_plots"
     plots_dir.mkdir(parents=True, exist_ok=True)
     
+    logger.info(f"图表输出目录: {plots_dir}")
+    
     # 定义场景代码到描述的映射
     scenario_descriptions = {
         'L': 'Low',
@@ -437,192 +435,227 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     # 欧元到人民币转换率
     EUR_TO_CNY = 7.8
     
-    # 为每个demand-market组合创建子图
-    fig, axes = plt.subplots(3, 3, figsize=(20, 16))
-    fig.suptitle(f'Scenario Comparison: {file_type.capitalize()} Changes by Flexibility Level', fontsize=16, y=0.98)
-    
-    # 定义demand和market级别
+    # 第一步：收集所有数据并保存到CSV
+    all_plot_data = []
     demand_levels = ['L', 'M', 'H']
     market_levels = ['L', 'M', 'H']
+    flexibility_levels = ['L', 'M', 'H', 'N']
     
-    # 为每个demand-market组合创建子图
-    for i, demand in enumerate(demand_levels):
-        for j, market in enumerate(market_levels):
-            ax = axes[i, j]
-            
-            # 收集该demand-market组合下所有flexibility级别的数据
-            flexibility_levels = ['L', 'M', 'H', 'N']
-            all_flex_data = {}
-            
+    logger.info("正在收集绘图数据...")
+    
+    for demand in demand_levels:
+        for market in market_levels:
             for flex in flexibility_levels:
                 scenario_code = f"{flex}{demand}{market}"
                 if scenario_code in scenarios:
+                    # 添加场景验证调试信息
+                    if flex in ['H', 'N'] and demand == 'H' and market == 'H':
+                        logger.info(f"验证场景 {scenario_code}:")
+                        logger.info(f"  版本名称: {scenarios[scenario_code]['100p']['version_name']}")
+                        logger.info(f"  版本目录: {scenarios[scenario_code]['100p']['version_dir']}")
+                        logger.info(f"  non_flexible版本名称: {scenarios[scenario_code]['non_flexible']['version_name']}")
+                        logger.info(f"  non_flexible版本目录: {scenarios[scenario_code]['non_flexible']['version_dir']}")
+                    
                     scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
                     
                     # 检查是否有数据
                     has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
                     has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
                     
-                    # 即使只有一个数据集存在，也进行处理
-                    if has_100p_data or has_non_flex_data:
-                        # 获取可用的数据
-                        data_100p = scenario_data.get('100p', pd.DataFrame())
-                        data_non_flex = scenario_data.get('non_flexible', pd.DataFrame())
+                    if has_100p_data and has_non_flex_data:
+                        # 添加调试信息：检查数据内容
+                        if flex in ['H', 'N'] and demand == 'H' and market == 'H':  # 只对HHH和NHH场景添加调试
+                            logger.info(f"场景 {scenario_code} 数据检查:")
+                            logger.info(f"  100p数据行数: {len(scenario_data['100p'])}")
+                            logger.info(f"  non_flexible数据行数: {len(scenario_data['non_flexible'])}")
+                            
+                            # 检查一些关键的成本分类
+                            key_categories = ['capital - onwind', 'capital - solar', 'capital - battery']
+                            for category in key_categories:
+                                if category in cost_diff:
+                                    logger.info(f"  {category}: 差异 = {cost_diff[category]/1e9:.2f}B EUR")
                         
-                        # 计算成本差异，如果某个值不存在就设为0
-                        cost_diff = calculate_cost_difference(data_100p, data_non_flex)
+                        # 计算成本差异
+                        cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
                         if cost_diff:
                             # 转换为人民币并排除aluminum相关数据和Total Change
-                            cost_diff_cny = {}
                             for k, v in cost_diff.items():
-                                if 'aluminum' not in k.lower() and k != 'Total Change':  # 排除aluminum相关数据和Total Change
-                                    # 如果值是NaN，设为0
-                                    if pd.isna(v):
-                                        cost_diff_cny[k] = 0.0
-                                    else:
-                                        cost_diff_cny[k] = v * EUR_TO_CNY
-                            
-                            if cost_diff_cny:  # 如果有非aluminum数据
-                                all_flex_data[flex] = cost_diff_cny
+                                if 'aluminum' not in k.lower() and k != 'Total Change':
+                                    if not pd.isna(v):
+                                        value_cny = v * EUR_TO_CNY
+                                        all_plot_data.append({
+                                            'Demand': demand,
+                                            'Market': market,
+                                            'Flexibility': flex,
+                                            'Category': k,
+                                            'Value (CNY)': value_cny,
+                                            'Value (Billion CNY)': value_cny / 1e9,
+                                            'Scenario_Code': scenario_code
+                                        })
+    
+    # 保存汇总的绘图数据
+    if all_plot_data:
+        all_plot_df = pd.DataFrame(all_plot_data)
+        summary_plot_csv = plots_dir / f"all_plot_data_{file_type}.csv"
+        all_plot_df.to_csv(summary_plot_csv, index=False)
+        logger.info(f"汇总绘图数据已保存到: {summary_plot_csv}")
+        
+        # 打印数据统计信息
+        logger.info(f"绘图数据统计:")
+        logger.info(f"  总数据行数: {len(all_plot_df)}")
+        logger.info(f"  唯一分类数: {all_plot_df['Category'].nunique()}")
+        logger.info(f"  唯一场景数: {all_plot_df['Scenario_Code'].nunique()}")
+        logger.info(f"  数值范围: {all_plot_df['Value (Billion CNY)'].min():.2f}B 到 {all_plot_df['Value (Billion CNY)'].max():.2f}B CNY")
+    
+    # 第二步：基于CSV数据生成图表
+    logger.info("正在基于CSV数据生成图表...")
+    
+    # 为每个demand-market组合创建子图
+    fig, axes = plt.subplots(3, 3, figsize=(20, 16))
+    fig.suptitle(f'Scenario Comparison: {file_type.capitalize()} Changes by Flexibility Level', fontsize=16, y=0.98)
+    
+    for i, demand in enumerate(demand_levels):
+        for j, market in enumerate(market_levels):
+            ax = axes[i, j]
             
-            if all_flex_data:
-                # 准备堆叠图数据
-                all_categories = set()
-                for flex_data in all_flex_data.values():
-                    all_categories.update(flex_data.keys())
+            # 从CSV数据中筛选当前demand-market组合的数据
+            current_data = all_plot_df[
+                (all_plot_df['Demand'] == demand) & 
+                (all_plot_df['Market'] == market)
+            ]
+            
+            if not current_data.empty:
+                # 获取该demand-market组合下所有flexibility级别的数据
+                flex_data_dict = {}
+                for flex in flexibility_levels:
+                    flex_data = current_data[current_data['Flexibility'] == flex]
+                    if not flex_data.empty:
+                        flex_data_dict[flex] = {}
+                        for _, row in flex_data.iterrows():
+                            flex_data_dict[flex][row['Category']] = row['Value (CNY)']
                 
-                if all_categories:
-                    # 按flexibility级别组织数据
-                    flex_names = list(all_flex_data.keys())
-                    categories = list(all_categories)
+                if flex_data_dict:
+                    # 获取所有分类
+                    all_categories = set()
+                    for flex_data in flex_data_dict.values():
+                        all_categories.update(flex_data.keys())
                     
-                    # 创建分组条形图
-                    x_pos = np.arange(len(flex_names))
-                    width = 0.8
-                    
-                    # 为每个资源类别分配颜色
-                    colors = plt.cm.Set3(np.linspace(0, 1, len(categories)))
-                    
-                    # 绘制每个flexibility级别的柱子
-                    for i_flex, flex in enumerate(flex_names):
-                        if flex in all_flex_data:
-                            # 收集该flexibility级别的所有资源数据
-                            flex_data = all_flex_data[flex]
-                            
-                            # 分离正负值并准备堆叠数据
-                            positive_bottom = 0
-                            negative_bottom = 0
+                    if all_categories:
+                        categories = list(all_categories)
+                        flex_names = list(flex_data_dict.keys())
+                        
+                        # 创建堆叠柱状图
+                        x_pos = np.arange(len(flex_names))
+                        width = 0.8
+                        
+                        # 为每个资源类别分配颜色
+                        colors = plt.cm.Set3(np.linspace(0, 1, len(categories)))
+                        
+                        # 准备堆叠数据 - 为每个flexibility级别创建完整的数组
+                        positive_changes = []
+                        negative_changes = []
+                        
+                        for flex in flex_names:
+                            flex_data = flex_data_dict.get(flex, {})
+                            flex_positive = []
+                            flex_negative = []
                             
                             for category in categories:
                                 value = flex_data.get(category, 0)
-                                # 处理所有值，包括0值，确保图表连续性
-                                
-                                if value > 0:  # 成本减少（正值）
-                                    # 绘制正值（成本减少，在横轴上面）
-                                    ax.bar(x_pos[i_flex], value, width, 
-                                           bottom=positive_bottom,
-                                           color=colors[categories.index(category)], 
-                                           alpha=0.8)
-                                    positive_bottom += value
-                                elif value < 0:  # 成本增加（负值）
-                                    # 绘制负值（成本增加，在横轴下面）
-                                    ax.bar(x_pos[i_flex], -abs(value), width, 
-                                           bottom=negative_bottom,
-                                           color=colors[categories.index(category)], 
-                                           alpha=0.8)
-                                    negative_bottom += abs(value)
-                                # 如果value == 0，不绘制任何内容，但保持bottom位置不变
-                    
-                    # 设置标签
-                    ax.set_xticks(x_pos)
-                    ax.set_xticklabels([f'{flex}' for flex in flex_names], fontsize=10)
-                    ax.set_ylabel('Cost Change (CNY)', fontsize=9)
-                    
-                    # 添加零线
-                    ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1.5)
-                    
-                    # 设置标题
-                    ax.set_title(f'Demand: {scenario_descriptions[demand]}, Market: {scenario_descriptions[market]}', 
-                               fontsize=10, fontweight='bold')
-                    
-                                        # 不在这里添加图例，将在图表外部统一添加
-                    
-                    # 添加网格
-                    ax.grid(True, alpha=0.3, axis='y')
-                    
-                    # 设置y轴标签为十亿人民币单位
-                    y_ticks = ax.get_yticks()
-                    y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
-                    ax.set_yticks(y_ticks)  # 先设置刻度位置
-                    ax.set_yticklabels(y_tick_labels, fontsize=8)
-                    
-                    # 设置合理的y轴范围，确保图表显示完整
-                    y_data = [val for flex_data in all_flex_data.values() for val in flex_data.values()]
-                    if y_data:
-                        y_max = max(y_data) if y_data else 0
-                        y_min = min(y_data) if y_data else 0
-                        y_range = max(abs(y_max), abs(y_min))
-                        if y_range > 0:
-                            ax.set_ylim(-y_range * 1.1, y_range * 1.1)
+                                if value > 0:
+                                    flex_positive.append(value)
+                                    flex_negative.append(0)
+                                elif value < 0:
+                                    flex_positive.append(0)
+                                    flex_negative.append(-abs(value))
+                                else:
+                                    flex_positive.append(0)
+                                    flex_negative.append(0)
+                            
+                            positive_changes.append(flex_positive)
+                            negative_changes.append(flex_negative)
+                        
+                        # 绘制正值堆叠（成本减少，在横轴上面）
+                        bottom_positive = np.zeros(len(x_pos))
+                        for cat_idx, category in enumerate(categories):
+                            category_values = [changes[cat_idx] for changes in positive_changes]
+                            if any(val > 0 for val in category_values):
+                                ax.bar(x_pos, category_values, width, 
+                                       bottom=bottom_positive,
+                                       color=colors[cat_idx], 
+                                       alpha=0.8,
+                                       label=category)
+                                bottom_positive += np.array(category_values)
+                        
+                        # 绘制负值堆叠（成本增加，在横轴下面）
+                        bottom_negative = np.zeros(len(x_pos))
+                        for cat_idx, category in enumerate(categories):
+                            category_values = [changes[cat_idx] for changes in negative_changes]
+                            if any(val > 0 for val in category_values):
+                                ax.bar(x_pos, category_values, width, 
+                                       bottom=bottom_negative,
+                                       color=colors[cat_idx], 
+                                       alpha=0.8)
+                                bottom_negative += np.array(category_values)
+                        
+                        # 设置标签
+                        ax.set_xticks(x_pos)
+                        ax.set_xticklabels([f'{flex}' for flex in flex_names], fontsize=10)
+                        ax.set_ylabel('Cost Change (CNY)', fontsize=9)
+                        
+                        # 添加零线
+                        ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1.5)
+                        
+                        # 设置标题
+                        ax.set_title(f'Demand: {scenario_descriptions[demand]}, Market: {scenario_descriptions[market]}', 
+                                   fontsize=10, fontweight='bold')
+                        
+                        # 添加网格
+                        ax.grid(True, alpha=0.3, axis='y')
+                        
+                        # 设置y轴标签为十亿人民币单位
+                        y_ticks = ax.get_yticks()
+                        y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
+                        ax.set_yticks(y_ticks)
+                        ax.set_yticklabels(y_tick_labels, fontsize=8)
+                        
+                        # 设置合理的y轴范围
+                        y_data = [val for flex_data in flex_data_dict.values() for val in flex_data.values()]
+                        if y_data:
+                            y_max = max(y_data) if y_data else 0
+                            y_min = min(y_data) if y_data else 0
+                            y_range = max(abs(y_max), abs(y_min))
+                            if y_range > 0:
+                                ax.set_ylim(-y_range * 1.1, y_range * 1.1)
+                    else:
+                        ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
+                               transform=ax.transAxes, fontsize=10)
                 else:
                     ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
                            transform=ax.transAxes, fontsize=10)
             else:
                 ax.text(0.5, 0.5, f'No data for\nDemand:{demand}, Market:{market}', ha='center', va='center', 
                        transform=ax.transAxes, fontsize=10)
+            
+
     
-    # 在图表外部添加统一的图例
-    # 获取第一个有数据的子图来创建图例
-    legend_ax = None
-    for i in range(3):
-        for j in range(3):
-            if axes[i, j].get_children():  # 检查子图是否有内容
-                legend_ax = axes[i, j]
-                break
-        if legend_ax:
-            break
-    
-    if legend_ax:
-        # 创建统一的资源类别图例
+    # 创建图例
+    if not all_plot_df.empty:
+        # 获取所有唯一的分类
+        all_categories = all_plot_df['Category'].unique()
+        colors = plt.cm.Set3(np.linspace(0, 1, len(all_categories)))
+        
+        # 创建图例元素
         legend_elements = []
-        # 使用第一个子图的categories和colors来创建图例
-        for i, demand in enumerate(demand_levels):
-            for j, market in enumerate(market_levels):
-                ax = axes[i, j]
-                if ax.get_children():  # 检查子图是否有内容
-                    # 获取该子图的categories和colors
-                    all_categories = set()
-                    for flex in ['L', 'M', 'H', 'N']:
-                        scenario_code = f"{flex}{demand}{market}"
-                        if scenario_code in scenarios:
-                            scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
-                            if '100p' in scenario_data and 'non_flexible' in scenario_data:
-                                cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
-                                if cost_diff:
-                                    cost_diff_cny = {}
-                                    for k, v in cost_diff.items():
-                                        if 'aluminum' not in k.lower() and k != 'Total Change':
-                                            cost_diff_cny[k] = v * EUR_TO_CNY
-                                    if cost_diff_cny:
-                                        all_categories.update(cost_diff_cny.keys())
-                    
-                    if all_categories:
-                        categories = list(all_categories)
-                        colors = plt.cm.Set3(np.linspace(0, 1, len(categories)))
-                        
-                        # 创建图例元素，排除Total Change
-                        for idx, category in enumerate(categories):
-                            if category != 'Total Change':  # 排除Total Change
-                                legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[idx], 
-                                                                   label=category, alpha=0.8))
-                        break
-            if legend_elements:
-                break
-    
-    if legend_elements:
+        for idx, category in enumerate(all_categories):
+            legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[idx], 
+                                               label=category, alpha=0.8))
+        
         # 在图表外部添加统一图例
         fig.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5),
                    title='Resource Categories', fontsize=10)
+        
+        logger.info(f"图例包含 {len(legend_elements)} 个分类")
     
     plt.tight_layout()
     
@@ -750,10 +783,11 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
                 cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
                 
                 if cost_diff and 'Total Change' in cost_diff:
+                    # 注意：cost_diff中的数据已经是欧元单位，需要转换为人民币
                     total_change = cost_diff['Total Change'] * EUR_TO_CNY
                     
                     # 添加调试信息：显示总变化量
-                    logger.info(f"场景 {scenario_code}: 过滤后总成本变化 = {total_change/1e9:.2f}B CNY")
+                    logger.info(f"场景 {scenario_code}: 过滤后总成本变化 = {total_change/1e9:.2f}B CNY (原始欧元值: {cost_diff['Total Change']/1e9:.2f}B EUR)")
                     
                     # 计算各分类的变化量
                     category_changes = {}
