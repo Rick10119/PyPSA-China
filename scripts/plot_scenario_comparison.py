@@ -518,11 +518,11 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     ax.set_title(f'Demand: {scenario_descriptions[demand]}, Market: {scenario_descriptions[market]}', 
                                fontsize=10, fontweight='bold')
                     
-                    # 创建自定义图例，显示资源类别
+                                        # 创建自定义图例，显示资源类别
                     legend_elements = []
-                    for i, category in enumerate(categories):
-                        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[i], 
-                                                          label=category, alpha=0.8))
+                    for idx, category in enumerate(categories):
+                        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[idx], 
+                                                           label=category, alpha=0.8))
                     ax.legend(handles=legend_elements, fontsize=8, loc='upper right', 
                              title='Resource Categories')
                     
@@ -532,6 +532,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     # 设置y轴标签为十亿人民币单位
                     y_ticks = ax.get_yticks()
                     y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
+                    ax.set_yticks(y_ticks)  # 先设置刻度位置
                     ax.set_yticklabels(y_tick_labels, fontsize=8)
                 else:
                     ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
