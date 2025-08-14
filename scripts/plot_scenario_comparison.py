@@ -98,26 +98,28 @@ def find_scenario_results(results_dir, base_version):
     
     scenarios = {}
     
-    # 为每个demand-market组合创建场景
-    for demand in demand_levels:
-        for market in market_levels:
-            scenario_code = f"{demand}{market}"
-            scenarios[scenario_code] = {}
-            
-            # 为每个config_type创建版本信息
-            for config_type in config_types:
-                # 构建版本名称
-                version_name = f"{base_version}-{scenario_code}-{year}-{config_type}"
-                version_dir = results_path / f"version-{version_name}"
+    # 为每个flexibility-demand-market组合创建场景
+    for flexibility in flexibility_levels:
+        for demand in demand_levels:
+            for market in market_levels:
+                scenario_code = f"{flexibility}{demand}{market}"
+                scenarios[scenario_code] = {}
                 
-                scenarios[scenario_code][config_type] = {
-                    'version_name': version_name,
-                    'version_dir': version_dir,
-                    'year': year,
-                    'demand': demand,
-                    'market': market,
-                    'config_type': config_type
-                }
+                # 为每个config_type创建版本信息
+                for config_type in config_types:
+                    # 构建版本名称
+                    version_name = f"{base_version}-{scenario_code}-{year}-{config_type}"
+                    version_dir = results_path / f"version-{version_name}"
+                    
+                    scenarios[scenario_code][config_type] = {
+                        'version_name': version_name,
+                        'version_dir': version_dir,
+                        'year': year,
+                        'flexibility': flexibility,
+                        'demand': demand,
+                        'market': market,
+                        'config_type': config_type
+                    }
     
     logger.info(f"基于基准版本 {base_version} 构建了 {len(scenarios)} 个场景")
     return scenarios
