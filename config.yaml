@@ -69,7 +69,7 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2 # barrier
-      BarHomogeneous: 1
+      # BarHomogeneous: 1
       BarConvTol: 1.e-5
       FeasibilityTol: 1.e-6
       AggFill: 0
