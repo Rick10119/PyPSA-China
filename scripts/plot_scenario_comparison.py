@@ -479,32 +479,26 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                             # 收集该flexibility级别的所有资源数据
                             flex_data = all_flex_data[flex]
                             
-                            # 分离正负值
-                            positive_values = []
-                            negative_values = []
-                            positive_labels = []
-                            negative_labels = []
+                            # 分离正负值并准备堆叠数据
+                            positive_bottom = 0
+                            negative_bottom = 0
                             
                             for category in categories:
                                 value = flex_data.get(category, 0)
                                 if value > 0:  # 成本减少（正值）
-                                    positive_values.append(value)
-                                    positive_labels.append(category)
+                                    # 绘制正值（成本减少，在横轴上面）
+                                    ax.bar(x_pos[i_flex], value, width, 
+                                           bottom=positive_bottom,
+                                           color=colors[categories.index(category)], 
+                                           alpha=0.8)
+                                    positive_bottom += value
                                 elif value < 0:  # 成本增加（负值）
-                                    negative_values.append(abs(value))
-                                    negative_labels.append(category)
-                            
-                            # 绘制正值（成本减少，在横轴上面）
-                            if positive_values:
-                                ax.bar(x_pos[i_flex], positive_values, width, 
-                                       color=colors[:len(positive_values)], 
-                                       label=f'{flex} (Flexibility)', alpha=0.8)
-                            
-                            # 绘制负值（成本增加，在横轴下面）
-                            if negative_values:
-                                ax.bar(x_pos[i_flex], [-v for v in negative_values], width, 
-                                       color=colors[:len(negative_values)], 
-                                       alpha=0.8)
+                                    # 绘制负值（成本增加，在横轴下面）
+                                    ax.bar(x_pos[i_flex], -abs(value), width, 
+                                           bottom=negative_bottom,
+                                           color=colors[categories.index(category)], 
+                                           alpha=0.8)
+                                    negative_bottom += abs(value)
                     
                     # 设置标签
                     ax.set_xticks(x_pos)
@@ -518,13 +512,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     ax.set_title(f'Demand: {scenario_descriptions[demand]}, Market: {scenario_descriptions[market]}', 
                                fontsize=10, fontweight='bold')
                     
-                                        # 创建自定义图例，显示资源类别
-                    legend_elements = []
-                    for idx, category in enumerate(categories):
-                        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[idx], 
-                                                           label=category, alpha=0.8))
-                    ax.legend(handles=legend_elements, fontsize=8, loc='upper right', 
-                             title='Resource Categories')
+                                        # 不在这里添加图例，将在图表外部统一添加
                     
                     # 添加网格
                     ax.grid(True, alpha=0.3, axis='y')
@@ -540,6 +528,58 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
             else:
                 ax.text(0.5, 0.5, f'No data for\nDemand:{demand}, Market:{market}', ha='center', va='center', 
                        transform=ax.transAxes, fontsize=10)
+    
+    # 在图表外部添加统一的图例
+    # 获取第一个有数据的子图来创建图例
+    legend_ax = None
+    for i in range(3):
+        for j in range(3):
+            if axes[i, j].get_children():  # 检查子图是否有内容
+                legend_ax = axes[i, j]
+                break
+        if legend_ax:
+            break
+    
+    if legend_ax:
+        # 创建统一的资源类别图例
+        legend_elements = []
+        # 使用第一个子图的categories和colors来创建图例
+        for i, demand in enumerate(demand_levels):
+            for j, market in enumerate(market_levels):
+                ax = axes[i, j]
+                if ax.get_children():  # 检查子图是否有内容
+                    # 获取该子图的categories和colors
+                    all_categories = set()
+                    for flex in ['L', 'M', 'H', 'N']:
+                        scenario_code = f"{flex}{demand}{market}"
+                        if scenario_code in scenarios:
+                            scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
+                            if '100p' in scenario_data and 'non_flexible' in scenario_data:
+                                cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
+                                if cost_diff:
+                                    cost_diff_cny = {}
+                                    for k, v in cost_diff.items():
+                                        if 'aluminum' not in k.lower():
+                                            cost_diff_cny[k] = v * EUR_TO_CNY
+                                    if cost_diff_cny:
+                                        all_categories.update(cost_diff_cny.keys())
+                    
+                    if all_categories:
+                        categories = list(all_categories)
+                        colors = plt.cm.Set3(np.linspace(0, 1, len(categories)))
+                        
+                        # 创建图例元素
+                        for idx, category in enumerate(categories):
+                            legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[idx], 
+                                                               label=category, alpha=0.8))
+                        break
+            if legend_elements:
+                break
+    
+    if legend_elements:
+        # 在图表外部添加统一图例
+        fig.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5),
+                   title='Resource Categories', fontsize=10)
     
     plt.tight_layout()
     
