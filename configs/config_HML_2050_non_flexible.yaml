@@ -1,4 +1,4 @@
-version: 0813.4H.2-HML-2050-non_flexible
+version: 0813.4H.1-HML-2050-non_flexible
 logging_level: INFO
 foresight: myopic
 using_single_node: false
@@ -60,6 +60,7 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2
+      BarHomogeneous: 1
       BarConvTol: 1.0e-05
       FeasibilityTol: 1.0e-06
       AggFill: 0
