@@ -7,7 +7,6 @@
 #SBATCH --time=00:10:00          # total run time limit (HH:MM:SS)
 #SBATCH --qos=high               # high priority queue
 #SBATCH --qos=urgent             # urgent priority queue (if available)
-#SBATCH --preempt=off            # disable preemption
 #SBATCH --mail-type=begin        # send email when job begins
 #SBATCH --mail-type=end          # send email when job ends
 #SBATCH --mail-type=fail         # send email if job fails
