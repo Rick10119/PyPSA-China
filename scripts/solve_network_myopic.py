@@ -409,12 +409,32 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
         # 更新负荷值为平均产量
         n.loads.at[target_aluminum_load, 'p_set'] = national_smelter_production[target_province]
     
+    # 定义铝优化专用的extra_functionality函数
+    def aluminum_extra_functionality(n_al, snapshots_al):
+        # 找到所有铝冶炼厂
+        aluminum_smelters = n_al.links[n_al.links.carrier == "aluminum"].index
+        
+        if len(aluminum_smelters) > 0 and len(snapshots_al) > 0:
+            first_snapshot = snapshots_al[0]
+            last_snapshot = snapshots_al[-1]
+            
+            # 为每个铝冶炼厂添加第一个和最后一个时段功率相等约束
+            for smelter in aluminum_smelters:
+                # 获取该冶炼厂的功率变量 - 注意索引顺序：先时间，再组件
+                first_smelter_p = n_al.model.variables["Link-p"].loc[first_snapshot, smelter]
+                last_smelter_p = n_al.model.variables["Link-p"].loc[last_snapshot, smelter]
+                
+                # 添加约束：第一个时段的功率等于最后一个时段的功率
+                n_al.model.add_constraints(
+                    first_smelter_p == last_smelter_p, 
+                    name=f"aluminum-first-last-equal-{smelter}"
+                )    
     # 求解电解铝优化问题
     # 只保留PyPSA支持的参数
     optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
     status, condition = n.optimize(
         solver_name=solver_name,
-        extra_functionality=extra_functionality,
+        extra_functionality=aluminum_extra_functionality,
         **milp_solver_options,  # 使用MILP专用参数
         **optimize_kwargs,
     )
