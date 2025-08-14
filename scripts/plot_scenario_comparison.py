@@ -65,7 +65,7 @@ def get_base_version_from_config(config_path):
         return None
     
     version = config.get('version', '')
-    logger.info(f"从配置文件 {config_path} 读取到版本号: {version}")
+    # logger.info(f"从配置文件 {config_path} 读取到版本号: {version}")
     return version
 
 def find_scenario_results(results_dir, base_version):
@@ -119,7 +119,7 @@ def find_scenario_results(results_dir, base_version):
                 }
     
     # 为non-flexible情景，每个market只创建一个配置（使用中等水平的flex和demand）
-    logger.info("为non-flexible情景创建基准配置（每个market一个，使用中等flex和demand）")
+    # logger.info("为non-flexible情景创建基准配置（每个market一个，使用中等flex和demand）")
     
     # 为每个场景分配对应的non-flexible基准配置
     for flex in flexibility_levels:
@@ -148,10 +148,10 @@ def find_scenario_results(results_dir, base_version):
                         'config_type': 'non_flexible'
                     }
     
-    logger.info(f"基于基准版本 {base_version} 构建了 {len(scenarios)} 个场景")
-    logger.info(f"100p配置: {len(scenarios)} 个 (4种flex × 3种demand × 3种market)")
-    logger.info(f"non-flexible基准配置: 每个场景使用对应market的中等flex和demand配置")
-    logger.info(f"注意：对于non-flexible情景，相同market的场景共享相同的基准配置")
+    # logger.info(f"基于基准版本 {base_version} 构建了 {len(scenarios)} 个场景")
+    # logger.info(f"100p配置: {len(scenarios)} 个 (4种flex × 3种demand × 3种market)")
+    # logger.info(f"non-flexible基准配置: 每个场景使用对应market的中等flex和demand配置")
+    # logger.info(f"注意：对于non-flexible情景，相同market的场景共享相同的基准配置")
     
     return scenarios
 
@@ -387,8 +387,8 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
                 v2_value = 0
             
             # 添加调试信息：显示大额变化
-            if abs(v1_value - v2_value) > 1e9:  # 大于1B的变化
-                logger.info(f"大额变化: {component_type}-{cost_type}-{carrier}: 100p={v1_value/1e9:.2f}B, non_flex={v2_value/1e9:.2f}B, 差值={(v1_value-v2_value)/1e9:.2f}B")
+            # if abs(v1_value - v2_value) > 1e9:  # 大于1B的变化
+            #     logger.info(f"大额变化: {component_type}-{cost_type}-{carrier}: 100p={v1_value/1e9:.2f}B, non_flex={v2_value/1e9:.2f}B, 差值={(v1_value-v2_value)/1e9:.2f}B")
             
             # 计算变化量（100p - non_flexible，节约为正，增加为负）
             change = v1_value - v2_value
@@ -422,18 +422,18 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
     filtered_categories['Total Change'] = filtered_total_change
     
     # 添加调试信息：显示原始总变化量和过滤后的总变化量
-    logger.info(f"原始总变化量: {total_change/1e9:.2f}B, 过滤后总变化量: {filtered_total_change/1e9:.2f}B")
+    # logger.info(f"原始总变化量: {total_change/1e9:.2f}B, 过滤后总变化量: {filtered_total_change/1e9:.2f}B")
     
     # 显示被过滤掉的分类信息
-    excluded_changes = {}
-    for category, change in category_changes.items():
-        if category in exclude_categories and abs(change) > 1e6:  # 只显示大于1M的变化
-            excluded_changes[category] = change
+    # excluded_changes = {}
+    # for category, change in category_changes.items():
+    #     if category in exclude_categories and abs(change) > 1e6:  # 只显示大于1M的变化
+    #         excluded_changes[category] = change
     
-    if excluded_changes:
-        logger.info(f"被过滤掉的分类变化量:")
-        for category, change in sorted(excluded_changes.items(), key=lambda x: abs(x[1]), reverse=True):
-            logger.info(f"  {category}: {change/1e9:.2f}B")
+    # if excluded_changes:
+    #     logger.info(f"被过滤掉的分类变化量:")
+    #     for category, change in sorted(excluded_changes.items(), key=lambda x: abs(x[1]), reverse=True):
+    #         logger.info(f"  {category}: {change/1e9:.2f}B")
     
     return filtered_categories
 
@@ -454,7 +454,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     plots_dir = output_dir / "scenario_plots"
     plots_dir.mkdir(parents=True, exist_ok=True)
     
-    logger.info(f"图表输出目录: {plots_dir}")
+    # logger.info(f"图表输出目录: {plots_dir}")
     
     # 定义场景代码到描述的映射
     scenario_descriptions = {
@@ -473,77 +473,80 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     market_levels = ['L', 'M', 'H']
     flexibility_levels = ['L', 'M', 'H', 'N']
     
-    logger.info("正在收集绘图数据...")
-    logger.info("注意：对于non-flexible情景，所有flex-demand组合都使用相同的基准配置")
-    logger.info("基准配置使用中等水平的flex和demand，每个market一个")
+    # logger.info("正在收集绘图数据...")
+    # logger.info("注意：对于non-flexible情景，所有flex-demand组合都使用相同的基准配置")
+    # logger.info("基准配置使用中等水平的flex和demand，每个market一个")
     
     for demand in demand_levels:
         for market in market_levels:
             for flex in flexibility_levels:
                 scenario_code = f"{flex}{demand}{market}"
                 if scenario_code in scenarios:
-                    # 添加场景验证调试信息
-                    if flex in ['H', 'N'] and demand == 'H' and market == 'H':
-                        logger.info(f"验证场景 {scenario_code}:")
-                        logger.info(f"  版本名称: {scenarios[scenario_code]['100p']['version_name']}")
-                        logger.info(f"  版本目录: {scenarios[scenario_code]['100p']['version_dir']}")
-                        logger.info(f"  non_flexible版本名称: {scenarios[scenario_code]['non_flexible']['version_name']}")
-                        logger.info(f"  non_flexible版本目录: {scenarios[scenario_code]['non_flexible']['version_dir']}")
-                        logger.info(f"  注意：non_flexible基准使用中等flex和demand，适用于所有场景")
-                    
                     scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
                     
                     # 检查是否有数据
                     has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
                     has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
                     
-                    if has_100p_data and has_non_flex_data:
-                        # 添加调试信息：检查数据内容
-                        if flex in ['H', 'N'] and demand == 'H' and market == 'H':  # 只对HHH和NHH场景添加调试
-                            logger.info(f"场景 {scenario_code} 数据检查:")
-                            logger.info(f"  100p数据行数: {len(scenario_data['100p'])}")
-                            logger.info(f"  non_flexible数据行数: {len(scenario_data['non_flexible'])}")
-                            
-                            # 检查一些关键的成本分类
-                            key_categories = ['capital - onwind', 'capital - solar', 'capital - battery']
-                            for category in key_categories:
-                                if category in cost_diff:
-                                    logger.info(f"  {category}: 差异 = {cost_diff[category]/1e9:.2f}B EUR")
-                        
-                        # 计算成本差异
-                        cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
-                        if cost_diff:
-                            # 转换为人民币并排除aluminum相关数据和Total Change
-                            for k, v in cost_diff.items():
-                                if 'aluminum' not in k.lower() and k != 'Total Change':
-                                    if not pd.isna(v):
-                                        value_cny = v * EUR_TO_CNY
-                                        all_plot_data.append({
-                                            'Demand': demand,
-                                            'Market': market,
-                                            'Flexibility': flex,
-                                            'Category': k,
-                                            'Value (CNY)': value_cny,
-                                            'Value (Billion CNY)': value_cny / 1e9,
-                                            'Scenario_Code': scenario_code
-                                        })
+                    # 如果数据不可用，直接跳过，不打印任何信息
+                    if not has_100p_data or not has_non_flex_data:
+                        continue
+                    
+                    # 数据可用，打印场景验证信息
+                    # logger.info(f"验证场景 {scenario_code}:")
+                    # logger.info(f"  版本名称: {scenarios[scenario_code]['100p']['version_name']}")
+                    # logger.info(f"  版本目录: {scenarios[scenario_code]['100p']['version_dir']}")
+                    # logger.info(f"  non_flexible版本名称: {scenarios[scenario_code]['non_flexible']['version_name']}")
+                    # logger.info(f"  non_flexible版本目录: {scenarios[scenario_code]['non_flexible']['version_dir']}")
+                    # logger.info(f"  注意：non_flexible基准使用中等flex和demand，适用于所有场景")
+                    
+                    # 数据可用，继续处理
+                    # 添加调试信息：检查数据内容
+                    # logger.info(f"场景 {scenario_code} 数据检查:")
+                    # logger.info(f"  100p数据行数: {len(scenario_data['100p'])}")
+                    # logger.info(f"  non_flexible数据行数: {len(scenario_data['non_flexible'])}")
+                    
+                    # 计算成本差异
+                    cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
+                    
+                    # 为所有场景添加关键成本分类的调试信息
+                    # if cost_diff:
+                    #     key_categories = ['capital - onwind', 'capital - solar', 'capital - battery']
+                    #     for category in key_categories:
+                    #         if category in cost_diff:
+                    #             logger.info(f"  {category}: 差异 = {cost_diff[category]/1e9:.2f}B EUR")
+                    if cost_diff:
+                        # 转换为人民币并排除aluminum相关数据和Total Change
+                        for k, v in cost_diff.items():
+                            if 'aluminum' not in k.lower() and k != 'Total Change':
+                                if not pd.isna(v):
+                                    value_cny = v * EUR_TO_CNY
+                                    all_plot_data.append({
+                                        'Demand': demand,
+                                        'Market': market,
+                                        'Flexibility': flex,
+                                        'Category': k,
+                                        'Value (CNY)': value_cny,
+                                        'Value (Billion CNY)': value_cny / 1e9,
+                                        'Scenario_Code': scenario_code
+                                    })
     
     # 保存汇总的绘图数据
     if all_plot_data:
         all_plot_df = pd.DataFrame(all_plot_data)
         summary_plot_csv = plots_dir / f"all_plot_data_{file_type}.csv"
         all_plot_df.to_csv(summary_plot_csv, index=False)
-        logger.info(f"汇总绘图数据已保存到: {summary_plot_csv}")
+        # logger.info(f"汇总绘图数据已保存到: {summary_plot_csv}")
         
         # 打印数据统计信息
-        logger.info(f"绘图数据统计:")
-        logger.info(f"  总数据行数: {len(all_plot_df)}")
-        logger.info(f"  唯一分类数: {all_plot_df['Category'].nunique()}")
-        logger.info(f"  唯一场景数: {all_plot_df['Scenario_Code'].nunique()}")
-        logger.info(f"  数值范围: {all_plot_df['Value (Billion CNY)'].min():.2f}B 到 {all_plot_df['Value (Billion CNY)'].max():.2f}B CNY")
+        # logger.info(f"绘图数据统计:")
+        # logger.info(f"  总数据行数: {len(all_plot_df)}")
+        # logger.info(f"  唯一分类数: {all_plot_df['Category'].nunique()}")
+        # logger.info(f"  唯一场景数: {all_plot_df['Scenario_Code'].nunique()}")
+        # logger.info(f"  数值范围: {all_plot_df['Value (Billion CNY)'].min():.2f}B 到 {all_plot_df['Value (Billion CNY)'].max():.2f}B CNY")
     
     # 第二步：基于CSV数据生成图表
-    logger.info("正在基于CSV数据生成图表...")
+    # logger.info("正在基于CSV数据生成图表...")
     
     # 为每个demand-market组合创建子图
     fig, axes = plt.subplots(3, 3, figsize=(20, 16))
@@ -690,14 +693,14 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         fig.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5),
                    title='Resource Categories', fontsize=10)
         
-        logger.info(f"图例包含 {len(legend_elements)} 个分类")
+        # logger.info(f"图例包含 {len(legend_elements)} 个分类")
     
     plt.tight_layout()
     
     # 保存图表
     plot_file = plots_dir / f"scenario_comparison_{file_type}.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"Scenario comparison plot saved to: {plot_file}")
+    # logger.info(f"Scenario comparison plot saved to: {plot_file}")
     
     plt.close()
 
@@ -712,7 +715,7 @@ def validate_scenario_matching(scenarios, file_type='costs'):
     file_type : str
         文件类型
     """
-    logger.info("=== 验证场景匹配正确性 ===")
+    # logger.info("=== 验证场景匹配正确性 ===")
     
     total_scenarios = len(scenarios)
     valid_scenarios = 0
@@ -730,8 +733,8 @@ def validate_scenario_matching(scenarios, file_type='costs'):
                 invalid_scenarios += 1
                 logger.warning(f"场景 {scenario_code}: 目录缺失")
     
-    logger.info(f"场景验证完成: 有效 {valid_scenarios} 个, 无效 {invalid_scenarios} 个")
-    logger.info("")
+    # logger.info(f"场景验证完成: 有效 {valid_scenarios} 个, 无效 {invalid_scenarios} 个")
+    # logger.info("")
 
 def generate_summary_table(scenarios, output_dir, file_type='costs'):
     """
@@ -767,59 +770,44 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
             has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
             has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
             
-            if has_100p_data and has_non_flex_data:
-                # 添加调试信息：验证数据匹配
-                logger.info(f"场景 {scenario_code}: 100p数据行数={len(scenario_data['100p'])}, non_flexible数据行数={len(scenario_data['non_flexible'])}")
+            # 如果数据不可用，直接跳过，不打印任何信息，也不添加到表格中
+            if not has_100p_data or not has_non_flex_data:
+                continue
+            
+            # 数据可用，继续处理
+            # 添加调试信息：验证数据匹配
+            # logger.info(f"场景 {scenario_code}: 100p数据行数={len(scenario_data['100p'])}, non_flexible数据行数={len(scenario_data['non_flexible'])}")
+            
+            # 计算成本差异
+            cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
+            
+            if cost_diff and 'Total Change' in cost_diff:
+                # 注意：cost_diff中的数据已经是欧元单位，需要转换为人民币
+                total_change = cost_diff['Total Change'] * EUR_TO_CNY
                 
-                # 计算成本差异
-                cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
+                                    # 添加调试信息：显示总变化量
+                    # logger.info(f"场景 {scenario_code}: 过滤后总成本变化 = {total_change/1e9:.2f}B CNY (原始欧元值: {cost_diff['Total Change']/1e9:.2f}B EUR)")
                 
-                if cost_diff and 'Total Change' in cost_diff:
-                    # 注意：cost_diff中的数据已经是欧元单位，需要转换为人民币
-                    total_change = cost_diff['Total Change'] * EUR_TO_CNY
-                    
-                    # 添加调试信息：显示总变化量
-                    logger.info(f"场景 {scenario_code}: 过滤后总成本变化 = {total_change/1e9:.2f}B CNY (原始欧元值: {cost_diff['Total Change']/1e9:.2f}B EUR)")
-                    
-                    # 计算各分类的变化量
-                    category_changes = {}
-                    for category, change in cost_diff.items():
-                        if category != 'Total Change':
-                            category_changes[category] = change * EUR_TO_CNY
-                    
-                    # 找出变化最大的前3个分类
-                    top_changes = sorted(category_changes.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
-                    
-                    row = {
-                        'Scenario': scenario_code,
-                        'Flexibility': flexibility,
-                        'Demand': demand,
-                        'Market': market,
-                        'Top Category 1': f"{top_changes[0][0]}: {top_changes[0][1]/1e9:.2f}B" if len(top_changes) > 0 else "N/A",
-                        'Top Category 2': f"{top_changes[1][0]}: {top_changes[1][1]/1e9:.2f}B" if len(top_changes) > 1 else "N/A",
-                        'Top Category 3': f"{top_changes[2][0]}: {top_changes[2][1]/1e9:.2f}B" if len(top_changes) > 2 else "N/A"
-                    }
-                    table_data.append(row)
-                else:
-                    row = {
-                        'Scenario': scenario_code,
-                        'Flexibility': flexibility,
-                        'Demand': demand,
-                        'Market': market,
-                        'Top Category 1': 'N/A',
-                        'Top Category 2': 'N/A',
-                        'Top Category 3': 'N/A'
-                    }
-                    table_data.append(row)
+                # 计算各分类的变化量
+                category_changes = {}
+                for category, change in cost_diff.items():
+                    if category != 'Total Change':
+                        category_changes[category] = change * EUR_TO_CNY
+                
+                # 找出变化最大的前3个分类
+                top_changes = sorted(category_changes.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
+                
+                row = {
+                    'Scenario': scenario_code,
+                    'Flexibility': flexibility,
+                    'Demand': demand,
+                    'Market': market,
+                    'Top Category 1': f"{top_changes[0][0]}: {top_changes[0][1]/1e9:.2f}B" if len(top_changes) > 0 else "N/A",
+                    'Top Category 2': f"{top_changes[1][0]}: {top_changes[1][1]/1e9:.2f}B" if len(top_changes) > 1 else "N/A",
+                    'Top Category 3': f"{top_changes[2][0]}: {top_changes[2][1]/1e9:.2f}B" if len(top_changes) > 2 else "N/A"
+                }
+                table_data.append(row)
             else:
-                # 确定缺失的数据类型
-                if not has_100p_data and not has_non_flex_data:
-                    missing_info = "Both missing"
-                elif not has_100p_data:
-                    missing_info = "100p missing"
-                else:
-                    missing_info = "Non_flexible missing"
-                
                 row = {
                     'Scenario': scenario_code,
                     'Flexibility': flexibility,
@@ -839,13 +827,157 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
         # 保存表格
         table_file = tables_dir / f"scenario_summary_{file_type}.csv"
         df.to_csv(table_file, index=False)
-        logger.info(f"Summary table saved to: {table_file}")
+        # logger.info(f"Summary table saved to: {table_file}")
         
         # 打印表格
         print(f"\n=== {file_type.capitalize()} Summary Table ===")
         print(df.to_string(index=False))
     else:
         logger.warning("No data available for summary table")
+
+def generate_raw_cost_comparison_table(scenarios, output_dir, file_type='costs'):
+    """
+    生成原始成本对比表格，包含每个情景下100p和non-flexible的原始成本数据
+    
+    Parameters:
+    -----------
+    scenarios : dict
+        场景信息
+    output_dir : Path
+        输出目录
+    file_type : str
+        文件类型
+    """
+    # 创建输出目录
+    tables_dir = output_dir / "raw_cost_tables"
+    tables_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 准备表格数据
+    table_data = []
+    
+    for scenario_code, scenario_info in scenarios.items():
+        if len(scenario_code) == 3:  # 确保是有效的3位数场景代码
+            flexibility, demand, market = scenario_code[0], scenario_code[1], scenario_code[2]
+            
+            # 加载场景数据
+            scenario_data = load_scenario_data(scenario_info, file_type)
+            
+            # 检查是否有数据
+            has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
+            has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
+            
+            # 如果数据不可用，直接跳过
+            if not has_100p_data or not has_non_flex_data:
+                continue
+            
+            # 数据可用，处理原始成本数据
+            costs_100p = scenario_data['100p']
+            costs_non_flex = scenario_data['non_flexible']
+            
+            # 收集所有唯一的成本分类
+            all_categories = set()
+            
+            # 从100p数据中收集分类
+            for idx in costs_100p.index:
+                if len(idx) >= 3:
+                    component_type, cost_type, carrier = idx[0], idx[1], idx[2]
+                    category_name = f"{cost_type} - {carrier}"
+                    all_categories.add(category_name)
+            
+            # 从non_flexible数据中收集分类
+            for idx in costs_non_flex.index:
+                if len(idx) >= 3:
+                    component_type, cost_type, carrier = idx[0], idx[1], idx[2]
+                    category_name = f"{cost_type} - {carrier}"
+                    all_categories.add(category_name)
+            
+            # 为每个成本分类创建一行数据
+            for category in sorted(all_categories):
+                cost_type, carrier = category.split(" - ", 1)
+                
+                # 获取100p数据
+                value_100p = 0
+                for idx in costs_100p.index:
+                    if len(idx) >= 3 and idx[1] == cost_type and idx[2] == carrier:
+                        value_100p = costs_100p.loc[idx].iloc[0]
+                        if pd.isna(value_100p):
+                            value_100p = 0
+                        break
+                
+                # 获取non_flexible数据
+                value_non_flex = 0
+                for idx in costs_non_flex.index:
+                    if len(idx) >= 3 and idx[1] == cost_type and idx[2] == carrier:
+                        value_non_flex = costs_non_flex.loc[idx].iloc[0]
+                        if pd.isna(value_non_flex):
+                            value_non_flex = 0
+                        break
+                
+                # 计算差异
+                difference = value_100p - value_non_flex
+                
+                # 添加到表格数据
+                row = {
+                    'Scenario': scenario_code,
+                    'Flexibility': flexibility,
+                    'Demand': demand,
+                    'Market': market,
+                    'Category': category,
+                    'Cost_Type': cost_type,
+                    'Carrier': carrier,
+                    'Value_100p_EUR': value_100p,
+                    'Value_100p_Billion_EUR': value_100p / 1e9,
+                    'Value_Non_Flex_EUR': value_non_flex,
+                    'Value_Non_Flex_Billion_EUR': value_non_flex / 1e9,
+                    'Difference_EUR': difference,
+                    'Difference_Billion_EUR': difference / 1e9,
+                    'Difference_Percent': (difference / value_non_flex * 100) if value_non_flex != 0 else 0
+                }
+                table_data.append(row)
+    
+    if table_data:
+        # 创建DataFrame并排序
+        df = pd.DataFrame(table_data)
+        df = df.sort_values(['Scenario', 'Category'])
+        
+        # 保存表格
+        table_file = tables_dir / f"raw_cost_comparison_{file_type}.csv"
+        df.to_csv(table_file, index=False)
+        # logger.info(f"Raw cost comparison table saved to: {table_file}")
+        
+        # 创建汇总表格（按场景汇总）
+        summary_data = []
+        for scenario in df['Scenario'].unique():
+            scenario_df = df[df['Scenario'] == scenario]
+            
+            # 计算总成本
+            total_100p = scenario_df['Value_100p_EUR'].sum()
+            total_non_flex = scenario_df['Value_Non_Flex_EUR'].sum()
+            total_diff = total_100p - total_non_flex
+            
+            # 找出变化最大的前5个分类
+            top_changes = scenario_df.nlargest(5, 'Difference_Billion_EUR')[['Category', 'Difference_Billion_EUR']]
+            top_changes_str = "; ".join([f"{row['Category']}: {row['Difference_Billion_EUR']:.2f}B" for _, row in top_changes.iterrows()])
+            
+            summary_row = {
+                'Scenario': scenario,
+                'Total_100p_Billion_EUR': total_100p / 1e9,
+                'Total_Non_Flex_Billion_EUR': total_non_flex / 1e9,
+                'Total_Difference_Billion_EUR': total_diff / 1e9,
+                'Total_Difference_Percent': (total_diff / total_non_flex * 100) if total_non_flex != 0 else 0,
+                'Top_5_Changes': top_changes_str
+            }
+            summary_data.append(summary_row)
+        
+        # 保存汇总表格
+        summary_df = pd.DataFrame(summary_data)
+        summary_df = summary_df.sort_values('Scenario')
+        summary_file = tables_dir / f"raw_cost_summary_{file_type}.csv"
+        summary_df.to_csv(summary_file, index=False)
+        # logger.info(f"Raw cost summary table saved to: {summary_file}")
+    else:
+        # logger.warning("No data available for raw cost comparison table")
+        pass
 
 def main():
     """主函数"""
@@ -863,10 +995,10 @@ def main():
     log_level = logging.INFO
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
     
-    logger.info(f"开始分析场景结果，文件类型: {args.file_type}")
-    logger.info(f"结果目录: {args.results_dir}")
-    logger.info(f"输出目录: {args.output}")
-    logger.info(f"配置文件: {args.config}")
+    # logger.info(f"开始分析场景结果，文件类型: {args.file_type}")
+    # logger.info(f"结果目录: {args.results_dir}")
+    # logger.info(f"输出目录: {args.output}")
+    # logger.info(f"配置文件: {args.config}")
     
     # 从配置文件读取基准版本号
     base_version = get_base_version_from_config(args.config)
@@ -881,29 +1013,33 @@ def main():
         logger.error("没有找到任何场景结果")
         return
     
-    logger.info(f"基于基准版本 {base_version} 构建了 {len(scenarios)} 个场景")
+    # logger.info(f"基于基准版本 {base_version} 构建了 {len(scenarios)} 个场景")
     
     # 创建输出目录
     output_path = Path(args.output)
     output_path.mkdir(parents=True, exist_ok=True)
     
     # 验证场景匹配正确性
-    logger.info("验证场景匹配正确性...")
+    # logger.info("验证场景匹配正确性...")
     validate_scenario_matching(scenarios, args.file_type)
     
     # 生成场景对比图表
-    logger.info("生成场景对比图表...")
+    # logger.info("生成场景对比图表...")
     generate_scenario_plots(scenarios, output_path, args.file_type)
     
     # 生成摘要表格
-    logger.info("生成摘要表格...")
+    # logger.info("生成摘要表格...")
     generate_summary_table(scenarios, output_path, args.file_type)
     
-    # 打印数据完整性统计
-    print_data_completeness_stats(scenarios, args.file_type)
+    # 生成原始成本对比表格
+    # logger.info("生成原始成本对比表格...")
+    generate_raw_cost_comparison_table(scenarios, output_path, args.file_type)
     
-    logger.info("分析完成！")
-    logger.info(f"结果保存在: {output_path}")
+    # 打印数据完整性统计
+    # print_data_completeness_stats(scenarios, args.file_type)
+    
+    # logger.info("分析完成！")
+    # logger.info(f"结果保存在: {output_path}")
 
 def print_data_completeness_stats(scenarios, file_type):
     """
@@ -916,61 +1052,61 @@ def print_data_completeness_stats(scenarios, file_type):
     file_type : str
         文件类型
     """
-    print(f"\n=== 数据完整性统计 ({file_type}) ===")
+    # print(f"\n=== 数据完整性统计 ({file_type}) ===")
     
-    total_scenarios = len(scenarios)
-    complete_scenarios = 0
-    missing_100p = 0
-    missing_non_flex = 0
-    missing_both = 0
+    # total_scenarios = len(scenarios)
+    # complete_scenarios = 0
+    # missing_100p = 0
+    # missing_non_flex = 0
+    # missing_both = 0
     
-    for scenario_code, scenario_info in scenarios.items():
-        scenario_data = load_scenario_data(scenario_info, file_type)
+    # for scenario_code, scenario_info in scenarios.items():
+    #     scenario_data = load_scenario_data(scenario_info, file_type)
         
-        has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
-        has_non_flex_data = 'non_flexible' in scenario_info and not scenario_data['non_flexible'].empty
+    #     has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
+    #     has_non_flex_data = 'non_flexible' in scenario_info and not scenario_data['non_flexible'].empty
         
-        if has_100p_data and has_non_flex_data:
-            complete_scenarios += 1
-        elif not has_100p_data and not has_non_flex_data:
-            missing_both += 1
-        elif not has_100p_data:
-            missing_100p += 1
-        else:
-            missing_non_flex += 1
+    #     if has_100p_data and has_non_flex_data:
+    #         complete_scenarios += 1
+    #     elif not has_100p_data and not has_non_flex_data:
+    #         missing_both += 1
+    #     elif not has_100p_data:
+    #         missing_100p += 1
+    #     else:
+    #         missing_non_flex += 1
     
-    print(f"总场景数: {total_scenarios}")
-    print(f"数据完整: {complete_scenarios} ({complete_scenarios/total_scenarios*100:.1f}%)")
-    print(f"100p数据缺失: {missing_100p} ({missing_100p/total_scenarios*100:.1f}%)")
-    print(f"non_flexible数据缺失: {missing_non_flex} ({missing_non_flex/total_scenarios*100:.1f}%)")
-    print(f"两者都缺失: {missing_both} ({missing_both/total_scenarios*100:.1f}%)")
+    # print(f"总场景数: {total_scenarios}")
+    # print(f"数据完整: {complete_scenarios} ({complete_scenarios/total_scenarios*100:.1f}%)")
+    # print(f"100p数据缺失: {missing_100p} ({missing_100p/total_scenarios*100:.1f}%)")
+    # print(f"non_flexible数据缺失: {missing_non_flex} ({missing_non_flex/total_scenarios*100:.1f}%)")
+    # print(f"两者都缺失: {missing_both} ({missing_both/total_scenarios*100:.1f}%)")
     
-    # 按flexibility-demand-market组合显示详细统计
-    print(f"\n=== 按场景组合的数据完整性 ===")
-    flexibility_levels = ['L', 'M', 'H', 'N']
-    demand_levels = ['L', 'M', 'H']
-    market_levels = ['L', 'M', 'H']
+    # # 按flexibility-demand-market组合显示详细统计
+    # print(f"\n=== 按场景组合的数据完整性 ===")
+    # flexibility_levels = ['L', 'M', 'H', 'N']
+    # demand_levels = ['L', 'M', 'H']
+    # market_levels = ['L', 'M', 'H']
     
-    for flexibility in flexibility_levels:
-        for demand in demand_levels:
-            for market in market_levels:
-                scenario_code = f"{flexibility}{demand}{market}"
-                if scenario_code in scenarios:
-                    scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
+    # for flexibility in flexibility_levels:
+    #     for demand in demand_levels:
+    #         for market in market_levels:
+    #             scenario_code = f"{flexibility}{demand}{market}"
+    #             if scenario_code in scenarios:
+    #                 scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
                     
-                    has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
-                    has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
+    #                 has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
+    #                 has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
                     
-                    if has_100p_data and has_non_flex_data:
-                        status = "✓ Complete"
-                    elif not has_100p_data and not has_non_flex_data:
-                        status = "✗ Both missing"
-                    elif not has_100p_data:
-                        status = "✗ 100p missing"
-                    else:
-                        status = "✗ Non_flex missing"
+    #                 if has_100p_data and has_non_flex_data:
+    #                     status = "✓ Complete"
+    #                 elif not has_100p_data and not has_non_flex_data:
+    #                     status = "✗ Both missing"
+    #                 elif not has_100p_data:
+    #                     status = "✗ 100p missing"
+    #                 else:
+    #                     status = "✗ Non_flex missing"
                     
-                    print(f"  {scenario_code} (F:{flexibility}, D:{demand}, M:{market}): {status}")
+    #                 print(f"  {scenario_code} (F:{flexibility}, D:{demand}, M:{market}): {status}")
 
 if __name__ == "__main__":
     main()
