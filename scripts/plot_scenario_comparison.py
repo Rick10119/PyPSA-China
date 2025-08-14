@@ -466,64 +466,73 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     flex_names = list(all_flex_data.keys())
                     categories = list(all_categories)
                     
-                    # 创建堆叠条形图数据
-                    positive_data = []
-                    negative_data = []
+                    # 创建分组条形图
+                    x_pos = np.arange(len(flex_names))
+                    width = 0.8
                     
-                    for flex in flex_names:
+                    # 为每个资源类别分配颜色
+                    colors = plt.cm.Set3(np.linspace(0, 1, len(categories)))
+                    
+                    # 绘制每个flexibility级别的柱子
+                    for i_flex, flex in enumerate(flex_names):
                         if flex in all_flex_data:
-                            flex_positive = []
-                            flex_negative = []
+                            # 收集该flexibility级别的所有资源数据
+                            flex_data = all_flex_data[flex]
+                            
+                            # 分离正负值
+                            positive_values = []
+                            negative_values = []
+                            positive_labels = []
+                            negative_labels = []
                             
                             for category in categories:
-                                value = all_flex_data[flex].get(category, 0)
-                                if value > 0:
-                                    flex_positive.append(value)
-                                    flex_negative.append(0)
-                                else:
-                                    flex_positive.append(0)
-                                    flex_negative.append(abs(value))
+                                value = flex_data.get(category, 0)
+                                if value > 0:  # 成本减少（正值）
+                                    positive_values.append(value)
+                                    positive_labels.append(category)
+                                elif value < 0:  # 成本增加（负值）
+                                    negative_values.append(abs(value))
+                                    negative_labels.append(category)
                             
-                            positive_data.append(flex_positive)
-                            negative_data.append(flex_negative)
-                    
-                    # 创建堆叠条形图
-                    x_pos = np.arange(len(categories))
-                    width = 0.6
-                    
-                    # 绘制正值的堆叠图
-                    bottom_positive = np.zeros(len(categories))
-                    for i_flex, flex in enumerate(flex_names):
-                        if flex in all_flex_data:
-                            ax.bar(x_pos, positive_data[i_flex], width, bottom=bottom_positive, 
-                                   label=f'{flex} (Flexibility)', alpha=0.7)
-                            bottom_positive += positive_data[i_flex]
-                    
-                    # 绘制负值的堆叠图
-                    bottom_negative = np.zeros(len(categories))
-                    for i_flex, flex in enumerate(flex_names):
-                        if flex in all_flex_data:
-                            ax.bar(x_pos, [-v for v in negative_data[i_flex]], width, bottom=bottom_negative, 
-                                   alpha=0.7)
-                            bottom_negative += negative_data[i_flex]
+                            # 绘制正值（成本减少，在横轴上面）
+                            if positive_values:
+                                ax.bar(x_pos[i_flex], positive_values, width, 
+                                       color=colors[:len(positive_values)], 
+                                       label=f'{flex} (Flexibility)', alpha=0.8)
+                            
+                            # 绘制负值（成本增加，在横轴下面）
+                            if negative_values:
+                                ax.bar(x_pos[i_flex], [-v for v in negative_values], width, 
+                                       color=colors[:len(negative_values)], 
+                                       alpha=0.8)
                     
                     # 设置标签
                     ax.set_xticks(x_pos)
-                    ax.set_xticklabels(categories, fontsize=8, rotation=45, ha='right')
+                    ax.set_xticklabels([f'{flex}' for flex in flex_names], fontsize=10)
                     ax.set_ylabel('Cost Change (CNY)', fontsize=9)
                     
                     # 添加零线
-                    ax.axhline(y=0, color='black', linestyle='-', alpha=0.5)
+                    ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1.5)
                     
                     # 设置标题
                     ax.set_title(f'Demand: {scenario_descriptions[demand]}, Market: {scenario_descriptions[market]}', 
                                fontsize=10, fontweight='bold')
                     
-                    # 添加图例
-                    ax.legend(fontsize=8, loc='upper right')
+                    # 创建自定义图例，显示资源类别
+                    legend_elements = []
+                    for i, category in enumerate(categories):
+                        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[i], 
+                                                          label=category, alpha=0.8))
+                    ax.legend(handles=legend_elements, fontsize=8, loc='upper right', 
+                             title='Resource Categories')
                     
                     # 添加网格
                     ax.grid(True, alpha=0.3, axis='y')
+                    
+                    # 设置y轴标签为十亿人民币单位
+                    y_ticks = ax.get_yticks()
+                    y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
+                    ax.set_yticklabels(y_tick_labels, fontsize=8)
                 else:
                     ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
                            transform=ax.transAxes, fontsize=10)
