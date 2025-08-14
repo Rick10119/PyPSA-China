@@ -141,8 +141,8 @@ def generate_single_config(base_config, base_version, flex, demand, market, capa
         new_config['aluminum']['current_scenario']['primary_demand'] = demand
         new_config['aluminum']['current_scenario']['market_opportunity'] = market
         
-        # 设置容量比例为0，表示不启用电解铝功能
-        new_config['aluminum']['capacity_ratio'] = 0.0
+        # 设置容量比例为1.0
+        new_config['aluminum']['capacity_ratio'] = 1.0
     else:
         # 100p容量配置
         new_config['version'] = f"{base_version}-{scenario_suffix}-{year}-100p"
@@ -155,17 +155,20 @@ def generate_single_config(base_config, base_version, flex, demand, market, capa
             new_config['iterative_optimization'] = False
             new_config['aluminum_commitment'] = False
         
-        # 更新电解铝配置
-        if 'aluminum' in new_config:
-            new_config['aluminum']['capacity_ratio'] = capacity_ratio
-            
-            # 更新当前scenario设置
-            if 'current_scenario' not in new_config['aluminum']:
-                new_config['aluminum']['current_scenario'] = {}
-            
-            new_config['aluminum']['current_scenario']['smelter_flexibility'] = flex
-            new_config['aluminum']['current_scenario']['primary_demand'] = demand
-            new_config['aluminum']['current_scenario']['market_opportunity'] = market
+        # 确保电解铝配置存在
+        if 'aluminum' not in new_config:
+            new_config['aluminum'] = {}
+        
+        # 设置容量比例
+        new_config['aluminum']['capacity_ratio'] = capacity_ratio
+        
+        # 更新当前scenario设置
+        if 'current_scenario' not in new_config['aluminum']:
+            new_config['aluminum']['current_scenario'] = {}
+        
+        new_config['aluminum']['current_scenario']['smelter_flexibility'] = flex
+        new_config['aluminum']['current_scenario']['primary_demand'] = demand
+        new_config['aluminum']['current_scenario']['market_opportunity'] = market
     
     # 更新年份相关设置
     new_config['costs']['year'] = year
