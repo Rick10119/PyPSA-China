@@ -383,12 +383,29 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
     }
     
     filtered_categories = {}
+    filtered_total_change = 0  # 只计算过滤后的分类的总变化量
+    
     for category, change in category_changes.items():
         if category not in exclude_categories and abs(change) > 1e-6:
             filtered_categories[category] = change
+            filtered_total_change += change
     
-    # 添加总变化量
-    filtered_categories['Total Change'] = total_change
+    # 添加过滤后的总变化量
+    filtered_categories['Total Change'] = filtered_total_change
+    
+    # 添加调试信息：显示原始总变化量和过滤后的总变化量
+    logger.info(f"原始总变化量: {total_change/1e9:.2f}B, 过滤后总变化量: {filtered_total_change/1e9:.2f}B")
+    
+    # 显示被过滤掉的分类信息
+    excluded_changes = {}
+    for category, change in category_changes.items():
+        if category in exclude_categories and abs(change) > 1e6:  # 只显示大于1M的变化
+            excluded_changes[category] = change
+    
+    if excluded_changes:
+        logger.info(f"被过滤掉的分类变化量:")
+        for category, change in sorted(excluded_changes.items(), key=lambda x: abs(x[1]), reverse=True):
+            logger.info(f"  {category}: {change/1e9:.2f}B")
     
     return filtered_categories
 
@@ -455,10 +472,10 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         # 计算成本差异，如果某个值不存在就设为0
                         cost_diff = calculate_cost_difference(data_100p, data_non_flex)
                         if cost_diff:
-                            # 转换为人民币并排除aluminum相关数据
+                            # 转换为人民币并排除aluminum相关数据和Total Change
                             cost_diff_cny = {}
                             for k, v in cost_diff.items():
-                                if 'aluminum' not in k.lower():  # 排除aluminum相关数据
+                                if 'aluminum' not in k.lower() and k != 'Total Change':  # 排除aluminum相关数据和Total Change
                                     # 如果值是NaN，设为0
                                     if pd.isna(v):
                                         cost_diff_cny[k] = 0.0
@@ -576,7 +593,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                                 if cost_diff:
                                     cost_diff_cny = {}
                                     for k, v in cost_diff.items():
-                                        if 'aluminum' not in k.lower():
+                                        if 'aluminum' not in k.lower() and k != 'Total Change':
                                             cost_diff_cny[k] = v * EUR_TO_CNY
                                     if cost_diff_cny:
                                         all_categories.update(cost_diff_cny.keys())
@@ -585,10 +602,11 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         categories = list(all_categories)
                         colors = plt.cm.Set3(np.linspace(0, 1, len(categories)))
                         
-                        # 创建图例元素
+                        # 创建图例元素，排除Total Change
                         for idx, category in enumerate(categories):
-                            legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[idx], 
-                                                               label=category, alpha=0.8))
+                            if category != 'Total Change':  # 排除Total Change
+                                legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[idx], 
+                                                                   label=category, alpha=0.8))
                         break
             if legend_elements:
                 break
@@ -727,7 +745,7 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
                     total_change = cost_diff['Total Change'] * EUR_TO_CNY
                     
                     # 添加调试信息：显示总变化量
-                    logger.info(f"场景 {scenario_code}: 总成本变化 = {total_change/1e9:.2f}B CNY")
+                    logger.info(f"场景 {scenario_code}: 过滤后总成本变化 = {total_change/1e9:.2f}B CNY")
                     
                     # 计算各分类的变化量
                     category_changes = {}
