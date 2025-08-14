@@ -93,35 +93,66 @@ def find_scenario_results(results_dir, base_version):
     flexibility_levels = ['L', 'M', 'H', 'N']  # Low, Mid, High, Non-constrained
     demand_levels = ['L', 'M', 'H']  # Low, Mid, High
     market_levels = ['L', 'M', 'H']  # Low, Mid, High
-    config_types = ['100p', 'non_flexible']
     year = '2050'
     
     scenarios = {}
     
-    # 为每个flexibility-demand-market组合创建场景
+    # 为每个flexibility-demand-market组合创建100p场景
     for flexibility in flexibility_levels:
         for demand in demand_levels:
             for market in market_levels:
                 scenario_code = f"{flexibility}{demand}{market}"
                 scenarios[scenario_code] = {}
                 
-                # 为每个config_type创建版本信息
-                for config_type in config_types:
-                    # 构建版本名称
-                    version_name = f"{base_version}-{scenario_code}-{year}-{config_type}"
-                    version_dir = results_path / f"version-{version_name}"
+                # 创建100p版本信息
+                version_name_100p = f"{base_version}-{scenario_code}-{year}-100p"
+                version_dir_100p = results_path / f"version-{version_name_100p}"
+                
+                scenarios[scenario_code]['100p'] = {
+                    'version_name': version_name_100p,
+                    'version_dir': version_dir_100p,
+                    'year': year,
+                    'flexibility': flexibility,
+                    'demand': demand,
+                    'market': market,
+                    'config_type': '100p'
+                }
+    
+    # 为non-flexible情景，每个market只创建一个配置（使用中等水平的flex和demand）
+    logger.info("为non-flexible情景创建基准配置（每个market一个，使用中等flex和demand）")
+    
+    # 为每个场景分配对应的non-flexible基准配置
+    for flex in flexibility_levels:
+        for dem in demand_levels:
+            for mar in market_levels:
+                full_scenario_code = f"{flex}{dem}{mar}"
+                if full_scenario_code in scenarios:
+                    # 对于non-flexible情景，使用中等水平的flex和demand，但保持相同的market
+                    baseline_flexibility = 'M'  # 使用中等灵活性
+                    baseline_demand = 'M'  # 使用中等需求
+                    baseline_market = mar  # 保持相同的market
                     
-                    scenarios[scenario_code][config_type] = {
-                        'version_name': version_name,
-                        'version_dir': version_dir,
+                    baseline_scenario_code = f"{baseline_flexibility}{baseline_demand}{baseline_market}"
+                    
+                    # 创建non-flexible版本信息
+                    version_name_non_flex = f"{base_version}-{baseline_scenario_code}-{year}-non_flexible"
+                    version_dir_non_flex = results_path / f"version-{version_name_non_flex}"
+                    
+                    scenarios[full_scenario_code]['non_flexible'] = {
+                        'version_name': version_name_non_flex,
+                        'version_dir': version_dir_non_flex,
                         'year': year,
-                        'flexibility': flexibility,
-                        'demand': demand,
-                        'market': market,
-                        'config_type': config_type
+                        'flexibility': baseline_flexibility,  # 基准使用中等flex
+                        'demand': baseline_demand,  # 基准使用中等demand
+                        'market': baseline_market,  # 基准使用相同的market
+                        'config_type': 'non_flexible'
                     }
     
     logger.info(f"基于基准版本 {base_version} 构建了 {len(scenarios)} 个场景")
+    logger.info(f"100p配置: {len(scenarios)} 个 (4种flex × 3种demand × 3种market)")
+    logger.info(f"non-flexible基准配置: 每个场景使用对应market的中等flex和demand配置")
+    logger.info(f"注意：对于non-flexible情景，相同market的场景共享相同的基准配置")
+    
     return scenarios
 
 def load_scenario_data(scenario_info, file_type='costs'):
@@ -161,7 +192,6 @@ def load_scenario_data(scenario_info, file_type='costs'):
                         df = load_single_csv_file(file_path)
                         if df is not None:
                             data[config_type] = df
-                            logger.info(f"成功加载 {config_type} 的 {file_type} 数据")
                         else:
                             logger.warning(f"无法加载 {config_type} 的 {file_type} 数据，将使用空数据")
                             # 创建空的DataFrame，确保数据结构一致
@@ -279,19 +309,19 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
         ('capital', 'coal boiler'): 'capital-non-renewable',
         ('capital', 'gas boiler'): 'capital-non-renewable',
         
-        # capital–demand side - 需求侧资本成本
-        ('capital', 'heat pump'): 'capital–demand side',
-        ('capital', 'resistive heater'): 'capital–demand side',
+        # capital-demand side - 需求侧资本成本
+        ('capital', 'heat pump'): 'heating-electrification',
+        ('capital', 'resistive heater'): 'heating-electrification',
         
-        # capital–renewable - 可再生能源资本成本
-        ('capital', 'hydro_inflow'): 'capital–renewable',
-        ('capital', 'hydroelectricity'): 'capital–renewable',
-        ('capital', 'offwind'): 'capital–renewable',
-        ('capital', 'onwind'): 'capital–renewable',
-        ('capital', 'solar'): 'capital–renewable',
-        ('capital', 'solar thermal'): 'capital–renewable',
-        ('capital', 'biomass'): 'capital–renewable',
-        ('capital', 'biogas'): 'capital–renewable',
+        # capital-renewable - 可再生能源资本成本
+        ('capital', 'hydro_inflow'): 'capital-renewable',
+        ('capital', 'hydroelectricity'): 'capital-renewable',
+        ('capital', 'offwind'): 'capital-renewable',
+        ('capital', 'onwind'): 'capital-renewable',
+        ('capital', 'solar'): 'capital-renewable',
+        ('capital', 'solar thermal'): 'capital-renewable',
+        ('capital', 'biomass'): 'capital-renewable',
+        ('capital', 'biogas'): 'capital-renewable',
         
         # transmission lines - 输电线路
         ('capital', 'AC'): 'transmission lines',
@@ -314,12 +344,14 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
         ('marginal', 'H2 CHP'): 'long-duration storages',
         
         # 其他分类
-        ('capital', 'CO2 capture'): 'carbon capture',
-        ('marginal', 'CO2 capture'): 'carbon capture',
-        ('capital', 'Sabatier'): 'carbon capture',
-        ('marginal', 'Sabatier'): 'carbon capture',
-        ('capital', 'CO2'): 'carbon management',
-        ('marginal', 'CO2'): 'carbon management',
+        ('capital', 'CO2 capture'): 'capital-non-renewable',
+        ('marginal', 'CO2 capture'): 'variable cost-non-renewable',
+        ('capital', 'Sabatier'): 'capital-non-renewable',
+        ('marginal', 'Sabatier'): 'variable cost-non-renewable',
+        ('capital', 'CO2'): 'capital-non-renewable',
+        ('marginal', 'CO2'): 'variable cost-non-renewable',
+        ('capital', 'DAC'): 'capital-non-renewable',
+        ('marginal', 'DAC'): 'variable cost-non-renewable',
     }
     
     # 按成本分类组织数据
@@ -442,6 +474,8 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     flexibility_levels = ['L', 'M', 'H', 'N']
     
     logger.info("正在收集绘图数据...")
+    logger.info("注意：对于non-flexible情景，所有flex-demand组合都使用相同的基准配置")
+    logger.info("基准配置使用中等水平的flex和demand，每个market一个")
     
     for demand in demand_levels:
         for market in market_levels:
@@ -455,6 +489,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         logger.info(f"  版本目录: {scenarios[scenario_code]['100p']['version_dir']}")
                         logger.info(f"  non_flexible版本名称: {scenarios[scenario_code]['non_flexible']['version_name']}")
                         logger.info(f"  non_flexible版本目录: {scenarios[scenario_code]['non_flexible']['version_dir']}")
+                        logger.info(f"  注意：non_flexible基准使用中等flex和demand，适用于所有场景")
                     
                     scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
                     
@@ -679,67 +714,24 @@ def validate_scenario_matching(scenarios, file_type='costs'):
     """
     logger.info("=== 验证场景匹配正确性 ===")
     
+    total_scenarios = len(scenarios)
+    valid_scenarios = 0
+    invalid_scenarios = 0
+    
     for scenario_code, scenario_info in scenarios.items():
         if len(scenario_code) == 3:
-            flexibility, demand, market = scenario_code[0], scenario_code[1], scenario_code[2]
-            
-            # 检查版本名称构建
-            version_100p = f"{scenario_info['100p']['version_name']}"
-            version_non_flex = f"{scenario_info['non_flexible']['version_name']}"
-            
-            logger.info(f"场景 {scenario_code}:")
-            logger.info(f"  100p版本: {version_100p}")
-            logger.info(f"  non_flexible版本: {version_non_flex}")
-            
             # 检查目录是否存在
             dir_100p = scenario_info['100p']['version_dir']
             dir_non_flex = scenario_info['non_flexible']['version_dir']
             
-            logger.info(f"  100p目录存在: {dir_100p.exists()}")
-            logger.info(f"  non_flexible目录存在: {dir_non_flex.exists()}")
-            
             if dir_100p.exists() and dir_non_flex.exists():
-                # 检查数据文件
-                summary_100p = dir_100p / 'summary' / 'postnetworks' / 'positive'
-                summary_non_flex = dir_non_flex / 'summary' / 'postnetworks' / 'positive'
-                
-                logger.info(f"  100p summary目录存在: {summary_100p.exists()}")
-                logger.info(f"  non_flexible summary目录存在: {summary_non_flex.exists()}")
-                
-                if summary_100p.exists() and summary_non_flex.exists():
-                    year_pattern = f"postnetwork-ll-current+Neighbor-linear2050-2050"
-                    year_dir_100p = summary_100p / year_pattern
-                    year_dir_non_flex = summary_non_flex / year_pattern
-                    
-                    logger.info(f"  100p年份目录存在: {year_dir_100p.exists()}")
-                    logger.info(f"  non_flexible年份目录存在: {year_dir_non_flex.exists()}")
-                    
-                    if year_dir_100p.exists() and year_dir_non_flex.exists():
-                        file_100p = year_dir_100p / f"{file_type}.csv"
-                        file_non_flex = year_dir_non_flex / f"{file_type}.csv"
-                        
-                        logger.info(f"  100p数据文件存在: {file_100p.exists()}")
-                        logger.info(f"  non_flexible数据文件存在: {file_non_flex.exists()}")
-                        
-                        if file_100p.exists() and file_non_flex.exists():
-                            # 加载数据并比较行数
-                            try:
-                                df_100p = load_single_csv_file(file_100p)
-                                df_non_flex = load_single_csv_file(file_non_flex)
-                                
-                                if df_100p is not None and df_non_flex is not None:
-                                    logger.info(f"  100p数据行数: {len(df_100p)}")
-                                    logger.info(f"  non_flexible数据行数: {len(df_non_flex)}")
-                                    
-                                    # 检查索引结构
-                                    if len(df_100p) > 0 and len(df_non_flex) > 0:
-                                        logger.info(f"  100p索引示例: {list(df_100p.index[:3])}")
-                                        logger.info(f"  non_flexible索引示例: {list(df_non_flex.index[:3])}")
-                                else:
-                                    logger.warning(f"  无法加载数据文件")
-                            except Exception as e:
-                                logger.error(f"  加载数据时出错: {str(e)}")
-            logger.info("")
+                valid_scenarios += 1
+            else:
+                invalid_scenarios += 1
+                logger.warning(f"场景 {scenario_code}: 目录缺失")
+    
+    logger.info(f"场景验证完成: 有效 {valid_scenarios} 个, 无效 {invalid_scenarios} 个")
+    logger.info("")
 
 def generate_summary_table(scenarios, output_dir, file_type='costs'):
     """

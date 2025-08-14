@@ -22,7 +22,7 @@ sbatch job_scenario_analysis.slurm
 
 sbatch jobs/job_LMM_2050_100p.slurm
 
-cd /scratch/gpfs/rl8728/PyPSA-China
+cd /scratch/gpfs/rl8728/PyPSA-China-1
 module load anaconda3/2024.6
 conda activate pypsa-plot
 

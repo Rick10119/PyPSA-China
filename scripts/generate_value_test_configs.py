@@ -40,7 +40,7 @@ def clean_directories():
 
 def generate_value_test_configs():
     """
-    生成72个配置文件：4种flexibility × 3种demand × 3种market × 2种容量设置
+    生成48个配置文件：4种flexibility × 3种demand × 3种market × 1种容量设置 + 3种market × 1种non-flexible设置
     """
     # 创建configs文件夹（如果不存在）
     configs_dir = Path('configs')
@@ -65,6 +65,7 @@ def generate_value_test_configs():
     
     config_count = 0
     
+    # 生成100p容量配置（4×3×3 = 36个）
     for flex in flexibility_levels:
         for demand in demand_levels:
             for market in market_levels:
@@ -74,30 +75,51 @@ def generate_value_test_configs():
                     capacity_ratio=1.0, is_non_flexible=False, year=year
                 )
                 
-                # 生成non-flexible配置
-                config_non_flex = generate_single_config(
-                    base_config, base_version, flex, demand, market, 
-                    capacity_ratio=1.0, is_non_flexible=True, year=year
-                )
-                
                 # 保存100p配置文件
                 scenario_suffix = f"{flex_map[flex]}{demand_map[demand]}{market_map[market]}"
                 config_filename_100p = configs_dir / f"config_{scenario_suffix}_{year}_100p.yaml"
                 with open(config_filename_100p, 'w', encoding='utf-8') as f:
                     yaml.dump(config_100p, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
                 
-                # 保存non-flexible配置文件
-                config_filename_non_flex = configs_dir / f"config_{scenario_suffix}_{year}_non_flexible.yaml"
-                with open(config_filename_non_flex, 'w', encoding='utf-8') as f:
-                    yaml.dump(config_non_flex, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
-                
-                config_count += 2
-                print(f"已生成配置文件 {config_count}/72:")
+                config_count += 1
+                print(f"已生成配置文件 {config_count}/48:")
                 print(f"  {scenario_suffix}_{year}_100p.yaml - 版本: {config_100p['version']}")
-                print(f"  {scenario_suffix}_{year}_non_flexible.yaml - 版本: {config_non_flex['version']}")
                 print()
     
+    # 为non-flexible情景，每个market只生成一个配置文件（使用中等水平的flex和demand）
+    print("=== 生成non-flexible配置文件 ===")
+    print("注意：对于non-flexible情景，由于没有灵活性，不同的flex和demand场景会产生相同的结果")
+    print("因此每个market只生成一个配置文件（使用中等水平的flex和demand）")
+    print()
+    
+    for market in market_levels:
+        # 对于non-flexible情景，使用中等水平的flex和demand
+        flex = 'mid'  # 使用中等灵活性
+        demand = 'mid'  # 使用中等需求
+        
+        # 生成non-flexible配置
+        config_non_flex = generate_single_config(
+            base_config, base_version, flex, demand, market, 
+            capacity_ratio=1.0, is_non_flexible=True, year=year
+        )
+        
+        # 保存non-flexible配置文件
+        scenario_suffix = f"{flex_map[flex]}{demand_map[demand]}{market_map[market]}"
+        config_filename_non_flex = configs_dir / f"config_{scenario_suffix}_{year}_non_flexible.yaml"
+        with open(config_filename_non_flex, 'w', encoding='utf-8') as f:
+            yaml.dump(config_non_flex, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        
+        config_count += 1
+        print(f"已生成non-flexible配置文件 {config_count}/48:")
+        print(f"  {scenario_suffix}_{year}_non_flexible.yaml - 版本: {config_non_flex['version']}")
+        print(f"  (使用中等flex和demand，适用于所有non-flexible情景)")
+        print()
+    
     print(f"总共生成了 {config_count} 个配置文件")
+    print("配置说明:")
+    print("- 100p容量配置: 36个 (4种flex × 3种demand × 3种market)")
+    print("- non-flexible配置: 3个 (3种market，每个使用中等flex和demand)")
+    print("- 总计: 36 + 3 = 39个配置文件")
 
 def generate_single_config(base_config, base_version, flex, demand, market, capacity_ratio, is_non_flexible, year):
     """
@@ -200,6 +222,7 @@ def create_run_scripts():
     
     script_count = 0
     
+    # 为100p配置生成运行脚本（4×3×3 = 36个）
     for flex in flexibility_levels:
         for demand in demand_levels:
             for market in market_levels:
@@ -212,19 +235,40 @@ def create_run_scripts():
                     f.write(script_100p)
                 os.chmod(script_filename_100p, 0o755)
                 
-                # 创建non-flexible运行脚本
-                script_non_flex = create_single_run_script(scenario_suffix, year, "non_flexible", flex, demand, market)
-                script_filename_non_flex = sh_scripts_dir / f"run_{scenario_suffix}_{year}_non_flexible.sh"
-                with open(script_filename_non_flex, 'w') as f:
-                    f.write(script_non_flex)
-                os.chmod(script_filename_non_flex, 0o755)
-                
-                script_count += 2
-                print(f"已生成运行脚本 {script_count}/72:")
+                script_count += 1
+                print(f"已生成100p运行脚本 {script_count}/36:")
                 print(f"  run_{scenario_suffix}_{year}_100p.sh")
-                print(f"  run_{scenario_suffix}_{year}_non_flexible.sh")
+    
+    print()
+    print("=== 生成non-flexible运行脚本 ===")
+    print("注意：对于non-flexible情景，每个market只生成一个运行脚本")
+    print()
+    
+    # 为non-flexible配置生成运行脚本（3个，每个market一个）
+    for market in market_levels:
+        # 对于non-flexible情景，使用中等水平的flex和demand
+        flex = 'mid'  # 使用中等灵活性
+        demand = 'mid'  # 使用中等需求
+        
+        scenario_suffix = f"{flex_map[flex]}{demand_map[demand]}{market_map[market]}"
+        
+        # 创建non-flexible运行脚本
+        script_non_flex = create_single_run_script(scenario_suffix, year, "non_flexible", flex, demand, market)
+        script_filename_non_flex = sh_scripts_dir / f"run_{scenario_suffix}_{year}_non_flexible.sh"
+        with open(script_filename_non_flex, 'w') as f:
+            f.write(script_non_flex)
+        os.chmod(script_filename_non_flex, 0o755)
+        
+        script_count += 1
+        print(f"已生成non-flexible运行脚本 {script_count}/39:")
+        print(f"  run_{scenario_suffix}_{year}_non_flexible.sh")
+        print(f"  (适用于所有non-flexible情景，使用中等flex和demand)")
     
     print(f"总共生成了 {script_count} 个运行脚本")
+    print("脚本说明:")
+    print("- 100p运行脚本: 36个 (4种flex × 3种demand × 3种market)")
+    print("- non-flexible运行脚本: 3个 (3种market，每个使用中等flex和demand)")
+    print("- 总计: 36 + 3 = 39个运行脚本")
 
 def create_single_run_script(scenario_suffix, year, config_type, flex, demand, market):
     """
@@ -286,22 +330,25 @@ def create_batch_run_script():
 # 批量运行所有配置的模拟
 
 echo "开始批量运行所有配置的模拟..."
-echo "总共72个配置: 4种flexibility × 3种demand × 3种market × 2种容量设置"
+echo "总共39个配置: 4种flexibility × 3种demand × 3种market × 1种容量设置 + 3种market × 1种non-flexible设置"
+echo "注意：对于non-flexible情景，由于没有灵活性，不同的flex和demand场景会产生相同的结果"
+echo "因此每个market只运行一个non-flexible配置（使用中等水平的flex和demand）"
 echo
 
 config_count=0
-total_configs=72
+total_configs=39
 
 """
     
+    # 运行100p配置（36个）
     for flex in flexibility_levels:
         for demand in demand_levels:
             for market in market_levels:
                 scenario_suffix = f"{flex_map[flex]}{demand_map[demand]}{market_map[market]}"
                 
                 script_content += f"""
-# 运行 {scenario_suffix} 场景
-echo "=== 运行 {scenario_suffix} 场景 ==="
+# 运行 {scenario_suffix} 场景的100p配置
+echo "=== 运行 {scenario_suffix} 场景的100p配置 ==="
 echo "Flexibility: {flex}, Demand: {demand}, Market: {market}, Year: {year}"
 echo
 
@@ -310,6 +357,31 @@ echo "--- 运行 100p 配置 ---"
 ./sh_scripts/run_{scenario_suffix}_{year}_100p.sh
 config_count=$((config_count + 1))
 echo "进度: $config_count/$total_configs"
+echo
+
+"""
+    
+    # 运行non-flexible配置（3个）
+    script_content += """
+# === 运行non-flexible配置 ===
+echo "注意：对于non-flexible情景，每个market只运行一个配置（使用中等水平的flex和demand）"
+echo "因为不同的flex和demand场景会产生相同的结果"
+echo
+
+"""
+    
+    for market in market_levels:
+        # 对于non-flexible情景，使用中等水平的flex和demand
+        flex = 'mid'  # 使用中等灵活性
+        demand = 'mid'  # 使用中等需求
+        
+        scenario_suffix = f"{flex_map[flex]}{demand_map[demand]}{market_map[market]}"
+        
+        script_content += f"""
+# 运行 {scenario_suffix} 场景的non-flexible配置
+echo "=== 运行 {scenario_suffix} 场景的non-flexible配置 ==="
+echo "Flexibility: {flex} (中等), Demand: {demand} (中等), Market: {market}, Year: {year}"
+echo "注意：此配置适用于所有non-flexible情景，因为不同的flex和demand会产生相同的结果"
 echo
 
 # 运行non-flexible配置
@@ -325,6 +397,11 @@ echo
 echo "所有配置的模拟已完成！"
 echo "总共运行了 $total_configs 个配置"
 echo "结果文件位于: results/version-*/"
+echo
+echo "配置总结:"
+echo "- 100p容量配置: 36个 (4种flex × 3种demand × 3种market)"
+echo "- non-flexible配置: 3个 (3种market，每个使用中等flex和demand)"
+echo "- 总计: 36 + 3 = 39个配置"
 """
     
     script_filename = sh_scripts_dir / "run_all_configs.sh"
@@ -346,8 +423,8 @@ def main():
     clean_directories()
     print()
     
-    # 生成72个配置文件
-    print("=== 生成72个配置文件 ===")
+    # 生成39个配置文件
+    print("=== 生成39个配置文件 ===")
     generate_value_test_configs()
     print()
     
@@ -374,7 +451,12 @@ def main():
     print("- 市场机会(Market): L=low, M=mid, H=high")
     print("- 年份(Year): 固定为2050")
     print("- 容量设置: 100p(100%容量), non_flexible(基准组)")
-    print("- 总配置数: 4×3×3×2 = 72个")
+    print("- 总配置数: 4×3×3×1 + 3×1 = 39个")
+    print()
+    print("优化说明:")
+    print("- 对于non-flexible情景，由于没有灵活性，不同的flex和demand场景会产生相同的结果")
+    print("- 因此每个market只生成一个non-flexible配置文件（使用中等水平的flex和demand）")
+    print("- 这样可以减少重复计算，提高效率")
 
 if __name__ == "__main__":
     main()
