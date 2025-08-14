@@ -38,8 +38,7 @@ echo "=========================================="
 python scripts/plot_scenario_comparison.py \
     --config config.yaml \
     --output results/scenario_analysis \
-    --file-type costs \
-    --verbose
+    --file-type costs
 
 if [ $? -eq 0 ]; then
     echo "✅ 场景成本变化分析脚本运行成功"
@@ -56,8 +55,7 @@ echo "=========================================="
 python scripts/plot_scenario_comparison.py \
     --config config.yaml \
     --output results/scenario_analysis \
-    --file-type capacities \
-    --verbose
+    --file-type capacities
 
 if [ $? -eq 0 ]; then
     echo "✅ 场景容量变化分析脚本运行成功"
