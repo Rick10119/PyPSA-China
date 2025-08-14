@@ -11,7 +11,7 @@ cp -R ~/Documents/PyPSA-China /scratch/gpfs/rl8728/PyPSA-China-1
 conda deactivate
 conda activate pypsa-plot
 
-cd /scratch/gpfs/rl8728/PyPSA-China-0
+cd /scratch/gpfs/rl8728/PyPSA-China-2
 module load anaconda3/2024.6
 conda activate pypsa-plot
 
@@ -19,6 +19,7 @@ git restore .
 git pull
 snakemake --unlock
 sbatch jobs/job_LMM_2050_100p.slurm
+job_scenario_analysis_simple.slurm
 
 cd /scratch/gpfs/rl8728/PyPSA-China-3
 module load anaconda3/2024.6
