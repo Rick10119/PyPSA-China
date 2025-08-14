@@ -442,7 +442,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
                     has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
                     
-                    if has_100p_data and has_non_flexible_data:
+                    if has_100p_data and has_non_flex_data:
                         # 计算成本差异
                         cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
                         if cost_diff:
