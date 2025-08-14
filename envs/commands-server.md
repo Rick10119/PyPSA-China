@@ -31,3 +31,7 @@ git pull
 snakemake --unlock
 chmod +x submit_multiple_jobs.sh 
 ./submit_multiple_jobs.sh
+
+
+取消所有任务：
+scancel -u rl8728

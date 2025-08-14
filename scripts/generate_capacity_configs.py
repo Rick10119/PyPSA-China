@@ -509,6 +509,33 @@ def main():
     
     print("所有文件生成完成！")
     print()
+    
+    # 调用高级SLURM作业文件生成器
+    print("=== 生成SLURM作业文件 ===")
+    try:
+        import subprocess
+        import sys
+        
+        # 直接运行脚本而不是导入
+        result = subprocess.run([sys.executable, "scripts/generate_slurm_jobs_advanced.py"], 
+                              capture_output=True, text=True, cwd=os.getcwd())
+        
+        if result.returncode == 0:
+            print("✓ 成功生成SLURM作业文件")
+            # 提取生成的文件数量
+            if "共生成" in result.stdout:
+                for line in result.stdout.split('\n'):
+                    if "共生成" in line and "个SLURM作业文件" in line:
+                        print(line.strip())
+                        break
+        else:
+            print(f"✗ 生成SLURM作业文件时出错: {result.stderr}")
+            print("请手动运行: python scripts/generate_slurm_jobs_advanced.py")
+    except Exception as e:
+        print(f"✗ 生成SLURM作业文件时出错: {e}")
+        print("请手动运行: python scripts/generate_slurm_jobs_advanced.py")
+    
+    print()
     print("使用方法:")
     print("1. 运行单个容量比例: ./sh_scripts/run_100p.sh")
     print("2. 运行不包含电解铝厂的场景: ./sh_scripts/run_no_aluminum.sh")
@@ -516,6 +543,8 @@ def main():
     print("4. 运行所有容量比例: ./sh_scripts/run_all_capacities.sh")
     print("5. 运行所有场景: ./sh_scripts/run_all_scenarios.sh")
     print("6. 手动运行: snakemake --configfile configs/config_100p.yaml --cores 40")
+    print("7. 提交SLURM作业: sbatch jobs/job_100p.slurm")
+    print("8. 批量提交所有作业: ./submit_multiple_jobs.sh")
 
 if __name__ == "__main__":
     main()
