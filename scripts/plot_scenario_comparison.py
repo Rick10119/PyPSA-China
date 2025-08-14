@@ -723,30 +723,32 @@ def print_data_completeness_stats(scenarios, file_type):
     print(f"non_flexible数据缺失: {missing_non_flex} ({missing_non_flex/total_scenarios*100:.1f}%)")
     print(f"两者都缺失: {missing_both} ({missing_both/total_scenarios*100:.1f}%)")
     
-    # 按demand-market组合显示详细统计
+    # 按flexibility-demand-market组合显示详细统计
     print(f"\n=== 按场景组合的数据完整性 ===")
+    flexibility_levels = ['L', 'M', 'H', 'N']
     demand_levels = ['L', 'M', 'H']
     market_levels = ['L', 'M', 'H']
     
-    for demand in demand_levels:
-        for market in market_levels:
-            scenario_code = f"{demand}{market}"
-            if scenario_code in scenarios:
-                scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
-                
-                has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
-                has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
-                
-                if has_100p_data and has_non_flex_data:
-                    status = "✓ Complete"
-                elif not has_100p_data and not has_non_flex_data:
-                    status = "✗ Both missing"
-                elif not has_100p_data:
-                    status = "✗ 100p missing"
-                else:
-                    status = "✗ Non_flex missing"
-                
-                print(f"  {scenario_code} (D:{demand}, M:{market}): {status}")
+    for flexibility in flexibility_levels:
+        for demand in demand_levels:
+            for market in market_levels:
+                scenario_code = f"{flexibility}{demand}{market}"
+                if scenario_code in scenarios:
+                    scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
+                    
+                    has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
+                    has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
+                    
+                    if has_100p_data and has_non_flex_data:
+                        status = "✓ Complete"
+                    elif not has_100p_data and not has_non_flex_data:
+                        status = "✗ Both missing"
+                    elif not has_100p_data:
+                        status = "✗ 100p missing"
+                    else:
+                        status = "✗ Non_flex missing"
+                    
+                    print(f"  {scenario_code} (F:{flexibility}, D:{demand}, M:{market}): {status}")
 
 if __name__ == "__main__":
     main()
