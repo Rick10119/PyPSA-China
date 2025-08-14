@@ -429,8 +429,18 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         for j, demand in enumerate(demand_levels):
             ax = axes[i, j]
             
-            # 构建场景代码
-            scenario_code = f"{demand}{market}"
+            # 构建场景代码 - 需要包含flexibility维度
+            # 由于我们只显示demand-market组合，我们需要找到对应的场景
+            # 这里我们选择第一个可用的flexibility级别作为示例
+            flexibility_levels = ['L', 'M', 'H', 'N']
+            scenario_code = None
+            
+            # 查找第一个可用的场景
+            for flex in flexibility_levels:
+                temp_scenario_code = f"{flex}{demand}{market}"
+                if temp_scenario_code in scenarios:
+                    scenario_code = temp_scenario_code
+                    break
             
             if scenario_code in scenarios:
                 # 加载场景数据
