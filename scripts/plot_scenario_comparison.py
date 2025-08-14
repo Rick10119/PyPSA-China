@@ -442,15 +442,24 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
                     has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
                     
-                    if has_100p_data and has_non_flex_data:
-                        # 计算成本差异
-                        cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
+                    # 即使只有一个数据集存在，也进行处理
+                    if has_100p_data or has_non_flex_data:
+                        # 获取可用的数据
+                        data_100p = scenario_data.get('100p', pd.DataFrame())
+                        data_non_flex = scenario_data.get('non_flexible', pd.DataFrame())
+                        
+                        # 计算成本差异，如果某个值不存在就设为0
+                        cost_diff = calculate_cost_difference(data_100p, data_non_flex)
                         if cost_diff:
                             # 转换为人民币并排除aluminum相关数据
                             cost_diff_cny = {}
                             for k, v in cost_diff.items():
                                 if 'aluminum' not in k.lower():  # 排除aluminum相关数据
-                                    cost_diff_cny[k] = v * EUR_TO_CNY
+                                    # 如果值是NaN，设为0
+                                    if pd.isna(v):
+                                        cost_diff_cny[k] = 0.0
+                                    else:
+                                        cost_diff_cny[k] = v * EUR_TO_CNY
                             
                             if cost_diff_cny:  # 如果有非aluminum数据
                                 all_flex_data[flex] = cost_diff_cny
@@ -485,6 +494,10 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                             
                             for category in categories:
                                 value = flex_data.get(category, 0)
+                                # 只跳过值为0的情况，NaN已经被处理为0
+                                if value == 0:
+                                    continue
+                                
                                 if value > 0:  # 成本减少（正值）
                                     # 绘制正值（成本减少，在横轴上面）
                                     ax.bar(x_pos[i_flex], value, width, 
@@ -614,8 +627,8 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
     table_data = []
     
     for scenario_code, scenario_info in scenarios.items():
-        if len(scenario_code) == 2:  # 确保是有效的场景代码
-            demand, market = scenario_code[0], scenario_code[1]
+        if len(scenario_code) == 3:  # 确保是有效的3位数场景代码
+            flexibility, demand, market = scenario_code[0], scenario_code[1], scenario_code[2]
             
             # 加载场景数据
             scenario_data = load_scenario_data(scenario_info, file_type)
@@ -642,9 +655,9 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
                     
                     row = {
                         'Scenario': scenario_code,
+                        'Flexibility': flexibility,
                         'Demand': demand,
                         'Market': market,
-                        'Total Change (Billion CNY)': total_change / 1e9,
                         'Top Category 1': f"{top_changes[0][0]}: {top_changes[0][1]/1e9:.2f}B" if len(top_changes) > 0 else "N/A",
                         'Top Category 2': f"{top_changes[1][0]}: {top_changes[1][1]/1e9:.2f}B" if len(top_changes) > 1 else "N/A",
                         'Top Category 3': f"{top_changes[2][0]}: {top_changes[2][1]/1e9:.2f}B" if len(top_changes) > 2 else "N/A"
@@ -653,9 +666,9 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
                 else:
                     row = {
                         'Scenario': scenario_code,
+                        'Flexibility': flexibility,
                         'Demand': demand,
                         'Market': market,
-                        'Total Change (Billion CNY)': 'N/A',
                         'Top Category 1': 'N/A',
                         'Top Category 2': 'N/A',
                         'Top Category 3': 'N/A'
@@ -672,9 +685,9 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
                 
                 row = {
                     'Scenario': scenario_code,
+                    'Flexibility': flexibility,
                     'Demand': demand,
                     'Market': market,
-                    'Total Change (Billion CNY)': f'Data missing ({missing_info})',
                     'Top Category 1': 'N/A',
                     'Top Category 2': 'N/A',
                     'Top Category 3': 'N/A'
