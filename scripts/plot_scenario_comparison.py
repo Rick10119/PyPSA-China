@@ -161,7 +161,7 @@ def load_scenario_data(scenario_info, file_type='costs'):
                         df = load_single_csv_file(file_path)
                         if df is not None:
                             data[config_type] = df
-                            logger.debug(f"成功加载 {config_type} 的 {file_type} 数据")
+                            logger.info(f"成功加载 {config_type} 的 {file_type} 数据")
                         else:
                             logger.warning(f"无法加载 {config_type} 的 {file_type} 数据，将使用空数据")
                             # 创建空的DataFrame，确保数据结构一致
@@ -356,6 +356,10 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
                 v1_value = 0
             if pd.isna(v2_value):
                 v2_value = 0
+            
+            # 添加调试信息：显示大额变化
+            if abs(v1_value - v2_value) > 1e9:  # 大于1B的变化
+                logger.info(f"大额变化: {component_type}-{cost_type}-{carrier}: 100p={v1_value/1e9:.2f}B, non_flex={v2_value/1e9:.2f}B, 差值={(v1_value-v2_value)/1e9:.2f}B")
             
             # 计算变化量（100p - non_flexible，节约为正，增加为负）
             change = v1_value - v2_value
@@ -603,6 +607,81 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     
     plt.close()
 
+def validate_scenario_matching(scenarios, file_type='costs'):
+    """
+    验证场景匹配的正确性
+    
+    Parameters:
+    -----------
+    scenarios : dict
+        场景信息
+    file_type : str
+        文件类型
+    """
+    logger.info("=== 验证场景匹配正确性 ===")
+    
+    for scenario_code, scenario_info in scenarios.items():
+        if len(scenario_code) == 3:
+            flexibility, demand, market = scenario_code[0], scenario_code[1], scenario_code[2]
+            
+            # 检查版本名称构建
+            version_100p = f"{scenario_info['100p']['version_name']}"
+            version_non_flex = f"{scenario_info['non_flexible']['version_name']}"
+            
+            logger.info(f"场景 {scenario_code}:")
+            logger.info(f"  100p版本: {version_100p}")
+            logger.info(f"  non_flexible版本: {version_non_flex}")
+            
+            # 检查目录是否存在
+            dir_100p = scenario_info['100p']['version_dir']
+            dir_non_flex = scenario_info['non_flexible']['version_dir']
+            
+            logger.info(f"  100p目录存在: {dir_100p.exists()}")
+            logger.info(f"  non_flexible目录存在: {dir_non_flex.exists()}")
+            
+            if dir_100p.exists() and dir_non_flex.exists():
+                # 检查数据文件
+                summary_100p = dir_100p / 'summary' / 'postnetworks' / 'positive'
+                summary_non_flex = dir_non_flex / 'summary' / 'postnetworks' / 'positive'
+                
+                logger.info(f"  100p summary目录存在: {summary_100p.exists()}")
+                logger.info(f"  non_flexible summary目录存在: {summary_non_flex.exists()}")
+                
+                if summary_100p.exists() and summary_non_flex.exists():
+                    year_pattern = f"postnetwork-ll-current+Neighbor-linear2050-2050"
+                    year_dir_100p = summary_100p / year_pattern
+                    year_dir_non_flex = summary_non_flex / year_pattern
+                    
+                    logger.info(f"  100p年份目录存在: {year_dir_100p.exists()}")
+                    logger.info(f"  non_flexible年份目录存在: {year_dir_non_flex.exists()}")
+                    
+                    if year_dir_100p.exists() and year_dir_non_flex.exists():
+                        file_100p = year_dir_100p / f"{file_type}.csv"
+                        file_non_flex = year_dir_non_flex / f"{file_type}.csv"
+                        
+                        logger.info(f"  100p数据文件存在: {file_100p.exists()}")
+                        logger.info(f"  non_flexible数据文件存在: {file_non_flex.exists()}")
+                        
+                        if file_100p.exists() and file_non_flex.exists():
+                            # 加载数据并比较行数
+                            try:
+                                df_100p = load_single_csv_file(file_100p)
+                                df_non_flex = load_single_csv_file(file_non_flex)
+                                
+                                if df_100p is not None and df_non_flex is not None:
+                                    logger.info(f"  100p数据行数: {len(df_100p)}")
+                                    logger.info(f"  non_flexible数据行数: {len(df_non_flex)}")
+                                    
+                                    # 检查索引结构
+                                    if len(df_100p) > 0 and len(df_non_flex) > 0:
+                                        logger.info(f"  100p索引示例: {list(df_100p.index[:3])}")
+                                        logger.info(f"  non_flexible索引示例: {list(df_non_flex.index[:3])}")
+                                else:
+                                    logger.warning(f"  无法加载数据文件")
+                            except Exception as e:
+                                logger.error(f"  加载数据时出错: {str(e)}")
+            logger.info("")
+
 def generate_summary_table(scenarios, output_dir, file_type='costs'):
     """
     生成场景对比摘要表格
@@ -638,11 +717,17 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
             has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
             
             if has_100p_data and has_non_flex_data:
+                # 添加调试信息：验证数据匹配
+                logger.info(f"场景 {scenario_code}: 100p数据行数={len(scenario_data['100p'])}, non_flexible数据行数={len(scenario_data['non_flexible'])}")
+                
                 # 计算成本差异
                 cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
                 
                 if cost_diff and 'Total Change' in cost_diff:
                     total_change = cost_diff['Total Change'] * EUR_TO_CNY
+                    
+                    # 添加调试信息：显示总变化量
+                    logger.info(f"场景 {scenario_code}: 总成本变化 = {total_change/1e9:.2f}B CNY")
                     
                     # 计算各分类的变化量
                     category_changes = {}
@@ -717,13 +802,13 @@ def main():
     parser.add_argument('--output', default='results/scenario_analysis', help='输出目录')
     parser.add_argument('--file-type', choices=['costs', 'capacities'], default='costs', 
                        help='分析的文件类型 (默认: costs)')
-    parser.add_argument('--verbose', '-v', action='store_true', help='详细输出')
+
     parser.add_argument('--config', default='config.yaml', help='配置文件路径 (默认: config.yaml)')
     
     args = parser.parse_args()
     
     # 设置日志级别
-    log_level = logging.DEBUG if args.verbose else logging.INFO
+    log_level = logging.INFO
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
     
     logger.info(f"开始分析场景结果，文件类型: {args.file_type}")
@@ -749,6 +834,10 @@ def main():
     # 创建输出目录
     output_path = Path(args.output)
     output_path.mkdir(parents=True, exist_ok=True)
+    
+    # 验证场景匹配正确性
+    logger.info("验证场景匹配正确性...")
+    validate_scenario_matching(scenarios, args.file_type)
     
     # 生成场景对比图表
     logger.info("生成场景对比图表...")
