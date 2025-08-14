@@ -515,9 +515,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                             
                             for category in categories:
                                 value = flex_data.get(category, 0)
-                                # 只跳过值为0的情况，NaN已经被处理为0
-                                if value == 0:
-                                    continue
+                                # 处理所有值，包括0值，确保图表连续性
                                 
                                 if value > 0:  # 成本减少（正值）
                                     # 绘制正值（成本减少，在横轴上面）
@@ -533,6 +531,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                                            color=colors[categories.index(category)], 
                                            alpha=0.8)
                                     negative_bottom += abs(value)
+                                # 如果value == 0，不绘制任何内容，但保持bottom位置不变
                     
                     # 设置标签
                     ax.set_xticks(x_pos)
@@ -556,6 +555,15 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
                     ax.set_yticks(y_ticks)  # 先设置刻度位置
                     ax.set_yticklabels(y_tick_labels, fontsize=8)
+                    
+                    # 设置合理的y轴范围，确保图表显示完整
+                    y_data = [val for flex_data in all_flex_data.values() for val in flex_data.values()]
+                    if y_data:
+                        y_max = max(y_data) if y_data else 0
+                        y_min = min(y_data) if y_data else 0
+                        y_range = max(abs(y_max), abs(y_min))
+                        if y_range > 0:
+                            ax.set_ylim(-y_range * 1.1, y_range * 1.1)
                 else:
                     ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
                            transform=ax.transAxes, fontsize=10)
