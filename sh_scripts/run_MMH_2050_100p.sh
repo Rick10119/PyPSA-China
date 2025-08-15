@@ -1,5 +1,5 @@
 #!/bin/bash
-# 100%容量比例的模拟 (Flexibility: mid, Demand: mid, Market: high, Year: 2050)
+# 100p过剩产能保留比例的模拟 (Flexibility: mid, Demand: mid, Market: high, Year: 2050)
 
 echo "开始运行 MMH_2050_100p 的模拟..."
 echo "配置文件: configs/config_MMH_2050_100p.yaml"
