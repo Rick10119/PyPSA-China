@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0814.4H.2
+version: 0814.4H.1
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: True
+using_single_node: False
 single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'

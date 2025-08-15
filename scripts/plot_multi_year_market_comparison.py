@@ -579,7 +579,7 @@ def plot_multi_year_market_comparison():
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     logger.info(f"多年份市场对比图表已保存到: {plot_file}")
     
-    plt.show()
+    # plt.show()
 
 def main():
     """主函数"""
