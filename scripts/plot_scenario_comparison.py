@@ -576,47 +576,136 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     # 第二步：基于CSV数据生成图表
     # logger.info("正在基于CSV数据生成图表...")
     
-    # 为每个demand-market组合创建子图
-    fig, axes = plt.subplots(3, 3, figsize=(20, 16))
-    fig.suptitle(f'Scenario Comparison: {file_type.capitalize()} Changes by Flexibility Level', fontsize=16, y=0.98)
+    # 为每个market-flexibility组合创建子图
+    fig, axes = plt.subplots(3, 4, figsize=(24, 16), sharey=True)
     
-    for i, demand in enumerate(demand_levels):
-        for j, market in enumerate(market_levels):
+    # 设置子图之间的间距，移除内部边框，调整行间距
+    # 使用gridspec来精确控制行间距
+    from matplotlib import gridspec
+    gs = gridspec.GridSpec(3, 4, figure=fig, height_ratios=[1, 0.8, 1], hspace=0.1, wspace=0.1)
+    
+    # 重新分配axes
+    axes = []
+    for i in range(3):
+        row_axes = []
+        for j in range(4):
+            ax = fig.add_subplot(gs[i, j])
+            row_axes.append(ax)
+        axes.append(row_axes)
+    axes = np.array(axes)
+    
+    for i, market in enumerate(market_levels):
+        for j, flex in enumerate(flexibility_levels):
             ax = axes[i, j]
             
-            # 从CSV数据中筛选当前demand-market组合的数据
+            # 移除内部边框，只保留外部边框
+            if i < 2:  # 不是最后一行
+                ax.spines['bottom'].set_visible(False)
+            if j < 3:  # 不是最后一列
+                ax.spines['right'].set_visible(False)
+            if i > 0:  # 不是第一行
+                ax.spines['top'].set_visible(False)
+            if j > 0:  # 不是第一列
+                ax.spines['left'].set_visible(False)
+            
+            # 从CSV数据中筛选当前market-flexibility组合的数据
             current_data = all_plot_df[
-                (all_plot_df['Demand'] == demand) & 
-                (all_plot_df['Market'] == market)
+                (all_plot_df['Market'] == market) & 
+                (all_plot_df['Flexibility'] == flex)
             ]
             
             if not current_data.empty:
-                # 获取该demand-market组合下所有flexibility级别的数据
-                flex_data_dict = {}
-                for flex in flexibility_levels:
-                    flex_data = current_data[current_data['Flexibility'] == flex]
-                    if not flex_data.empty:
-                        flex_data_dict[flex] = {}
-                        for _, row in flex_data.iterrows():
-                            flex_data_dict[flex][row['Category']] = row['Value (CNY)']
+                # 获取该market-flexibility组合下所有demand级别的数据
+                demand_data_dict = {}
+                for demand in demand_levels:
+                    demand_data = current_data[current_data['Demand'] == demand]
+                    if not demand_data.empty:
+                        demand_data_dict[demand] = {}
+                        for _, row in demand_data.iterrows():
+                            demand_data_dict[demand][row['Category']] = row['Value (CNY)']
                 
-                if flex_data_dict:
+                if demand_data_dict:
                     # 获取所有分类
                     all_categories = set()
-                    for flex_data in flex_data_dict.values():
-                        all_categories.update(flex_data.keys())
+                    for demand_data in demand_data_dict.values():
+                        all_categories.update(demand_data.keys())
                     
                     if all_categories:
                         categories = list(all_categories)
-                        flex_names = list(flex_data_dict.keys())
+                        demand_names = list(demand_data_dict.keys())
                         
                         # 创建堆叠柱状图
-                        x_pos = np.arange(len(flex_names))
-                        width = 0.8
+                        x_pos = np.arange(len(demand_names))
+                        width = 0.6  # 减少柱子宽度，让图表更美观
                         
                         # 从配置文件读取成本分类颜色
                         config = load_config('config.yaml')
                         category_colors = config.get('cost_category_colors', {}) if config else {}
+                        
+                        # 定义资源分类的优先级顺序，用于在正负号相同时进行排序
+                        category_priority = {
+                            "variable cost-non-renewable": 1,
+                            "capital-non-renewable": 2,
+                            "heating-electrification": 3,
+                            "capital-renewable": 4,
+                            "transmission lines": 5,
+                            "batteries": 6,
+                            "long-duration storages": 7,
+                            "carbon capture": 8,
+                            "synthetic fuels": 9,
+                            "carbon management": 10,
+                            "hydro": 11, "hydro reservoir": 11, "ror": 12, "run of river": 12, "hydroelectricity": 11, "PHS": 13, "hydro+PHS": 14, "wave": 15,
+                            "solar": 16, "solar PV": 16, "solar thermal": 17, "residential rural solar thermal": 18, "services rural solar thermal": 19,
+                            "residential urban decentral solar thermal": 20, "services urban decentral solar thermal": 21, "urban central solar thermal": 22, "solar rooftop": 23,
+                            "OCGT": 24, "OCGT marginal": 24, "OCGT-heat": 24, "gas boiler": 25, "gas boilers": 25, "gas boiler marginal": 25,
+                            "residential rural gas boiler": 26, "residential urban decentral gas boiler": 27, "services rural gas boiler": 28, "services urban decentral gas boiler": 29, "urban central gas boiler": 30,
+                            "gas": 31, "fossil gas": 31, "natural gas": 31, "biogas to gas": 32, "CCGT": 33, "CCGT marginal": 33, "allam": 34,
+                            "gas for industry co2 to atmosphere": 35, "gas for industry co2 to stored": 36, "gas for industry": 37, "gas for industry CC": 38, "gas pipeline": 39, "gas pipeline new": 40,
+                            "oil": 41, "oil boiler": 41, "residential rural oil boiler": 42, "services rural oil boiler": 43, "residential urban decentral oil boiler": 44, "urban central oil boiler": 45, "services urban decentral oil boiler": 46,
+                            "agriculture machinery oil": 47, "shipping oil": 48, "land transport oil": 49,
+                            "Nuclear": 50, "Nuclear marginal": 50, "nuclear": 50, "uranium": 50,
+                            "Coal": 51, "coal": 51, "coal power plant": 51, "coal boiler": 52, "Coal marginal": 51, "solid": 51, "Lignite": 53, "lignite": 53
+                        }
+                        
+                        # 分析每个分类在不同demand级别下的正负号情况
+                        category_signs = {}
+                        for category in categories:
+                            signs = []
+                            for demand in demand_names:
+                                demand_data = demand_data_dict.get(demand, {})
+                                value = demand_data.get(category, 0)
+                                if value < 0:  # 成本减少
+                                    signs.append(-1)
+                                elif value > 0:  # 成本增加
+                                    signs.append(1)
+                                else:  # 无变化
+                                    signs.append(0)
+                            category_signs[category] = signs
+                        
+                        # 按照正负号一致性进行排序：先按主要变化方向排序，再按优先级排序
+                        def sort_key(category):
+                            signs = category_signs[category]
+                            # 计算主要变化方向（-1表示主要减少，1表示主要增加，0表示无变化）
+                            if all(s == 0 for s in signs):
+                                main_direction = 0
+                            else:
+                                # 计算加权平均方向
+                                total_change = sum(abs(s) for s in signs)
+                                if total_change == 0:
+                                    main_direction = 0
+                                else:
+                                    weighted_direction = sum(s * abs(s) for s in signs) / total_change
+                                    main_direction = -1 if weighted_direction < -0.1 else (1 if weighted_direction > 0.1 else 0)
+                            
+                            # 优先级（数字越小优先级越高）
+                            priority = category_priority.get(category, 999)
+                            
+                            # 返回排序键：(主要方向, 优先级)
+                            # 主要方向：-1(减少) -> 0(无变化) -> 1(增加)
+                            return (main_direction, priority)
+                        
+                        # 按照新的排序逻辑重新排列分类
+                        categories = sorted(categories, key=sort_key)
                         
                         # 为每个分类分配颜色，如果不在预定义中则使用默认颜色
                         colors = []
@@ -627,30 +716,30 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                                 # 使用默认颜色映射
                                 colors.append(plt.cm.tab20(len(colors) % 20))
                         
-                        # 准备堆叠数据 - 为每个flexibility级别创建完整的数组
+                        # 准备堆叠数据 - 为每个demand级别创建完整的数组
                         positive_changes = []
                         negative_changes = []
                         
-                        for flex in flex_names:
-                            flex_data = flex_data_dict.get(flex, {})
-                            flex_positive = []
-                            flex_negative = []
+                        for demand in demand_names:
+                            demand_data = demand_data_dict.get(demand, {})
+                            demand_positive = []
+                            demand_negative = []
                             
                             for category in categories:
-                                value = flex_data.get(category, 0)
+                                value = demand_data.get(category, 0)
                                 # 调整方向：成本减少（负值）显示在上方，成本增加（正值）显示在下方
                                 if value < 0:  # 成本减少，显示在上方
-                                    flex_positive.append(abs(value))  # 取绝对值
-                                    flex_negative.append(0)
+                                    demand_positive.append(abs(value))  # 取绝对值
+                                    demand_negative.append(0)
                                 elif value > 0:  # 成本增加，显示在下方
-                                    flex_positive.append(0)
-                                    flex_negative.append(value)
+                                    demand_positive.append(0)
+                                    demand_negative.append(value)
                                 else:
-                                    flex_positive.append(0)
-                                    flex_negative.append(0)
+                                    demand_positive.append(0)
+                                    demand_negative.append(0)
                             
-                            positive_changes.append(flex_positive)
-                            negative_changes.append(flex_negative)
+                            positive_changes.append(demand_positive)
+                            negative_changes.append(demand_negative)
                         
                         # 用于跟踪已经添加到legend的分类
                         added_to_legend = set()
@@ -687,27 +776,37 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         
                         # 设置标签
                         ax.set_xticks(x_pos)
-                        ax.set_xticklabels([f'{flex}' for flex in flex_names], fontsize=10)
-                        ax.set_ylabel('Cost Change (Billion CNY)', fontsize=9)
+                        ax.set_xticklabels([f'{demand}' for demand in demand_names], fontsize=14)
+                        
+                        # 只在最左边的子图显示y轴标签
+                        if j == 0:
+                            ax.set_ylabel('Cost Change (Billion CNY)', fontsize=14)
+                        else:
+                            ax.set_ylabel('')
                         
                         # 添加零线
                         ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1.5)
                         
-                        # 设置标题
-                        ax.set_title(f'Demand: {scenario_descriptions[demand]}, Market: {scenario_descriptions[market]}', 
-                                   fontsize=10, fontweight='bold')
+                        # 设置标题，将情景编号放在外面
+                        if i == 0:  # 第一行显示market标签
+                            ax.set_title(f'Flexibility: {scenario_descriptions[flex]}', 
+                                       fontsize=14, fontweight='bold', pad=10)
+                        if j == 0:  # 第一列显示flexibility标签
+                            ax.text(-0.2, 0.5, f'Market: {scenario_descriptions[market]}', 
+                                   fontsize=14, fontweight='bold', rotation=90, 
+                                   ha='center', va='center', transform=ax.transAxes)
                         
                         # 添加网格
                         ax.grid(True, alpha=0.3, axis='y')
                         
-                        # 设置y轴标签为十亿人民币单位
+                        # 设置y轴标签为十亿人民币单位，所有子图都显示
                         y_ticks = ax.get_yticks()
                         y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
                         ax.set_yticks(y_ticks)
-                        ax.set_yticklabels(y_tick_labels, fontsize=8)
+                        ax.set_yticklabels(y_tick_labels, fontsize=12)
                         
                         # 设置统一的y轴范围，最大值为40十亿人民币
-                        ax.set_ylim(-40e9, 80e9)
+                        ax.set_ylim(-40e9, 100e9)
                     else:
                         ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
                                transform=ax.transAxes, fontsize=10)
@@ -715,7 +814,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
                            transform=ax.transAxes, fontsize=10)
             else:
-                ax.text(0.5, 0.5, f'No data for\nDemand:{demand}, Market:{market}', ha='center', va='center', 
+                ax.text(0.5, 0.5, f'No data for\nMarket:{market}, Flexibility:{flex}', ha='center', va='center', 
                        transform=ax.transAxes, fontsize=10)
             
 
@@ -743,7 +842,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         
         # 在图表外部添加统一图例
         fig.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5),
-                   title='Resource Categories', fontsize=10)
+                   title='Resource Categories', fontsize=14, title_fontsize=16)
         
         # logger.info(f"图例包含 {len(legend_elements)} 个分类")
     
