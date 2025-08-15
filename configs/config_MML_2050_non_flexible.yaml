@@ -98,7 +98,7 @@ aluminum:
     '2050': true
     '2055': true
     '2060': true
-  capacity_ratio: 1.0
+  capacity_ratio: 0.0
   scenario_dimensions:
     smelter_flexibility:
       low:
