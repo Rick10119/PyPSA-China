@@ -1,44 +1,34 @@
-# SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors
-#
-# SPDX-License-Identifier: CC0-1.0
-
-version: 0815.1H.1
+version: 0815.1H.1-HMH-2050-100p
 logging_level: INFO
-foresight: "myopic"
-
-# 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: False
-single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
-
-results_dir: 'results/'
-summary_dir: 'summary/'
+foresight: myopic
+using_single_node: false
+single_node_province: Shandong
+results_dir: results/
+summary_dir: summary/
 threads: 40
 mem_per_thread: 15000
-
-tmin: '-01-01 00:00'
-tmax: '-12-31 23:00'
-freq: '1h'
-
-add_aluminum: True
-only_other_load: True
-iterative_optimization: True
-aluminum_commitment: False # keep False for iterative optimization
-aluminum_max_iterations: 3  # 最大迭代次数
-aluminum_convergence_tolerance: 0.001  # 收敛阈值（0.1%）
-
-# 电解铝厂容量比例设置 (100%, 90%, 80%, 70%, 60%)
-aluminum_capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
-
+tmin: -01-01 00:00
+tmax: -12-31 23:00
+freq: 1h
+add_aluminum: true
+only_other_load: true
+iterative_optimization: true
+aluminum_commitment: false
+aluminum_max_iterations: 3
+aluminum_convergence_tolerance: 0.001
+aluminum_capacity_ratio: 1.0
 scenario:
-  line_limits: [ 'opt' ]
-  pathway: ['linear2050']
-  topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
+  line_limits:
+  - opt
+  pathway:
+  - linear2050
+  topology: current+Neighbor
   planning_horizons:
-    - 2050
+  - 2050
   co2_reduction:
     linear2060:
-      '2020': -1.
-      '2025': -1.
+      '2020': -1.0
+      '2025': -1.0
       '2030': 0.143
       '2035': 0.286
       '2040': 0.429
@@ -47,8 +37,8 @@ scenario:
       '2055': 0.857
       '2060': 1.0
     linear2050:
-      '2020': -1.
-      '2025': -1.
+      '2020': -1.0
+      '2025': -1.0
       '2030': 0.2
       '2035': 0.4
       '2040': 0.6
@@ -56,10 +46,11 @@ scenario:
       '2050': 1.0
       '2055': 1.0
       '2060': 1.0
-  opts: ['ll']
-  attr: 'p_nom'
-  heating_demand: ['positive']
-
+  opts:
+  - ll
+  attr: p_nom
+  heating_demand:
+  - positive
 solving:
   solver:
     name: gurobi
@@ -68,24 +59,23 @@ solving:
     default:
       Threads: 192
       Crossover: 0
-      Method: 2 # barrier
-      # BarHomogeneous: 1
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-6
+      Method: 2
+      BarConvTol: 1.0e-05
+      FeasibilityTol: 1.0e-06
       AggFill: 0
       PreDual: 0
       GURO_PAR_BARDENSETHRESH: 200
       DualReductions: 0
-      OutputFlag: 1  # 关闭Gurobi输出
-      LogToConsole: 1  # 关闭控制台日志
-      LogFile: ''  # 关闭日志文件
+      OutputFlag: 1
+      LogToConsole: 1
+      LogFile: ''
     MILP:
       Threads: 192
-      Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
+      Method: -1
       MIPGap: 0.01
-      Heuristics: 0.5 # 增加启发式搜索的强度
-      Cuts: 0 # 尝试关闭大部分割平面生成，或设置为1 (温和生成)
-      Presolve: -1 # 保持默认，通常是有益的
+      Heuristics: 0.5
+      Cuts: 0
+      Presolve: -1
   options:
     track_iterations: false
     min_iterations: 4
@@ -95,128 +85,140 @@ solving:
     load_shedding: false
     noisy_costs: false
     clip_p_max_pu: 0.01
-
-  mem: 150000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
-
+  mem: 150000
 aluminum:
   grid_interaction:
-    "2020": false
-    "2025": false
-    "2030": true
-    "2035": true
-    "2040": true
-    "2045": true
-    "2050": true
-    "2055": true
-    "2060": true
-
-  # 电解铝厂容量比例设置
-  capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
-
-  # 情景维度设置
+    '2020': false
+    '2025': false
+    '2030': true
+    '2035': true
+    '2040': true
+    '2045': true
+    '2050': true
+    '2055': true
+    '2060': true
+  capacity_ratio: 1.0
   scenario_dimensions:
-    # 1. 电解铝厂运行灵活性 (Smelter operational flexibility)
     smelter_flexibility:
       low:
-        p_min_pu: 0.9  # p.u.
-        restart_cost: 110000  # $/MW
+        p_min_pu: 0.9
+        restart_cost: 110000
       mid:
-        p_min_pu: 0.7  # p.u.
-        restart_cost: 16000  # $/MW
+        p_min_pu: 0.7
+        restart_cost: 16000
       high:
-        p_min_pu: 0.5  # p.u.
-        restart_cost: 3200  # $/MW
+        p_min_pu: 0.5
+        restart_cost: 3200
       non_constrained:
-        p_min_pu: 0.0  # p.u.
-        restart_cost: 0  # $/MW
-    
-    # 2. 市场机会情景 (Market opportunity scenarios)
+        p_min_pu: 0.0
+        restart_cost: 0
     market_opportunity:
       low:
-        vre_cost_factor: 0.8      # VRE成本调整系数
-        battery_cost_factor: 0.8  # 电池成本调整系数
-        h2_cost_factor: 0.8       # H2/water tank成本调整系数
-        sabatier_cost_factor: 0.8 # Sabatier成本调整系数
+        vre_cost_factor: 0.8
+        battery_cost_factor: 0.8
+        h2_cost_factor: 0.8
+        sabatier_cost_factor: 0.8
       mid:
-        vre_cost_factor: 1.0      # VRE成本调整系数
-        battery_cost_factor: 1.0  # 电池成本调整系数
-        h2_cost_factor: 1.0       # H2/water tank成本调整系数
-        sabatier_cost_factor: 1.0 # Sabatier成本调整系数
+        vre_cost_factor: 1.0
+        battery_cost_factor: 1.0
+        h2_cost_factor: 1.0
+        sabatier_cost_factor: 1.0
       high:
-        vre_cost_factor: 1.0      # VRE成本调整系数
-        battery_cost_factor: 1.5  # 电池成本调整系数
-        h2_cost_factor: 1.5       # H2/water tank成本调整系数
-        sabatier_cost_factor: 1.5 # Sabatier成本调整系数
-  # 当前选择的情景组合 (默认设置为mid-mid-mid)
+        vre_cost_factor: 1.0
+        battery_cost_factor: 1.5
+        h2_cost_factor: 1.5
+        sabatier_cost_factor: 1.5
   current_scenario:
-    smelter_flexibility: "low"
-    primary_demand: "high"
-    market_opportunity: "high"
-  
-  # Aluminum storage costs ($/MWh per hour) 3.91479E-05
-  al_marginal_cost_storage: 3.79E-05 # euro/MWh
-  al_storage_limit: 8760  # hours (24 * 365)
-
+    smelter_flexibility: high
+    primary_demand: mid
+    market_opportunity: high
+  al_marginal_cost_storage: 3.79e-05
+  al_storage_limit: 8760
 snapshots:
-  start: "2020-01-01"
-  end: "2021-01-01"
-  inclusive: 'left'
-
+  start: '2020-01-01'
+  end: '2021-01-01'
+  inclusive: left
 logging:
   level: INFO
   format: '%(levelname)s:%(name)s:%(message)s'
-  
 enable:
   build_cutout: false
   retrieve_cutout: false
   retrieve_raster: false
-  
 atlite:
   nprocesses: 4
   show_progress: true
   cutouts:
-   China-2020:
-     module: era5
-     dx: 0.25
-     dy: 0.25
-
+    China-2020:
+      module: era5
+      dx: 0.25
+      dy: 0.25
 solar_thermal_angle: 45
-
 Technique:
   solar: true
   onwind: true
   offwind: true
-
 coal_cc: true
 hydrogen_lines: true
-## add components
-heat_coupling: True
-add_gas: True
-add_coal: True
-add_biomass: True
-add_hydro: True
-add_H2: True
-add_methanation: True
-
-existing_infrastructure: ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']
-
-bus_suffix: [""," central heat"," decentral heat"," gas"," coal"," aluminum"]
-bus_carrier: {
-    "": "AC",
-    " central heat": "heat",
-    " decentral heat": "heat",
-    " gas": "gas",
-    " coal": "coal",
-    " aluminum": "aluminum",
-}
-
+heat_coupling: true
+add_gas: true
+add_coal: true
+add_biomass: true
+add_hydro: true
+add_H2: true
+add_methanation: true
+existing_infrastructure:
+- coal
+- CHP coal
+- CHP gas
+- OCGT
+- solar
+- solar thermal
+- onwind
+- offwind
+- coal boiler
+- ground heat pump
+- nuclear
+bus_suffix:
+- ''
+- ' central heat'
+- ' decentral heat'
+- ' gas'
+- ' coal'
+- ' aluminum'
+bus_carrier:
+  ? ''
+  : AC
+  ' central heat': heat
+  ' decentral heat': heat
+  ' gas': gas
+  ' coal': coal
+  ' aluminum': aluminum
 Techs:
-  ## for add carriers
-  vre_techs: [ "onwind","offwind","solar","solar thermal","hydroelectricity", "nuclear","biomass","heat pump","resistive heater","Sabatier","H2 CHP"]
-  conv_techs: ["OCGT gas", "CHP gas", "gas boiler","coal boiler","coal power plant","CHP coal"]
-  store_techs: ["H2","battery","water tanks","PHS"]
-
-
+  vre_techs:
+  - onwind
+  - offwind
+  - solar
+  - solar thermal
+  - hydroelectricity
+  - nuclear
+  - biomass
+  - heat pump
+  - resistive heater
+  - Sabatier
+  - H2 CHP
+  conv_techs:
+  - OCGT gas
+  - CHP gas
+  - gas boiler
+  - coal boiler
+  - coal power plant
+  - CHP coal
+  store_techs:
+  - H2
+  - battery
+  - water tanks
+  - PHS
 transmission_efficiency:
   DC:
     efficiency_static: 0.98
@@ -225,188 +227,194 @@ transmission_efficiency:
     efficiency_static: 1
     efficiency_per_1000km: 0.979
     compression_per_1000km: 0.019
-
 chp_parameters:
   eff_el: 0.3978
   eff_th: 0.5304
-
 solar_cf_correction: 0.85
-time_dep_hp_cop: True
-tes_tau: 3.
-
+time_dep_hp_cop: true
+tes_tau: 3.0
 renewable:
   onwind:
     cutout: China-2020
     resource:
       method: wind
       turbine: Vestas_V112_3MW
-    capacity_per_sqkm: 3 # ScholzPhd Tab 4.3.1: 10MW/km^2
-    potential: simple # or conservative
+    capacity_per_sqkm: 3
+    potential: simple
     natura: false
-    clip_p_max_pu: 1.e-2
-    min_p_nom_max: 1.e-2
+    clip_p_max_pu: 0.01
+    min_p_nom_max: 0.01
   offwind:
     cutout: China-2020
     resource:
       method: wind
       turbine: NREL_ReferenceTurbine_5MW_offshore
-    capacity_per_sqkm: 2 # ScholzPhd Tab 4.3.1: 20MW/km^2
+    capacity_per_sqkm: 2
     correction_factor: 0.8855
-    potential: simple # or conservative
+    potential: simple
     natura: true
     max_depth: 50
-    clip_p_max_pu: 1.e-2
-    min_p_nom_max: 1.e-2
+    clip_p_max_pu: 0.01
+    min_p_nom_max: 0.01
   solar:
     cutout: China-2020
     resource:
       method: pv
       panel: CSi
       orientation:
-        slope: 35.
-        azimuth: 180.
-    capacity_per_sqkm: 5.1 # ScholzPhd Tab 4.3.1: 170 MW/km^2 3%
-    potential: simple # or conservative
+        slope: 35.0
+        azimuth: 180.0
+    capacity_per_sqkm: 5.1
+    potential: simple
     correction_factor: 0.85
     natura: false
-    clip_p_max_pu: 1.e-2
-    min_p_nom_max: 1.e-2
-
+    clip_p_max_pu: 0.01
+    min_p_nom_max: 0.01
 electricity:
-  voltages: [220., 300., 380.]
-  co2limit: 7.75e+7 # 0.05 * 3.1e9*0.5
-  co2base: 1.487e+9
+  voltages:
+  - 220.0
+  - 300.0
+  - 380.0
+  co2limit: 77500000.0
+  co2base: 1487000000.0
   agg_p_nom_limits: data/agg_p_nom_minmax.csv
-
   extendable_carriers:
     Generator: []
-    StorageUnit: [] # battery, H2
-    Store: [battery, H2]
-    Link: [battery]
-
+    StorageUnit: []
+    Store:
+    - battery
+    - H2
+    Link:
+    - battery
   max_hours:
     battery: 6
     H2: 168
-
-  powerplants_filter: false # use pandas query strings here, e.g. Country not in ['Germany']
-  custom_powerplants: false # use pandas query strings here, e.g. Country in ['Germany']
-  conventional_carriers: [nuclear, oil, OCGT, CCGT, coal, lignite, geothermal, biomass]
-  renewable_capacities_from_OPSD: [] # onwind, offwind, solar
-
+  powerplants_filter: false
+  custom_powerplants: false
+  conventional_carriers:
+  - nuclear
+  - oil
+  - OCGT
+  - CCGT
+  - coal
+  - lignite
+  - geothermal
+  - biomass
+  renewable_capacities_from_OPSD: []
 hydro:
-  hydro_capital_cost: True
-  PHS_max_hours: 24.
-
+  hydro_capital_cost: true
+  PHS_max_hours: 24.0
 costs:
-  year: 2030
+  year: 2050
   lifetime: 25
-  discountrate: 0.02 # social discountrate
-  USD2013_to_EUR2013: 0.9189 # [EUR/USD] ECB: https://www.ecb.europa.eu/stats/exchange/eurofxref/html/eurofxref-graph-usd.en.html
-  marginal_cost: # EUR/MWh
+  discountrate: 0.02
+  USD2013_to_EUR2013: 0.9189
+  marginal_cost:
     solar: 0.01
     onwind: 0.015
     offwind: 0.015
-    hydro: 0.
-    H2: 0.
-    electrolysis: 0.
-    fuel cell: 0.
-    battery: 0.
-    battery inverter: 0.
-  emission_prices: # in currency per tonne emission, only used with the option Ep
-    co2: 0.
-
-
-plot: True
+    hydro: 0.0
+    H2: 0.0
+    electrolysis: 0.0
+    fuel cell: 0.0
+    battery: 0.0
+    battery inverter: 0.0
+  emission_prices:
+    co2: 0.0
+plot: true
 plotting:
   map:
-    figsize: [14, 8]
-    boundaries: [71, 135., 0, 56.]
-    cost_size_factor: 1.5e+10
-    bus_size_factor: 1.e+5
-    linewidth_factor: 6.e+3
-    bus_size_factor_demand: 2.e+7
-    bus_size_factor_heat: 5.e+4
-    linewidth_factor_heat: 5.e+4
-
+    figsize:
+    - 14
+    - 8
+    boundaries:
+    - 71
+    - 135.0
+    - 0
+    - 56.0
+    cost_size_factor: 15000000000.0
+    bus_size_factor: 100000.0
+    linewidth_factor: 6000.0
+    bus_size_factor_demand: 20000000.0
+    bus_size_factor_heat: 50000.0
+    linewidth_factor_heat: 50000.0
   costs_max: 500
   costs_avg: 50
   costs_threshold: 1000
   costs_plots_threshold: 2
-
-  energy_max: 25000.
-  energy_min: 0.
-  energy_threshold: 50.
-  loads: ['electricity', 'decentral heat', 'central heat']
-  vre_techs: [ "onwind", "offwind", "solar"]
-  conv_techs: [ "gas", "gas-heat", "gas-AC", "AC-gas", "coal", "coal-AC","solar thermal","AC-heat","AC-AC","stations-AC","uranium", "H2-AC", "H2-gas",]
-  storage_techs: [ "hydro+PHS", "battery", "AC-battery", "H2", "AC-H2" , "AC-heat"]
-
+  energy_max: 25000.0
+  energy_min: 0.0
+  energy_threshold: 50.0
+  loads:
+  - electricity
+  - decentral heat
+  - central heat
+  vre_techs:
+  - onwind
+  - offwind
+  - solar
+  conv_techs:
+  - gas
+  - gas-heat
+  - gas-AC
+  - AC-gas
+  - coal
+  - coal-AC
+  - solar thermal
+  - AC-heat
+  - AC-AC
+  - stations-AC
+  - uranium
+  - H2-AC
+  - H2-gas
+  storage_techs:
+  - hydro+PHS
+  - battery
+  - AC-battery
+  - H2
+  - AC-H2
+  - AC-heat
   tech_colors:
-    blank: "white"
-    # wind
-    wind: "#235ebc"
-    onwind: "#235ebc"
-    onshore wind: "#235ebc"
-    offwind: "#6895dd"
-    offshore wind: "#6895dd"
-    offwind-ac: "#6895dd"
-    offshore wind (AC): "#6895dd"
-    offshore wind ac: "#6895dd"
-    offwind-dc: "#74c6f2"
-    offshore wind (DC): "#74c6f2"
-    offshore wind dc: "#74c6f2"
-    
-  # 成本分类颜色配置，用于堆叠图
+    blank: white
+    wind: '#235ebc'
+    onwind: '#235ebc'
+    onshore wind: '#235ebc'
+    offwind: '#6895dd'
+    offshore wind: '#6895dd'
+    offwind-ac: '#6895dd'
+    offshore wind (AC): '#6895dd'
+    offshore wind ac: '#6895dd'
+    offwind-dc: '#74c6f2'
+    offshore wind (DC): '#74c6f2'
+    offshore wind dc: '#74c6f2'
   cost_category_colors:
-    # variable cost-non-renewable
-    "variable cost-non-renewable": "#545454"  # coal color
-    
-    # capital-non-renewable
-    "capital-non-renewable": "#ff8c00"  # nuclear color
-    
-    # heating-electrification
-    "heating-electrification": "#2fb537"  # heat pump color
-    
-    # capital-renewable
-    "capital-renewable": "#f9d002"  # solar color
-    
-    # transmission lines
-    "transmission lines": "#6c9459"  # transmission lines color
-    
-    # batteries
-    "batteries": "#ace37f"  # battery color
-    
-    # long-duration storages
-    "long-duration storages": "#bf13a0"  # H2 color
-    
-    # carbon capture
-    "carbon capture": "#f29dae"  # CO2 color
-    
-    # synthetic fuels
-    "synthetic fuels": "#9850ad"  # Sabatier color
-    
-    # carbon management
-    "carbon management": "#f29dae"  # CO2 color
-    # water
+    variable cost-non-renewable: '#545454'
+    capital-non-renewable: '#ff8c00'
+    heating-electrification: '#2fb537'
+    capital-renewable: '#f9d002'
+    transmission lines: '#6c9459'
+    batteries: '#ace37f'
+    long-duration storages: '#bf13a0'
+    carbon capture: '#f29dae'
+    synthetic fuels: '#9850ad'
+    carbon management: '#f29dae'
     hydro: '#298c81'
     hydro reservoir: '#298c81'
     ror: '#3dbfb0'
     run of river: '#3dbfb0'
     hydroelectricity: '#298c81'
     PHS: '#51dbcc'
-    hydro+PHS: "#08ad97"
+    hydro+PHS: '#08ad97'
     wave: '#a7d4cf'
-    # solar
-    solar: "#f9d002"
-    solar PV: "#f9d002"
-    solar thermal: "#ffbf2b" #'#ffbf2b'
+    solar: '#f9d002'
+    solar PV: '#f9d002'
+    solar thermal: '#ffbf2b'
     residential rural solar thermal: '#f1c069'
     services rural solar thermal: '#eabf61'
     residential urban decentral solar thermal: '#e5bc5a'
     services urban decentral solar thermal: '#dfb953'
     urban central solar thermal: '#d7b24c'
     solar rooftop: '#ffea80'
-    # gas
     OCGT: '#e0986c'
     OCGT marginal: '#e0986c'
     OCGT-heat: '#e0986c'
@@ -431,7 +439,6 @@ plotting:
     gas for industry CC: '#692e0a'
     gas pipeline: '#ebbca0'
     gas pipeline new: '#a87c62'
-    # oil
     oil: '#c9c9c9'
     oil boiler: '#adadad'
     residential rural oil boiler: '#a9a9a9'
@@ -440,14 +447,12 @@ plotting:
     urban central oil boiler: '#9d9d9d'
     services urban decentral oil boiler: '#999999'
     agriculture machinery oil: '#949494'
-    shipping oil: "#808080"
+    shipping oil: '#808080'
     land transport oil: '#afafaf'
-    # nuclear
     Nuclear: '#ff8c00'
     Nuclear marginal: '#ff8c00'
     nuclear: '#ff8c00'
     uranium: '#ff8c00'
-    # coal
     Coal: '#545454'
     coal: '#545454'
     coal power plant: '#545454'
@@ -457,7 +462,6 @@ plotting:
     Lignite: '#826837'
     lignite: '#826837'
     Lignite marginal: '#826837'
-    # biomass
     biogas: '#e3d37d'
     biomass: '#baa741'
     biomass CHP: '#baa741'
@@ -478,19 +482,15 @@ plotting:
     services urban decentral biomass boiler: '#dde5b5'
     biomass to liquid: '#32CD32'
     BioSNG: '#123456'
-    # power transmission
     lines: '#6c9459'
-    transmission lines: '#6c9459'
     electricity distribution grid: '#97ad8c'
     low voltage: '#97ad8c'
-    # electricity demand
     electric load: '#110d63'
     electric demand: '#110d63'
     electricity: '#110d63'
     industry electricity: '#2d2a66'
     industry new electricity: '#2d2a66'
     agriculture electricity: '#494778'
-    # battery + EVs
     battery: '#ace37f'
     battery storage: '#ace37f'
     battery charger: '#88a75b'
@@ -503,7 +503,6 @@ plotting:
     V2G: '#e5ffa8'
     land transport EV: '#baf238'
     Li ion: '#baf238'
-    # hot water storage
     water tanks: '#e69487'
     residential rural water tanks: '#f7b7a3'
     services rural water tanks: '#f3afa3'
@@ -523,7 +522,6 @@ plotting:
     residential urban decentral water tanks discharger: '#baac9e'
     services rural water tanks discharger: '#bbc2b8'
     services urban decentral water tanks discharger: '#bdd8d3'
-    # heat demand
     heat load: '#cc1f1f'
     heat: '#cc1f1f'
     heat demand: '#cc1f1f'
@@ -538,7 +536,6 @@ plotting:
     low-temperature heat for industry: '#8f2727'
     process heat: '#ff0000'
     agriculture heat: '#d9a5a5'
-    # heat supply
     heat pumps: '#2fb537'
     heat pump: '#2fb537'
     air heat pump: '#36eb41'
@@ -572,9 +569,8 @@ plotting:
     coal carbon capture: '#8487e8'
     coal power plant retrofit: '#8487e8'
     building retrofitting: '#8487e8'
-    # hydrogen
-    H2 for industry: "#f073da"
-    H2 for shipping: "#ebaee0"
+    H2 for industry: '#f073da'
+    H2 for shipping: '#ebaee0'
     H2: '#bf13a0'
     hydrogen: '#bf13a0'
     SMR: '#870c71'
@@ -592,18 +588,15 @@ plotting:
     H2 turbine: '#991f83'
     H2 Electrolysis: '#ff29d9'
     H2 electrolysis: '#ff29d9'
-    # ammonia
     NH3: '#46caf0'
     ammonia: '#46caf0'
     ammonia store: '#00ace0'
     ammonia cracker: '#87d0e6'
     Haber-Bosch: '#076987'
-    # syngas
     Sabatier: '#9850ad'
     methanation: '#c44ce6'
     methane: '#c44ce6'
     helmeth: '#e899ff'
-    # synfuels
     Fischer-Tropsch: '#25c49a'
     liquid: '#25c49a'
     kerosene for aviation: '#a1ffe6'
@@ -611,7 +604,6 @@ plotting:
     methanolisation: '#83d6d5'
     methanol: '#468c8b'
     shipping methanol: '#468c8b'
-    # co2
     CC: '#f29dae'
     CCS: '#f29dae'
     CO2 sequestration: '#f29dae'
@@ -620,17 +612,15 @@ plotting:
     co2: '#f29dae'
     co2 vent: '#ffd4dc'
     CO2 pipeline: '#f5627f'
-    # emissions
     process emissions CC: '#000000'
     process emissions: '#222222'
     process emissions to stored: '#444444'
     process emissions to atmosphere: '#888888'
     oil emissions: '#aaaaaa'
-    shipping oil emissions: "#555555"
+    shipping oil emissions: '#555555'
     shipping methanol emissions: '#666666'
     land transport oil emissions: '#777777'
     agriculture machinery oil emissions: '#333333'
-    # other
     shipping: '#03a2ff'
     power-to-heat: '#2fb537'
     power-to-gas: '#c44ce6'
@@ -641,60 +631,74 @@ plotting:
     waste: '#e3d37d'
     other: '#000000'
     geothermal: '#ba91b1'
-    AC: "#70af1d"
-    AC-AC: "#70af1d"
-    AC line: "#70af1d"
-    links: "#8a1caf"
-    HVDC links: "#8a1caf"
-    DC: "#8a1caf"
-    DC-DC: "#8a1caf"
-    DC link: "#8a1caf"
-    # aluminum (only used when add_aluminum is True)
+    AC: '#70af1d'
+    AC-AC: '#70af1d'
+    AC line: '#70af1d'
+    links: '#8a1caf'
+    HVDC links: '#8a1caf'
+    DC: '#8a1caf'
+    DC-DC: '#8a1caf'
+    DC link: '#8a1caf'
     aluminum: '#8B4513'
     aluminum smelter: '#8B4513'
     aluminum storage: '#D2691E'
   nice_names:
-    AC-AC: "Electric grid"
-    H2-AC: "H2 Fuel Cell"
-    AC-H2: "H2 Electrolysis"
-    H2-gas: "Sabatier + DAC"
-    AC-battery: "Battery Charger"
-    CHP: "Combined Heat and Power"
-    OCGT: "Open-Cycle Gas"
-    CCGT: "Combined-Cycle Gas"
-    offwind: "Offshore Wind"
-    onwind: "Onshore Wind"
-    solar: "Solar"
-    coal: "Coal Power Plant"
-    coal-AC: "Combined Heat and Power"
-    coal-heat: "Coal Boiler"
-    gas-AC: "Open-Cycle Gas"
-    PHS: "Pumped Hydro Storage"
-    stations-AC: "Reservoir & Dam"
-    hydro: "Reservoir & Dam"
-    battery: "Battery Storage"
-    H2: "Hydrogen Storage"
-    lines: "Transmission Lines"
-    ror: "Run of River"
-    AC-heat: "Heat Pump"
-    heat pump: "Heat Pump"
-    solar thermal: "Solar Thermal"
-    uranium: "Nuclear"
-    aluminum: "Aluminum Smelter"
-    aluminum smelter: "Aluminum Smelter"
-    aluminum storage: "Aluminum Storage"
+    AC-AC: Electric grid
+    H2-AC: H2 Fuel Cell
+    AC-H2: H2 Electrolysis
+    H2-gas: Sabatier + DAC
+    AC-battery: Battery Charger
+    CHP: Combined Heat and Power
+    OCGT: Open-Cycle Gas
+    CCGT: Combined-Cycle Gas
+    offwind: Offshore Wind
+    onwind: Onshore Wind
+    solar: Solar
+    coal: Coal Power Plant
+    coal-AC: Combined Heat and Power
+    coal-heat: Coal Boiler
+    gas-AC: Open-Cycle Gas
+    PHS: Pumped Hydro Storage
+    stations-AC: Reservoir & Dam
+    hydro: Reservoir & Dam
+    battery: Battery Storage
+    H2: Hydrogen Storage
+    lines: Transmission Lines
+    ror: Run of River
+    AC-heat: Heat Pump
+    heat pump: Heat Pump
+    solar thermal: Solar Thermal
+    uranium: Nuclear
+    aluminum: Aluminum Smelter
+    aluminum smelter: Aluminum Smelter
+    aluminum storage: Aluminum Storage
     energy:
-      coal: "Coal"
-      offwind: "Offshore Wind"
-      onwind: "Onshore Wind"
-      solar: "Solar"
-      solar thermal: "Solar Thermal"
-
-no_lines: False
-line_volume_limit_max: 5.e+15   #line_volume_limit is set = factor * max
+      coal: Coal
+      offwind: Offshore Wind
+      onwind: Onshore Wind
+      solar: Solar
+      solar thermal: Solar Thermal
+no_lines: false
+line_volume_limit_max: 5000000000000000.0
 line_cost_factor: 1
-
 existing_capacities:
-  grouping_years: [1980,1985, 1990, 1995, 2000, 2005, 2010, 2015, 2019, 2020, 2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060]
+  grouping_years:
+  - 1980
+  - 1985
+  - 1990
+  - 1995
+  - 2000
+  - 2005
+  - 2010
+  - 2015
+  - 2019
+  - 2020
+  - 2025
+  - 2030
+  - 2035
+  - 2040
+  - 2045
+  - 2050
+  - 2055
+  - 2060
   threshold_capacity: 1
-
