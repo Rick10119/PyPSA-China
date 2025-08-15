@@ -283,6 +283,30 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
     if costs_100p is None or costs_non_flex is None:
         return {}
     
+    # 过滤掉aluminum相关的数据
+    def filter_aluminum_data(df):
+        if df is None or df.empty:
+            return df
+        
+        # 创建过滤后的DataFrame
+        filtered_df = df.copy()
+        
+        # 删除包含aluminum的行
+        aluminum_mask = []
+        for idx in filtered_df.index:
+            if len(idx) >= 3:
+                # 检查任何索引级别是否包含aluminum
+                has_aluminum = any('aluminum' in str(level).lower() for level in idx)
+                aluminum_mask.append(not has_aluminum)
+            else:
+                aluminum_mask.append(True)
+        
+        return filtered_df[aluminum_mask]
+    
+    # 过滤两个数据集
+    costs_100p = filter_aluminum_data(costs_100p)
+    costs_non_flex = filter_aluminum_data(costs_non_flex)
+    
     # 定义成本类型和资源组合的分类映射
     cost_category_mapping = {
         # variable cost-non-renewable - 非可再生能源可变成本
@@ -414,7 +438,11 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
     filtered_total_change = 0  # 只计算过滤后的分类的总变化量
     
     for category, change in category_changes.items():
-        if category not in exclude_categories and abs(change) > 1e-6:
+        # 过滤掉nan相关的分类和不需要展示的分类
+        if (category not in exclude_categories and 
+            abs(change) > 1e-6 and 
+            'nan' not in str(category).lower() and
+            not pd.isna(category)):
             filtered_categories[category] = change
             filtered_total_change += change
     
@@ -516,9 +544,9 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     #         if category in cost_diff:
                     #             logger.info(f"  {category}: 差异 = {cost_diff[category]/1e9:.2f}B EUR")
                     if cost_diff:
-                        # 转换为人民币并排除aluminum相关数据和Total Change
+                        # 转换为人民币并排除Total Change
                         for k, v in cost_diff.items():
-                            if 'aluminum' not in k.lower() and k != 'Total Change':
+                            if k != 'Total Change':
                                 if not pd.isna(v):
                                     value_cny = v * EUR_TO_CNY
                                     all_plot_data.append({
@@ -586,8 +614,18 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         x_pos = np.arange(len(flex_names))
                         width = 0.8
                         
-                        # 为每个资源类别分配颜色
-                        colors = plt.cm.Set3(np.linspace(0, 1, len(categories)))
+                        # 从配置文件读取成本分类颜色
+                        config = load_config('config.yaml')
+                        category_colors = config.get('cost_category_colors', {}) if config else {}
+                        
+                        # 为每个分类分配颜色，如果不在预定义中则使用默认颜色
+                        colors = []
+                        for category in categories:
+                            if category in category_colors:
+                                colors.append(category_colors[category])
+                            else:
+                                # 使用默认颜色映射
+                                colors.append(plt.cm.tab20(len(colors) % 20))
                         
                         # 准备堆叠数据 - 为每个flexibility级别创建完整的数组
                         positive_changes = []
@@ -600,12 +638,13 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                             
                             for category in categories:
                                 value = flex_data.get(category, 0)
-                                if value > 0:
-                                    flex_positive.append(value)
+                                # 调整方向：成本减少（负值）显示在上方，成本增加（正值）显示在下方
+                                if value < 0:  # 成本减少，显示在上方
+                                    flex_positive.append(abs(value))  # 取绝对值
                                     flex_negative.append(0)
-                                elif value < 0:
+                                elif value > 0:  # 成本增加，显示在下方
                                     flex_positive.append(0)
-                                    flex_negative.append(-abs(value))
+                                    flex_negative.append(value)
                                 else:
                                     flex_positive.append(0)
                                     flex_negative.append(0)
@@ -613,33 +652,43 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                             positive_changes.append(flex_positive)
                             negative_changes.append(flex_negative)
                         
+                        # 用于跟踪已经添加到legend的分类
+                        added_to_legend = set()
+                        
                         # 绘制正值堆叠（成本减少，在横轴上面）
                         bottom_positive = np.zeros(len(x_pos))
                         for cat_idx, category in enumerate(categories):
                             category_values = [changes[cat_idx] for changes in positive_changes]
                             if any(val > 0 for val in category_values):
+                                # 只在第一次遇到该分类时添加到legend
+                                label = category if category not in added_to_legend else ""
                                 ax.bar(x_pos, category_values, width, 
                                        bottom=bottom_positive,
                                        color=colors[cat_idx], 
                                        alpha=0.8,
-                                       label=category)
+                                       label=label)
                                 bottom_positive += np.array(category_values)
+                                added_to_legend.add(category)
                         
                         # 绘制负值堆叠（成本增加，在横轴下面）
                         bottom_negative = np.zeros(len(x_pos))
                         for cat_idx, category in enumerate(categories):
                             category_values = [changes[cat_idx] for changes in negative_changes]
                             if any(val > 0 for val in category_values):
-                                ax.bar(x_pos, category_values, width, 
+                                # 负值部分也添加到legend，但只在第一次遇到该分类时添加
+                                label = category if category not in added_to_legend else ""
+                                ax.bar(x_pos, -np.array(category_values), width,  # 使用负值
                                        bottom=bottom_negative,
                                        color=colors[cat_idx], 
-                                       alpha=0.8)
+                                       alpha=0.8,
+                                       label=label)
                                 bottom_negative += np.array(category_values)
+                                added_to_legend.add(category)
                         
                         # 设置标签
                         ax.set_xticks(x_pos)
                         ax.set_xticklabels([f'{flex}' for flex in flex_names], fontsize=10)
-                        ax.set_ylabel('Cost Change (CNY)', fontsize=9)
+                        ax.set_ylabel('Cost Change (Billion CNY)', fontsize=9)
                         
                         # 添加零线
                         ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1.5)
@@ -657,14 +706,8 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         ax.set_yticks(y_ticks)
                         ax.set_yticklabels(y_tick_labels, fontsize=8)
                         
-                        # 设置合理的y轴范围
-                        y_data = [val for flex_data in flex_data_dict.values() for val in flex_data.values()]
-                        if y_data:
-                            y_max = max(y_data) if y_data else 0
-                            y_min = min(y_data) if y_data else 0
-                            y_range = max(abs(y_max), abs(y_min))
-                            if y_range > 0:
-                                ax.set_ylim(-y_range * 1.1, y_range * 1.1)
+                        # 设置统一的y轴范围，最大值为40十亿人民币
+                        ax.set_ylim(-40e9, 80e9)
                     else:
                         ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
                                transform=ax.transAxes, fontsize=10)
@@ -681,12 +724,21 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     if not all_plot_df.empty:
         # 获取所有唯一的分类
         all_categories = all_plot_df['Category'].unique()
-        colors = plt.cm.Set3(np.linspace(0, 1, len(all_categories)))
+        
+        # 从配置文件读取成本分类颜色
+        config = load_config('config.yaml')
+        category_colors = config.get('cost_category_colors', {}) if config else {}
         
         # 创建图例元素
         legend_elements = []
-        for idx, category in enumerate(all_categories):
-            legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=colors[idx], 
+        for category in all_categories:
+            if category in category_colors:
+                color = category_colors[category]
+            else:
+                # 使用默认颜色
+                color = plt.cm.tab20(len(legend_elements) % 20)
+            
+            legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=color, 
                                                label=category, alpha=0.8))
         
         # 在图表外部添加统一图例
@@ -696,6 +748,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         # logger.info(f"图例包含 {len(legend_elements)} 个分类")
     
     plt.tight_layout()
+    # plt.show()
     
     # 保存图表
     plot_file = plots_dir / f"scenario_comparison_{file_type}.png"

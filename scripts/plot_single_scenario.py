@@ -437,14 +437,15 @@ def plot_single_scenario_comparison(scenario_info, output_dir, file_type='costs'
     x_pos = 0
     width = 0.8
     
-    # 使用tab20颜色映射，提供更多不同的颜色，并反转颜色顺序
-    colors = plt.cm.tab20(np.linspace(0, 1, len(top_data)))
-    colors = colors[::-1]  # 反转颜色顺序
+    # 从配置文件读取成本分类颜色
+    config = load_config('config.yaml')
+    category_colors = config.get('cost_category_colors', {}) if config else {}
     
-    # 为每个分类分配唯一的颜色
-    category_colors = {}
+    # 为每个分类分配颜色，如果不在预定义中则使用默认颜色
     for i, category in enumerate(top_data['Category']):
-        category_colors[category] = colors[i]
+        if category not in category_colors:
+            # 使用默认颜色映射
+            category_colors[category] = plt.cm.tab20(i % 20)
     
     # 用于跟踪已经添加到legend的分类
     added_to_legend = set()
@@ -488,10 +489,9 @@ def plot_single_scenario_comparison(scenario_info, output_dir, file_type='costs'
     ax.set_yticks(y_ticks)
     ax.set_yticklabels(y_tick_labels, fontsize=10)
     
-    # 添加图例，按颜色顺序排列
+    # 添加图例
     handles, labels = ax.get_legend_handles_labels()
-    # 反转图例顺序以匹配颜色顺序
-    ax.legend(handles[::-1], labels[::-1], bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+    ax.legend(handles, labels, bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
     
     plt.tight_layout()
     

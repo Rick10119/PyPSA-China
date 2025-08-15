@@ -60,6 +60,7 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2
+      BarHomogeneous: 1
       BarConvTol: 1.0e-05
       FeasibilityTol: 1.0e-06
       AggFill: 0
@@ -387,6 +388,17 @@ plotting:
     offwind-dc: '#74c6f2'
     offshore wind (DC): '#74c6f2'
     offshore wind dc: '#74c6f2'
+  cost_category_colors:
+    variable cost-non-renewable: '#545454'
+    capital-non-renewable: '#ff8c00'
+    heating-electrification: '#2fb537'
+    capital-renewable: '#f9d002'
+    transmission lines: '#6c9459'
+    batteries: '#ace37f'
+    long-duration storages: '#bf13a0'
+    carbon capture: '#f29dae'
+    synthetic fuels: '#9850ad'
+    carbon management: '#f29dae'
     hydro: '#298c81'
     hydro reservoir: '#298c81'
     ror: '#3dbfb0'
@@ -472,7 +484,6 @@ plotting:
     biomass to liquid: '#32CD32'
     BioSNG: '#123456'
     lines: '#6c9459'
-    transmission lines: '#6c9459'
     electricity distribution grid: '#97ad8c'
     low voltage: '#97ad8c'
     electric load: '#110d63'
