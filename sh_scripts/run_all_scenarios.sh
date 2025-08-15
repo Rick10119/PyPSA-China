@@ -15,6 +15,11 @@ echo "=== 运行non-flexible场景 ==="
 ./sh_scripts/run_non_flexible.sh
 echo
 
+# 运行5p过剩产能保留比例
+echo "=== 运行 5p 过剩产能保留比例 ==="
+./sh_scripts/run_5p.sh
+echo
+
 # 运行10p过剩产能保留比例
 echo "=== 运行 10p 过剩产能保留比例 ==="
 ./sh_scripts/run_10p.sh

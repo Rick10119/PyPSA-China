@@ -44,7 +44,7 @@ def generate_capacity_configs():
     固定为MMMM场景，使用过剩产能保留比例
     """
     # 过剩产能保留比例 (Cap值)
-    cap_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]  # 10%, 20%, ..., 100%
+    cap_ratios = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]  # 5%, 10%, 20%, ..., 100%
     
     # 固定为MMMM场景
     flex = 'mid'
@@ -253,7 +253,7 @@ def create_run_sh_scripts(base_version):
     scenario_suffix = f"{flex_map[flex]}{demand_map[demand_level]}{market_map[market]}"
     
     # 过剩产能保留比例 (Cap值)
-    cap_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    cap_ratios = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     
     for cap_ratio in cap_ratios:
         cap_percentage = int(cap_ratio * 100)
