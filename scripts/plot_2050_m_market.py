@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 绘制2050年份、M市场机会下的成本分析图表
-横轴：不同产能比例（4500*capacity ratio）
+横轴：不同产能容量（wton/year）
 纵轴：电力系统节约的成本（上方）和电解铝的运行成本（下方）
 """
 
@@ -470,7 +470,7 @@ def plot_2050_m_market_costs():
                 bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
     
     # Set chart properties
-    ax.set_xlabel('Capacity (MW)', fontsize=12)
+    ax.set_xlabel('Capacity (wton/year)', fontsize=12)
     ax.set_ylabel('Cost Savings (Billion CNY)', fontsize=12, color='black')
     ax2.set_ylabel('Emissions Change (Million Tonnes CO2)', fontsize=12, color='green')
     
@@ -496,7 +496,8 @@ def plot_2050_m_market_costs():
     
     # Set x-axis ticks and labels
     ax.set_xticks(capacity_values)
-    x_labels = [f"{capacity:.0f}MW\n({ratio})" for ratio, capacity in zip(ratios, capacity_values)]
+    # Capacity values are already in wton/year
+    x_labels = [f"{capacity:.0f}" for capacity in capacity_values]
     ax.set_xticklabels(x_labels, rotation=45, ha='right')
     
     # Add value labels
@@ -577,7 +578,7 @@ def plot_2050_m_market_costs():
         
         data_rows.append({
             'Capacity Ratio': ratio,
-            'Capacity (MW)': capacity,
+            'Capacity (wton/year)': capacity,
             'Power System Cost Change (Billion CNY)': power_cost_change,
             'Aluminum Operation Cost Change (Billion CNY)': aluminum_cost_change,
             'Power System Cost Absolute (Billion CNY)': power_cost_absolute,
@@ -593,10 +594,10 @@ def plot_2050_m_market_costs():
     
     # Print summary information
     print("\n=== 2050 Year M Market Opportunity Cost Savings and Emissions Analysis Summary ===")
-    print(f"{'Capacity Ratio':<15} {'Capacity(MW)':<12} {'Power System Savings(B CNY)':<25} {'Aluminum Savings(B CNY)':<25} {'Total Savings(B CNY)':<20} {'Emissions Change(M Tonnes CO2)':<25}")
+    print(f"{'Capacity Ratio':<15} {'Capacity(wton/year)':<15} {'Power System Savings(B CNY)':<25} {'Aluminum Savings(B CNY)':<25} {'Total Savings(B CNY)':<20} {'Emissions Change(M Tonnes CO2)':<25}")
     print("-" * 130)
     for row in data_rows:
-        print(f"{row['Capacity Ratio']:<15} {row['Capacity (MW)']:<12.0f} {row['Power System Cost Change (Billion CNY)']:<25.2f} {row['Aluminum Operation Cost Change (Billion CNY)']:<25.2f} {row['Total Cost Change (Billion CNY)']:<20.2f} {row['Emissions Change (Million Tonnes CO2)']:<25.2f}")
+        print(f"{row['Capacity Ratio']:<15} {row['Capacity (wton/year)']:<15.0f} {row['Power System Cost Change (Billion CNY)']:<25.2f} {row['Aluminum Operation Cost Change (Billion CNY)']:<25.2f} {row['Total Cost Change (Billion CNY)']:<20.2f} {row['Emissions Change (Million Tonnes CO2)']:<25.2f}")
     
     # Print baseline information
     print(f"\n=== Baseline Version Information ===")
