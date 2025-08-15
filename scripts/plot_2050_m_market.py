@@ -263,6 +263,17 @@ def plot_2050_m_market_costs():
             # Create empty DataFrame to ensure data structure consistency
             costs_data[ratio] = pd.DataFrame()
     
+    # Load non-flexible baseline data for emissions comparison
+    non_flexible_version = f"{base_version}-MMM-non-flexible"
+    logger.info(f"Loading non-flexible version for emissions baseline: {non_flexible_version}")
+    non_flexible_data = load_costs_data(non_flexible_version)
+    if non_flexible_data is not None:
+        costs_data['non-flexible'] = non_flexible_data
+        logger.info("Successfully loaded non-flexible baseline data for emissions")
+    else:
+        logger.warning(f"Cannot load non-flexible version {non_flexible_version}, emissions comparison will not be available")
+        costs_data['non-flexible'] = pd.DataFrame()
+    
     if not costs_data:
         logger.error("No valid data found")
         return
@@ -280,20 +291,44 @@ def plot_2050_m_market_costs():
             cost_changes[ratio] = {}
             
             # Aluminum cost changes (relative to 5p)
-            if 'aluminum' in baseline_data and not baseline_data['aluminum'].empty:
+            # 检查基准数据和当前数据是否都存在且有效
+            if ('aluminum' in baseline_data and not baseline_data['aluminum'].empty and 
+                'Aluminum Operation Cost' in current_costs and current_costs['Aluminum Operation Cost'] is not None):
                 aluminum_baseline_cost = calculate_cost_categories(baseline_data['aluminum']).get('Aluminum Operation Cost', 0)
                 current_aluminum_cost = current_costs.get('Aluminum Operation Cost', 0)
-                cost_changes[ratio]['Aluminum Operation Cost'] = aluminum_baseline_cost - current_aluminum_cost
+                # 确保两个值都不是NaN或None
+                if pd.notna(aluminum_baseline_cost) and pd.notna(current_aluminum_cost):
+                    cost_changes[ratio]['Aluminum Operation Cost'] = aluminum_baseline_cost - current_aluminum_cost
+                    logger.info(f"{ratio}: 电解铝成本变化计算成功 - 基准: {aluminum_baseline_cost:.2f}, 当前: {current_aluminum_cost:.2f}, 变化: {cost_changes[ratio]['Aluminum Operation Cost']:.2f}")
+                else:
+                    cost_changes[ratio]['Aluminum Operation Cost'] = 0
+                    logger.warning(f"{ratio}: 电解铝成本数据缺失，变化值设为0 - 基准: {aluminum_baseline_cost}, 当前: {current_aluminum_cost}")
             else:
                 cost_changes[ratio]['Aluminum Operation Cost'] = 0
+                if 'aluminum' not in baseline_data or baseline_data['aluminum'].empty:
+                    logger.warning(f"{ratio}: 电解铝基准数据缺失，变化值设为0")
+                if 'Aluminum Operation Cost' not in current_costs or current_costs['Aluminum Operation Cost'] is None:
+                    logger.warning(f"{ratio}: 电解铝当前成本数据缺失，变化值设为0")
             
             # Power system cost changes (relative to non-flexible)
-            if 'power' in baseline_data and not baseline_data['power'].empty:
+            # 检查基准数据和当前数据是否都存在且有效
+            if ('power' in baseline_data and not baseline_data['power'].empty and 
+                'Power System Cost' in current_costs and current_costs['Power System Cost'] is not None):
                 power_baseline_cost = calculate_cost_categories(baseline_data['power']).get('Power System Cost', 0)
                 current_power_cost = current_costs.get('Power System Cost', 0)
-                cost_changes[ratio]['Power System Cost'] = power_baseline_cost - current_power_cost
+                # 确保两个值都不是NaN或None
+                if pd.notna(power_baseline_cost) and pd.notna(current_power_cost):
+                    cost_changes[ratio]['Power System Cost'] = power_baseline_cost - current_power_cost
+                    logger.info(f"{ratio}: 电力系统成本变化计算成功 - 基准: {power_baseline_cost:.2f}, 当前: {current_power_cost:.2f}, 变化: {cost_changes[ratio]['Power System Cost']:.2f}")
+                else:
+                    cost_changes[ratio]['Power System Cost'] = 0
+                    logger.warning(f"{ratio}: 电力系统成本数据缺失，变化值设为0 - 基准: {power_baseline_cost}, 当前: {current_power_cost}")
             else:
                 cost_changes[ratio]['Power System Cost'] = 0
+                if 'power' not in baseline_data or baseline_data['power'].empty:
+                    logger.warning(f"{ratio}: 电力系统基准数据缺失，变化值设为0")
+                if 'Power System Cost' not in current_costs or current_costs['Power System Cost'] is None:
+                    logger.warning(f"{ratio}: 电力系统当前成本数据缺失，变化值设为0")
         else:
             # If data is missing, create empty data
             categorized_costs[ratio] = {'Power System Cost': 0, 'Aluminum Operation Cost': 0}
@@ -331,8 +366,12 @@ def plot_2050_m_market_costs():
             capacity_values.append(default_capacity)
             logger.warning(f"Cannot load config file {config_file}, using default capacity ratio: {default_ratio}, capacity: {default_capacity:.0f}MW")
     
-    # Create single chart
+    # Create single chart with dual y-axes
     fig, ax = plt.subplots(figsize=(14, 8))
+    ax2 = ax.twinx()  # Create secondary y-axis
+    
+    # Don't set ylim here - let each axis find its own range
+    # We'll align the 0 points later using zero lines
     
     # Use actual capacity values for x-axis
     x = capacity_values
@@ -349,6 +388,68 @@ def plot_2050_m_market_costs():
     
     # Plot net cost curve (black line)
     ax.plot(x, net_cost_savings, 'k-', linewidth=3, label='Net Cost Savings', marker='o', markersize=8, zorder=20)
+    
+    # Calculate emissions changes relative to non-flexible baseline
+    emissions_changes = []
+    for ratio in ratios:
+        if ratio in costs_data:
+            # Get emissions data for current ratio
+            current_emissions = costs_data[ratio]
+            # Get emissions data for non-flexible baseline
+            baseline_emissions = costs_data.get('non-flexible', pd.DataFrame())
+            
+            # 检查基准数据和当前数据是否都存在且有效
+            if not current_emissions.empty and not baseline_emissions.empty:
+                # Calculate total emissions (coal + gas)
+                current_total = 0
+                baseline_total = 0
+                
+                # Look for emissions data in the costs file
+                for idx in current_emissions.index:
+                    if len(idx) >= 3:
+                        component_type, cost_type, carrier = idx[0], idx[1], idx[2]
+                        if isinstance(carrier, str) and 'coal' in carrier.lower() and cost_type == 'marginal':
+                            current_value = current_emissions.loc[idx].iloc[0]
+                            if pd.notna(current_value):
+                                current_total += current_value
+                        elif isinstance(carrier, str) and 'gas' in carrier.lower() and cost_type == 'marginal':
+                            current_value = current_emissions.loc[idx].iloc[0]
+                            if pd.notna(current_value):
+                                current_total += current_value
+                
+                for idx in baseline_emissions.index:
+                    if len(idx) >= 3:
+                        component_type, cost_type, carrier = idx[0], idx[1], idx[2]
+                        if isinstance(carrier, str) and 'coal' in carrier.lower() and cost_type == 'marginal':
+                            baseline_value = baseline_emissions.loc[idx].iloc[0]
+                            if pd.notna(baseline_value):
+                                baseline_total += baseline_value
+                        elif isinstance(carrier, str) and 'gas' in carrier.lower() and cost_type == 'marginal':
+                            baseline_value = baseline_emissions.loc[idx].iloc[0]
+                            if pd.notna(baseline_value):
+                                baseline_total += baseline_value
+                
+                # 只有当两个值都有效时才计算变化量
+                if pd.notna(current_total) and pd.notna(baseline_total):
+                    # Calculate emissions change (baseline - current, positive means reduction)
+                    emissions_change = baseline_total - current_total
+                    emissions_changes.append(emissions_change / 1e6)  # Convert to million tonnes CO2
+                    logger.info(f"{ratio}: 排放变化计算成功 - 基准: {baseline_total:.2f}, 当前: {current_total:.2f}, 变化: {emissions_change/1e6:.2f}M tonnes CO2")
+                else:
+                    emissions_changes.append(0)
+                    logger.warning(f"{ratio}: 排放数据缺失，变化值设为0 - 基准: {baseline_total}, 当前: {current_total}")
+            else:
+                emissions_changes.append(0)
+                if current_emissions.empty:
+                    logger.warning(f"{ratio}: 当前排放数据缺失，变化值设为0")
+                if baseline_emissions.empty:
+                    logger.warning(f"{ratio}: 排放基准数据缺失，变化值设为0")
+        else:
+            emissions_changes.append(0)
+            logger.warning(f"{ratio}: 排放数据文件缺失，变化值设为0")
+    
+    # Plot emissions changes on right y-axis (green line)
+    ax2.plot(x, emissions_changes, 'g-', linewidth=3, label='Emissions Change', marker='s', markersize=8, zorder=25)
     
     # Find the point with highest total savings
     max_saving_index = np.argmax(net_cost_savings)
@@ -370,17 +471,28 @@ def plot_2050_m_market_costs():
     
     # Set chart properties
     ax.set_xlabel('Capacity (MW)', fontsize=12)
-    ax.set_ylabel('Cost Savings (Billion CNY)', fontsize=12)
+    ax.set_ylabel('Cost Savings (Billion CNY)', fontsize=12, color='black')
+    ax2.set_ylabel('Emissions Change (Million Tonnes CO2)', fontsize=12, color='green')
     
     # Generate title dynamically with scenario information
-    title = f'2050 Year M Market Opportunity - Cost Savings Analysis for Different Capacities\n'
-    title += f'(Baseline: Aluminum cost relative to 5p, Power system cost relative to non-flexible)'
+    title = f'2050 Year M Market Opportunity - Cost Savings and Emissions Analysis for Different Capacities\n'
+    title += f'(Baseline: Aluminum cost relative to 5p, Power system cost relative to non-flexible, Emissions relative to non-flexible)'
     title += f'\nScenario: Demand={scenario_info["demand"]}, Market={scenario_info["market"]}, Flexibility={scenario_info["flexibility"]}, Year={scenario_info["year"]}'
     
     ax.set_title(title, fontsize=14, fontweight='bold')
     ax.grid(True, alpha=0.3)
-    ax.legend()
-    ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+    
+    # Combine legends from both axes
+    lines1, labels1 = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+    
+    # Add zero lines for both axes to ensure alignment
+    ax.axhline(y=0, color='black', linestyle='-', alpha=0.3, linewidth=1)
+    ax2.axhline(y=0, color='green', linestyle='-', alpha=0.3, linewidth=1)
+    
+    # Only align the 0 points, keep different scales for better readability
+    # The zero lines will visually show the alignment
     
     # Set x-axis ticks and labels
     ax.set_xticks(capacity_values)
@@ -419,6 +531,50 @@ def plot_2050_m_market_costs():
         aluminum_cost_change = cost_changes[ratio].get('Aluminum Operation Cost', 0) / 1e9
         power_cost_absolute = categorized_costs[ratio].get('Power System Cost', 0) / 1e9
         aluminum_cost_absolute = categorized_costs[ratio].get('Aluminum Operation Cost', 0) / 1e9
+        
+        # Get emissions change for this ratio
+        emissions_change = 0
+        if ratio in costs_data and 'non-flexible' in costs_data:
+            current_emissions = costs_data[ratio]
+            baseline_emissions = costs_data['non-flexible']
+            
+            if not current_emissions.empty and not baseline_emissions.empty:
+                current_total = 0
+                baseline_total = 0
+                
+                # Calculate emissions from coal and gas
+                for idx in current_emissions.index:
+                    if len(idx) >= 3:
+                        component_type, cost_type, carrier = idx[0], idx[1], idx[2]
+                        if isinstance(carrier, str) and 'coal' in carrier.lower() and cost_type == 'marginal':
+                            current_value = current_emissions.loc[idx].iloc[0]
+                            if pd.notna(current_value):
+                                current_total += current_value
+                        elif isinstance(carrier, str) and 'gas' in carrier.lower() and cost_type == 'marginal':
+                            current_value = current_emissions.loc[idx].iloc[0]
+                            if pd.notna(current_value):
+                                current_total += current_value
+                
+                for idx in baseline_emissions.index:
+                    if len(idx) >= 3:
+                        component_type, cost_type, carrier = idx[0], idx[1], idx[2]
+                        if isinstance(carrier, str) and 'coal' in carrier.lower() and cost_type == 'marginal':
+                            baseline_value = baseline_emissions.loc[idx].iloc[0]
+                            if pd.notna(baseline_value):
+                                baseline_total += baseline_value
+                        elif isinstance(carrier, str) and 'gas' in carrier.lower() and cost_type == 'marginal':
+                            baseline_value = baseline_emissions.loc[idx].iloc[0]
+                            if pd.notna(baseline_value):
+                                baseline_total += baseline_value
+                
+                # 只有当两个值都有效时才计算变化量
+                if pd.notna(current_total) and pd.notna(baseline_total):
+                    emissions_change = (baseline_total - current_total) / 1e6  # Convert to million tonnes CO2
+                    logger.info(f"{ratio}: 数据导出 - 排放变化计算成功: {emissions_change:.2f}M tonnes CO2")
+                else:
+                    emissions_change = 0
+                    logger.warning(f"{ratio}: 数据导出 - 排放数据缺失，变化值设为0")
+        
         data_rows.append({
             'Capacity Ratio': ratio,
             'Capacity (MW)': capacity,
@@ -426,7 +582,8 @@ def plot_2050_m_market_costs():
             'Aluminum Operation Cost Change (Billion CNY)': aluminum_cost_change,
             'Power System Cost Absolute (Billion CNY)': power_cost_absolute,
             'Aluminum Operation Cost Absolute (Billion CNY)': aluminum_cost_absolute,
-            'Total Cost Change (Billion CNY)': power_cost_change + aluminum_cost_change
+            'Total Cost Change (Billion CNY)': power_cost_change + aluminum_cost_change,
+            'Emissions Change (Million Tonnes CO2)': emissions_change
         })
     
     data_df = pd.DataFrame(data_rows)
@@ -435,17 +592,18 @@ def plot_2050_m_market_costs():
     logger.info(f"Data saved to: {data_file}")
     
     # Print summary information
-    print("\n=== 2050 Year M Market Opportunity Cost Savings Analysis Summary ===")
-    print(f"{'Capacity Ratio':<15} {'Capacity(MW)':<12} {'Power System Savings(B CNY)':<25} {'Aluminum Savings(B CNY)':<25} {'Total Savings(B CNY)':<20}")
-    print("-" * 100)
+    print("\n=== 2050 Year M Market Opportunity Cost Savings and Emissions Analysis Summary ===")
+    print(f"{'Capacity Ratio':<15} {'Capacity(MW)':<12} {'Power System Savings(B CNY)':<25} {'Aluminum Savings(B CNY)':<25} {'Total Savings(B CNY)':<20} {'Emissions Change(M Tonnes CO2)':<25}")
+    print("-" * 130)
     for row in data_rows:
-        print(f"{row['Capacity Ratio']:<15} {row['Capacity (MW)']:<12.0f} {row['Power System Cost Change (Billion CNY)']:<25.2f} {row['Aluminum Operation Cost Change (Billion CNY)']:<25.2f} {row['Total Cost Change (Billion CNY)']:<20.2f}")
+        print(f"{row['Capacity Ratio']:<15} {row['Capacity (MW)']:<12.0f} {row['Power System Cost Change (Billion CNY)']:<25.2f} {row['Aluminum Operation Cost Change (Billion CNY)']:<25.2f} {row['Total Cost Change (Billion CNY)']:<20.2f} {row['Emissions Change (Million Tonnes CO2)']:<25.2f}")
     
     # Print baseline information
     print(f"\n=== Baseline Version Information ===")
     print(f"Aluminum cost baseline: {aluminum_baseline_version} (5p)")
     print(f"Power system cost baseline: {power_baseline_version} (non-flexible)")
-    print("Positive values indicate cost savings, negative values indicate cost increases")
+    print(f"Emissions baseline: {power_baseline_version} (non-flexible)")
+    print("Positive values indicate cost savings and emissions reduction, negative values indicate cost increases and emissions increase")
 
 if __name__ == "__main__":
     plot_2050_m_market_costs()
