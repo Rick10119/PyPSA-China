@@ -461,6 +461,7 @@ def generate_capacity_reduction_plot(capacity_data, output_dir, base_version):
     
     plt.tight_layout()
     
+    plt.show()
     # 保存图表
     plot_file = plots_dir / f"cost_reduction_by_capacity_ratio_vs_{base_version}_2050.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
