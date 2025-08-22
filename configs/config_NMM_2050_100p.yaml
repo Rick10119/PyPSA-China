@@ -54,7 +54,7 @@ scenario:
 solving:
   solver:
     name: gurobi
-    options: default
+    options: gurobi-numeric-focus
   solver_options:
     default:
       Threads: 192
@@ -69,6 +69,16 @@ solving:
       OutputFlag: 1
       LogToConsole: 1
       LogFile: ''
+    gurobi-numeric-focus:
+      NumericFocus: 3
+      method: 2
+      crossover: 0
+      BarHomogeneous: 1
+      BarConvTol: 1.0e-05
+      FeasibilityTol: 0.0001
+      OptimalityTol: 0.0001
+      ObjScale: -0.5
+      Seed: 123
     MILP:
       Threads: 192
       Method: -1
