@@ -505,10 +505,12 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     # logger.info("注意：对于non-flexible情景，所有flex-demand组合都使用相同的基准配置")
     # logger.info("基准配置使用中等水平的flex和demand，每个market一个")
     
+    logger.info(f"开始收集绘图数据，总共需要处理 {len(demand_levels) * len(market_levels) * len(flexibility_levels)} 个场景组合")
     for demand in demand_levels:
         for market in market_levels:
             for flex in flexibility_levels:
                 scenario_code = f"{flex}{demand}{market}"
+                logger.info(f"处理场景 {scenario_code} (F:{flex}, D:{demand}, M:{market})")
                 if scenario_code in scenarios:
                     scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
                     
@@ -537,6 +539,9 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     # 计算成本差异
                     cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
                     
+                    # 添加调试信息
+                    logger.info(f"场景 {scenario_code}: cost_diff 类型={type(cost_diff)}, 内容={cost_diff}")
+                    
                     # 为所有场景添加关键成本分类的调试信息
                     # if cost_diff:
                     #     key_categories = ['capital - onwind', 'capital - solar', 'capital - battery']
@@ -558,20 +563,30 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                                         'Value (Billion CNY)': value_cny / 1e9,
                                         'Scenario_Code': scenario_code
                                     })
+                        logger.info(f"场景 {scenario_code}: 添加了 {len([k for k, v in cost_diff.items() if k != 'Total Change' and not pd.isna(v)])} 条数据")
+                    else:
+                        logger.warning(f"场景 {scenario_code}: cost_diff 为空或False")
+    
+    logger.info(f"数据收集循环完成，all_plot_data 长度: {len(all_plot_data)}")
     
     # 保存汇总的绘图数据
-    if all_plot_data:
-        all_plot_df = pd.DataFrame(all_plot_data)
-        summary_plot_csv = plots_dir / f"all_plot_data_{file_type}.csv"
-        all_plot_df.to_csv(summary_plot_csv, index=False)
-        # logger.info(f"汇总绘图数据已保存到: {summary_plot_csv}")
-        
-        # 打印数据统计信息
-        # logger.info(f"绘图数据统计:")
-        # logger.info(f"  总数据行数: {len(all_plot_df)}")
-        # logger.info(f"  唯一分类数: {all_plot_df['Category'].nunique()}")
-        # logger.info(f"  唯一场景数: {all_plot_df['Scenario_Code'].nunique()}")
-        # logger.info(f"  数值范围: {all_plot_df['Value (Billion CNY)'].min():.2f}B 到 {all_plot_df['Value (Billion CNY)'].max():.2f}B CNY")
+    logger.info(f"收集到的绘图数据条数: {len(all_plot_data)}")
+    if not all_plot_data:
+        logger.warning("没有找到有效的绘图数据，无法生成图表")
+        logger.warning("请检查场景数据是否正确加载")
+        return
+    
+    all_plot_df = pd.DataFrame(all_plot_data)
+    summary_plot_csv = plots_dir / f"all_plot_data_{file_type}.csv"
+    all_plot_df.to_csv(summary_plot_csv, index=False)
+    # logger.info(f"汇总绘图数据已保存到: {summary_plot_csv}")
+    
+    # 打印数据统计信息
+    # logger.info(f"绘图数据统计:")
+    # logger.info(f"  总数据行数: {len(all_plot_df)}")
+    # logger.info(f"  唯一分类数: {all_plot_df['Category'].nunique()}")
+    # logger.info(f"  唯一场景数: {all_plot_df['Scenario_Code'].nunique()}")
+    # logger.info(f"  数值范围: {all_plot_df['Value (Billion CNY)'].min():.2f}B 到 {all_plot_df['Value (Billion CNY)'].max():.2f}B CNY")
     
     # 第二步：基于CSV数据生成图表
     # logger.info("正在基于CSV数据生成图表...")
