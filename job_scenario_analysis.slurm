@@ -35,7 +35,7 @@ echo "运行场景成本变化分析脚本..."
 echo "=========================================="
 
 # 运行场景成本变化分析脚本
-python scripts/plot_scenario_comparison.py \
+python scripts/plot_value_scenario_comparison.py \
     --config config.yaml \
     --output results/scenario_analysis \
     --file-type costs
