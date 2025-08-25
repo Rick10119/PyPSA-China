@@ -59,6 +59,11 @@ if config["foresight"] == "myopic":
                 **config["scenario"]
             ),
             expand(
+                config['results_dir'] + 'version-' + str(
+                config['version']) + '/summary/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}/costs.csv',
+                **config["scenario"]
+            ),
+            expand(
                 config['results_dir'] + 'version-' + str(config['version']) + '/plots/capacity_factors/{heating_demand}/capacity_factors-{opts}-{topology}-{pathway}-{planning_horizons}.png',
                 ** config["scenario"]
             ),

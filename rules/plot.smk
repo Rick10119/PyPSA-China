@@ -35,6 +35,8 @@ rule make_summary:
     output:
         directory(config['results_dir'] + 'version-' + str(
             config['version']) + '/summary/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}'),
+        costs=config['results_dir'] + 'version-' + str(
+            config['version']) + '/summary/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}/costs.csv'
     log: "logs/make_summary/postnetworks/{heating_demand}/postnetwork-{opts}-{topology}-{pathway}-{planning_horizons}.log"
     resources: mem_mb=config['mem_per_thread'] * config['threads']
     script: "../scripts/make_summary.py"
