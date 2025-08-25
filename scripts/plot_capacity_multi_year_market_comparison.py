@@ -317,7 +317,7 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
     
     # 基准版本
     aluminum_baseline_version = f"{base_version}-MM{market}-{year}-5p"
-    power_baseline_version = f"{base_version}-MM{market}-{year}-non-flexible"
+    power_baseline_version = f"{base_version}-MM{market}-{year}-non_flexible"
     
     # 收集数据
     costs_data = {}
