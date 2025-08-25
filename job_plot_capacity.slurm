@@ -27,15 +27,13 @@ echo "作业ID: $SLURM_JOB_ID"
 echo "开始时间: $(date)"
 echo "=========================================="
 
-# 创建输出目录
-mkdir -p results/multi_year_market_comparison
 
 echo "=========================================="
 echo "运行多年市场比较分析脚本..."
 echo "=========================================="
 
 # 运行多年市场比较分析脚本
-python scripts/plot_multi_year_market_comparison.py
+python scripts/plot_capacity_multi_year_market_comparison.py
 
 if [ $? -eq 0 ]; then
     echo "✅ 多年市场比较分析脚本运行成功"
@@ -52,8 +50,8 @@ echo "=========================================="
 
 # 显示生成的文件
 echo "生成的文件列表："
-ls -la results/multi_year_market_comparison/plots/ 2>/dev/null || echo "plots目录不存在"
-ls -la results/multi_year_market_comparison/ 2>/dev/null || echo "multi_year_market_comparison目录不存在"
+ls -la results/multi_year_analysis/plots/ 2>/dev/null || echo "plots目录不存在"
+ls -la results/multi_year_analysis/ 2>/dev/null || echo "multi_year_market_comparison目录不存在"
 
 echo "=========================================="
 echo "作业完成！"

@@ -23,7 +23,7 @@ sbatch job_plot_capacity.slurm
 
 sbatch jobs/job_HMM_2050_100p.slurm
 
-cd /scratch/gpfs/rl8728/PyPSA-China
+cd /scratch/gpfs/rl8728/PyPSA-China-0
 module load anaconda3/2024.6
 conda activate pypsa-plot
 
@@ -36,3 +36,6 @@ chmod +x submit_multiple_jobs.sh
 
 取消所有任务：
 scancel -u rl8728
+
+更新所有结果文件：
+find /path/to/your/folder | xargs touch

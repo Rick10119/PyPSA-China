@@ -398,7 +398,7 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
             emissions_changes.append(0)
         
         # 读取容量比例值
-        config_file = f"configs/config_{ratio}.yaml"
+        config_file = f"configs/config_{base_version}-MM{market}-{year}-{ratio}.yaml"
         config = load_config(config_file)
         if config is not None:
             capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
