@@ -460,7 +460,7 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
                 bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
     
     # 绘制碳排放变化（右y轴，使用原始x轴位置）
-    line1 = ax2.plot(x, emissions_changes, 'r-', linewidth=2, marker='o', 
+    line1 = ax2.plot(x, emissions_changes, linewidth=2, marker='o', 
                      markersize=6, label='Emissions Reduction', color='red')
     
     # 设置标签
