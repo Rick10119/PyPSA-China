@@ -54,7 +54,7 @@ scenario:
 solving:
   solver:
     name: gurobi
-    options: gurobi-numeric-focus
+    options: default
   solver_options:
     default:
       Threads: 192

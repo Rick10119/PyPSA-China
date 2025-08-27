@@ -42,4 +42,4 @@ chmod +x submit_multiple_jobs.sh
 scancel -u rl8728
 
 更新所有结果文件：
-find /path/to/your/folder | xargs touch
+find ./results | xargs touch
