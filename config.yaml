@@ -80,7 +80,6 @@ solving:
       LogToConsole: 1  # 关闭控制台日志
       LogFile: ''  # 关闭日志文件
     gurobi-numeric-focus:
-      name: gurobi
       NumericFocus: 3       # Favour numeric stability over speed
       method: 2             # barrier
       crossover: 0          # do not use crossover

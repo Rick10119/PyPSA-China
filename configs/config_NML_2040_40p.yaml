@@ -70,7 +70,6 @@ solving:
       LogToConsole: 1
       LogFile: ''
     gurobi-numeric-focus:
-      name: gurobi
       NumericFocus: 3
       method: 2
       crossover: 0
