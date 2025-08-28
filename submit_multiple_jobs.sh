@@ -28,7 +28,7 @@ parse_job_filename() {
     # 移除 "job_" 前缀
     local config_name=${basename_job#job_}
     
-    # 解析配置名称，格式如: HMH_2030_100p, LMH_2040_50p 等
+    # 解析配置名称，格式如: HMH_2030_100p, LMH_2040_50p, NMM_2050_100p 等
     # 格式: {scenario}_{year}_{capacity_ratio}
     if [[ "$config_name" =~ ^([A-Z]{3})_([0-9]{4})_(.+)$ ]]; then
         local scenario="${BASH_REMATCH[1]}"
@@ -82,7 +82,7 @@ PENDING_JOBS=()
 COMPLETED_JOBS=()
 
 for job_file in "${JOBS[@]}"; do
-    local config_info=$(parse_job_filename "$job_file")
+    config_info=$(parse_job_filename "$job_file")
     
     if [ -n "$config_info" ]; then
         IFS='|' read -r scenario year capacity_ratio <<< "$config_info"
