@@ -38,7 +38,7 @@ echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile configs/config_HML_2040_100p.yaml --cores 40; then
+if snakemake --configfile configs/config_HML_2040_100p.yaml -np; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo "✓ 100%容量比例 (Flexibility: high, Demand: mid, Market: low, Year: 2040)模拟运行成功！"

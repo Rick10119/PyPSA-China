@@ -1,7 +1,7 @@
 #!/bin/bash
-# 批量提交多个独立的SLURM作业，只提交那些costs.csv结果文件不存在的版本
+# 批量提交多个独立的SLURM作业，基于config文件中的version信息判断是否提交
 
-echo "=== 批量提交多个PyPSA-China SLURM作业（智能检测已完成的版本）==="
+echo "=== 批量提交多个PyPSA-China SLURM作业（基于config版本信息智能检测）==="
 echo "开始时间: $(date)"
 echo
 
@@ -17,7 +17,7 @@ if [ ! -d "results" ]; then
     CHECK_RESULTS=false
 else
     CHECK_RESULTS=true
-    echo "✓ 发现results文件夹，将检查已完成的版本"
+    echo "✓ 发现results文件夹，将基于config版本信息检查已完成的版本"
 fi
 
 # 函数：从job文件名解析配置参数
@@ -41,15 +41,37 @@ parse_job_filename() {
     fi
 }
 
-# 函数：检查costs.csv文件是否存在
-check_costs_file_exists() {
+# 函数：从config文件读取version信息
+get_config_version() {
     local scenario="$1"
     local year="$2"
     local capacity_ratio="$3"
     
-    # 构建costs.csv文件路径
-    # 基于Snakefile中的路径结构
-    local costs_path="results/version-0815.1H.1-${scenario}-${year}-${capacity_ratio}/summary/postnetworks/positive/postnetwork-ll-${scenario}-${year}-${year}/costs.csv"
+    local config_file="configs/config_${scenario}_${year}_${capacity_ratio}.yaml"
+    
+    if [ -f "$config_file" ]; then
+        # 读取第一行的version信息
+        local version=$(head -n 1 "$config_file" | sed 's/^version: //')
+        if [ -n "$version" ]; then
+            echo "$version"
+            return 0
+        fi
+    fi
+    
+    echo ""
+    return 1
+}
+
+# 函数：基于config版本信息检查结果文件是否存在
+check_results_by_version() {
+    local version="$1"
+    
+    if [ -z "$version" ]; then
+        return 1  # 版本信息为空，认为需要处理
+    fi
+    
+    # 构建基于version的结果文件路径
+    local costs_path="results/${version}/summary/postnetworks/positive/postnetwork-ll-${version#*-}/costs.csv"
     
     if [ -f "$costs_path" ]; then
         return 0  # 文件存在
@@ -77,7 +99,7 @@ echo "共发现 ${#JOBS[@]} 个作业文件"
 echo
 
 # 检查每个作业的结果文件状态
-echo "检查已完成的版本..."
+echo "基于config版本信息检查已完成的版本..."
 PENDING_JOBS=()
 COMPLETED_JOBS=()
 
@@ -87,16 +109,27 @@ for job_file in "${JOBS[@]}"; do
     if [ -n "$config_info" ]; then
         IFS='|' read -r scenario year capacity_ratio <<< "$config_info"
         
-        if [ "$CHECK_RESULTS" = true ] && check_costs_file_exists "$scenario" "$year" "$capacity_ratio"; then
-            COMPLETED_JOBS+=("$job_file")
-            echo "  ✓ $(basename "$job_file") - 已完成 (costs.csv存在)"
-        else
-            PENDING_JOBS+=("$job_file")
-            if [ "$CHECK_RESULTS" = true ]; then
-                echo "  ⏳ $(basename "$job_file") - 待处理 (costs.csv不存在)"
+        # 获取config文件中的version信息
+        version=$(get_config_version "$scenario" "$year" "$capacity_ratio")
+        
+        if [ -n "$version" ]; then
+            echo "  📋 $(basename "$job_file") -> 版本: $version"
+            
+            if [ "$CHECK_RESULTS" = true ] && check_results_by_version "$version"; then
+                COMPLETED_JOBS+=("$job_file")
+                echo "    ✓ 已完成 (基于版本 $version 的结果文件存在)"
             else
-                echo "  ⏳ $(basename "$job_file") - 待处理 (未检查结果文件)"
+                PENDING_JOBS+=("$job_file")
+                if [ "$CHECK_RESULTS" = true ]; then
+                    echo "    ⏳ 待处理 (基于版本 $version 的结果文件不存在)"
+                else
+                    echo "    ⏳ 待处理 (未检查结果文件)"
+                fi
             fi
+        else
+            # 无法读取version信息，当作待处理
+            PENDING_JOBS+=("$job_file")
+            echo "  ⚠️  $(basename "$job_file") - 待处理 (无法读取config版本信息)"
         fi
     else
         # 无法解析的文件名，当作待处理

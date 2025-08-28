@@ -38,7 +38,7 @@ echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile configs/config_HML_2040_no_aluminum.yaml --cores 40; then
+if snakemake --configfile configs/config_HML_2040_no_aluminum.yaml -np; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo "✓ No aluminum场景 (Flexibility: high, Demand: mid, Market: low, Year: 2040)模拟运行成功！"

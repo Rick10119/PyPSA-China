@@ -242,7 +242,7 @@ echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile {scenario['config_file']} --cores {params['cpus_per_task']}; then
+if snakemake --configfile {scenario['config_file']} -np; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo "✓ {scenario['description']}模拟运行成功！"
