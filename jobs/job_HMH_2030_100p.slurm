@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=pypsa-china-HMH_2030_80p        # 作业名称
+#SBATCH --job-name=pypsa-china-HMH_2030_100p        # 作业名称
 #SBATCH --nodes=1                # 节点数量
 #SBATCH --ntasks=1               # 总任务数
 #SBATCH --cpus-per-task=40       # 每个任务的CPU核心数
@@ -9,15 +9,15 @@
 #SBATCH --mail-user=rl8728@princeton.edu
 
 # 设置日志文件
-LOG_FILE="logs/job_HMH_2030_80p_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="logs/job_HMH_2030_100p_$(date +%Y%m%d_%H%M%S).log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
-echo "=== PyPSA-China 80%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)作业开始 ==="
+echo "=== PyPSA-China 100%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)作业开始 ==="
 echo "开始时间: $(date)"
 echo "作业ID: $SLURM_JOB_ID"
 echo "节点: $SLURM_NODELIST"
 echo "日志文件: $LOG_FILE"
-echo "版本: 0815.1H.1-HMH-2030-80p"
+echo "版本: 0815.1H.1-HMH-2030-100p"
 echo
 
 # 加载必要的模块
@@ -31,24 +31,24 @@ echo "模块加载完成"
 echo
 
 # 运行模拟
-echo "开始运行80%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)模拟..."
-echo "配置文件: configs/config_HMH_2030_80p.yaml"
+echo "开始运行100%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)模拟..."
+echo "配置文件: configs/config_HMH_2030_100p.yaml"
 echo "开始时间: $(date)"
 echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile configs/config_HMH_2030_80p.yaml -np; then
+if snakemake --configfile configs/config_HMH_2030_100p.yaml -np; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
-    echo "✓ 80%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)模拟运行成功！"
+    echo "✓ 100%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)模拟运行成功！"
     echo "运行时间: $((DURATION / 3600))小时 $((DURATION % 3600 / 60))分钟 $((DURATION % 60))秒"
 else
-    echo "✗ 80%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)模拟运行失败！"
+    echo "✗ 100%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)模拟运行失败！"
     exit 1
 fi
 
 echo
-echo "=== PyPSA-China 80%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)作业完成 ==="
+echo "=== PyPSA-China 100%容量比例 (Flexibility: high, Demand: mid, Market: high, Year: 2030)作业完成 ==="
 echo "完成时间: $(date)"
 echo "日志文件: $LOG_FILE"
