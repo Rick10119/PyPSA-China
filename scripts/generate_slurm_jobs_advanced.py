@@ -168,7 +168,7 @@ class SlurmJobGenerator:
             "ntasks": 1,
             "cpus_per_task": 40,
             "mem_per_cpu": "25G",
-            "time_limit": "12:00:00",
+            "time_limit": "24:00:00",
             "mail_user": "rl8728@princeton.edu",
             "modules": [
                 "module purge",
@@ -242,7 +242,7 @@ echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile {scenario['config_file']} -np; then
+if snakemake --configfile {scenario['config_file']} --cores {params['cpus_per_task']}; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo "✓ {scenario['description']}模拟运行成功！"

@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1               # 总任务数
 #SBATCH --cpus-per-task=40       # 每个任务的CPU核心数
 #SBATCH --mem-per-cpu=25G        # 每个CPU核心的内存
-#SBATCH --time=12:00:00          # 总运行时间限制
+#SBATCH --time=24:00:00          # 总运行时间限制
 #SBATCH --mail-type=fail         # 作业失败时发送邮件
 #SBATCH --mail-user=rl8728@princeton.edu
 
@@ -38,7 +38,7 @@ echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile configs/config_NMH_2030_80p.yaml -np; then
+if snakemake --configfile configs/config_NMH_2030_80p.yaml --cores 40; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo "✓ 80%容量比例 (Flexibility: non_constrained, Demand: mid, Market: high, Year: 2030)模拟运行成功！"
