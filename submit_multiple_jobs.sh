@@ -1,7 +1,7 @@
 #!/bin/bash
-# 批量提交多个独立的SLURM作业，基于config文件中的version信息判断是否提交
+# 批量提交多个独立的SLURM作业，基于snakemake dry-run判断是否提交
 
-echo "=== 批量提交多个PyPSA-China SLURM作业（基于config版本信息智能检测）==="
+echo "=== 批量提交多个PyPSA-China SLURM作业（基于snakemake dry-run智能检测）==="
 echo "开始时间: $(date)"
 echo
 
@@ -17,7 +17,7 @@ if [ ! -d "results" ]; then
     CHECK_RESULTS=false
 else
     CHECK_RESULTS=true
-    echo "✓ 发现results文件夹，将基于config版本信息检查已完成的版本"
+    echo "✓ 发现results文件夹，将基于snakemake dry-run检查已完成的配置"
 fi
 
 # 函数：从job文件名解析配置参数
@@ -62,21 +62,28 @@ get_config_version() {
     return 1
 }
 
-# 函数：基于config版本信息检查结果文件是否存在
-check_results_by_version() {
-    local version="$1"
+# 函数：基于snakemake dry-run检查结果文件是否存在
+check_results_by_snakemake() {
+    local scenario="$1"
+    local year="$2"
+    local capacity_ratio="$3"
     
-    if [ -z "$version" ]; then
-        return 1  # 版本信息为空，认为需要处理
+    local config_file="configs/config_${scenario}_${year}_${capacity_ratio}.yaml"
+    
+    if [ ! -f "$config_file" ]; then
+        return 1  # 配置文件不存在，认为需要处理
     fi
     
-    # 构建基于version的结果文件路径
-    local costs_path="results/${version}/summary/postnetworks/positive/postnetwork-ll-${version#*-}/costs.csv"
+    # 使用snakemake dry-run模式检查是否需要运行
+    # -np 表示dry-run，不实际执行
+    # 如果输出包含"Nothing to be done"，说明所有目标都已满足
+    local snakemake_output
+    snakemake_output=$(snakemake --configfile "$config_file" -np 2>/dev/null)
     
-    if [ -f "$costs_path" ]; then
-        return 0  # 文件存在
+    if [ $? -eq 0 ] && echo "$snakemake_output" | grep -q "Nothing to be done"; then
+        return 0  # 所有目标都已满足，不需要运行
     else
-        return 1  # 文件不存在
+        return 1  # 需要运行
     fi
 }
 
@@ -99,7 +106,7 @@ echo "共发现 ${#JOBS[@]} 个作业文件"
 echo
 
 # 检查每个作业的结果文件状态
-echo "基于config版本信息检查已完成的版本..."
+echo "基于snakemake dry-run检查已完成的配置..."
 PENDING_JOBS=()
 COMPLETED_JOBS=()
 
@@ -115,13 +122,13 @@ for job_file in "${JOBS[@]}"; do
         if [ -n "$version" ]; then
             echo "  📋 $(basename "$job_file") -> 版本: $version"
             
-            if [ "$CHECK_RESULTS" = true ] && check_results_by_version "$version"; then
+            if [ "$CHECK_RESULTS" = true ] && check_results_by_snakemake "$scenario" "$year" "$capacity_ratio"; then
                 COMPLETED_JOBS+=("$job_file")
-                echo "    ✓ 已完成 (基于版本 $version 的结果文件存在)"
+                echo "    ✓ 已完成 (snakemake dry-run显示无需运行)"
             else
                 PENDING_JOBS+=("$job_file")
                 if [ "$CHECK_RESULTS" = true ]; then
-                    echo "    ⏳ 待处理 (基于版本 $version 的结果文件不存在)"
+                    echo "    ⏳ 待处理 (snakemake dry-run显示需要运行)"
                 else
                     echo "    ⏳ 待处理 (未检查结果文件)"
                 fi
@@ -140,12 +147,12 @@ done
 
 echo
 echo "检查结果:"
-echo "  已完成: ${#COMPLETED_JOBS[@]} 个版本"
-echo "  待处理: ${#PENDING_JOBS[@]} 个版本"
+echo "  已完成: ${#COMPLETED_JOBS[@]} 个配置"
+echo "  待处理: ${#PENDING_JOBS[@]} 个配置"
 echo
 
 if [ ${#PENDING_JOBS[@]} -eq 0 ]; then
-    echo "🎉 所有版本都已完成！无需提交新作业。"
+    echo "🎉 所有配置都已完成！无需提交新作业。"
     exit 0
 fi
 
@@ -219,7 +226,7 @@ done
 echo "=== 提交结果汇总 ==="
 echo "成功提交: $SUBMITTED_COUNT 个作业"
 echo "提交失败: $FAILED_COUNT 个作业"
-echo "跳过已完成: ${#COMPLETED_JOBS[@]} 个版本"
+echo "跳过已完成: ${#COMPLETED_JOBS[@]} 个配置"
 echo
 
 if [ $SUBMITTED_COUNT -gt 0 ]; then
