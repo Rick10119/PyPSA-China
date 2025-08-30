@@ -3,7 +3,7 @@
 
 echo "=== 批量提交多个PyPSA-China SLURM作业（基于snakemake dry-run智能检测）==="
 echo "开始时间: $(date)"
-echo "注意: 使用 --rerun-incomplete --ignore-incomplete 参数忽略配置文件变化"
+echo "注意: 使用 --rerun-incomplete --ignore-incomplete --rerun-triggers mtime 参数忽略配置文件和参数变化"
 echo
 
 # 检查jobs文件夹是否存在
@@ -78,9 +78,10 @@ check_results_by_snakemake() {
     # 使用snakemake dry-run模式检查是否需要运行
     # -np 表示dry-run，不实际执行
     # --rerun-incomplete --ignore-incomplete 忽略配置文件变化
+    # --rerun-triggers mtime 只基于文件修改时间判断，忽略参数变化
     # 如果输出包含"Nothing to be done"，说明所有目标都已满足
     local snakemake_output
-    snakemake_output=$(snakemake --configfile "$config_file" -np --rerun-incomplete --ignore-incomplete 2>/dev/null)
+    snakemake_output=$(snakemake --configfile "$config_file" -np --rerun-incomplete --ignore-incomplete --rerun-triggers mtime 2>/dev/null)
     
     if [ $? -eq 0 ] && echo "$snakemake_output" | grep -q "Nothing to be done"; then
         return 0  # 所有目标都已满足，不需要运行

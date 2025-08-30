@@ -23,7 +23,7 @@ echo "节点: $SLURM_NODELIST"
 echo "日志文件: $LOG_FILE"
 echo "输出文件: slurm_${SLURM_JOB_ID}.out"
 echo "错误文件: slurm_${SLURM_JOB_ID}.err"
-echo "注意: 使用 --rerun-incomplete --ignore-incomplete 参数忽略配置文件变化"
+echo "注意: 使用 --rerun-incomplete --ignore-incomplete --rerun-triggers mtime 参数忽略配置文件和参数变化"
 echo
 
 # 加载必要的模块
@@ -87,9 +87,9 @@ for scenario_name in "${!SCENARIOS[@]}"; do
     # 运行snakemake
     SCENARIO_START=$(date +%s)
     
-    echo "正在运行: snakemake --configfile $config_file --cores 40 --rerun-incomplete --ignore-incomplete"
+    echo "正在运行: snakemake --configfile $config_file --cores 40 --rerun-incomplete --ignore-incomplete --rerun-triggers mtime"
     
-    if snakemake --configfile "$config_file" --cores 40 --rerun-incomplete --ignore-incomplete; then
+    if snakemake --configfile "$config_file" --cores 40 --rerun-incomplete --ignore-incomplete --rerun-triggers mtime; then
         SCENARIO_END=$(date +%s)
         SCENARIO_DURATION=$((SCENARIO_END - SCENARIO_START))
         echo "场景 $scenario_name 运行成功！"
