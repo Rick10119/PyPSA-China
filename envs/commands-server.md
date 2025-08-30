@@ -25,7 +25,7 @@ sbatch job_plot_capacity.slurm
 
 sbatch jobs/job_HMM_2050_100p.slurm
 
-snakemake --configfile configs/config_HMH_2030_100p.yaml -np
+snakemake --configfile configs/config_LMM_2040_60p.yaml -np
 
 cd /scratch/gpfs/rl8728/PyPSA-China-0
 module load anaconda3/2024.6
