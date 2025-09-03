@@ -285,259 +285,289 @@ def calculate_total_emissions_from_costs(costs_data):
 
 def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
     """
-    找到每个年份-市场组合的最优点
+    Find optimal points for each year-market-flexibility combination
     
     Parameters:
     -----------
     base_version : str
-        基础版本号
+        Base version number
     capacity_ratios : list
-        容量比例列表
+        List of capacity ratios
     results_dir : str
-        结果目录
+        Results directory
         
     Returns:
     --------
     list
-        包含最优点信息的列表，每个元素为(year, market, capacity, net_value)
+        List containing optimal point information, each element is (year, market, flexibility, capacity, net_value)
     """
-    # 欧元到人民币转换率
+    # Euro to CNY conversion rate
     EUR_TO_CNY = 7.8
     
-    # 查找可用的年份
+    # Find available years
     available_years = find_available_years(results_dir, base_version)
-    logger.info(f"找到可用的年份: {available_years}")
+    logger.info(f"Found available years: {available_years}")
     
-    # 定义市场机会
+    # Define market opportunities and flexibility levels
     markets = ['L', 'M', 'H']
+    flexibilities = ['L', 'M', 'H', 'N']  # low, mid, high, non_constrained
     
     optimal_points = []
     
     for year in available_years:
         for market in markets:
-            logger.info(f"正在分析 {year}年-{market}市场 的最优点...")
-            
-            # 构建版本名称
-            version_names = []
-            config_versions = {}
-            
-            for ratio in capacity_ratios:
-                version = f"{base_version}-MM{market}-{year}-{ratio}"
-                version_names.append(version)
-                config_versions[ratio] = version
-            
-            # 基准版本
-            aluminum_baseline_version = f"{base_version}-MM{market}-{year}-5p"
-            power_baseline_version = f"{base_version}-MM{market}-{year}-non_flexible"
-            
-            # 收集数据
-            costs_data = {}
-            baseline_data = {}
-            
-            # 加载基准版本数据
-            aluminum_baseline = load_costs_data(aluminum_baseline_version, year, results_dir)
-            if aluminum_baseline is not None:
-                baseline_data['aluminum'] = aluminum_baseline
-            
-            power_baseline = load_costs_data(power_baseline_version, year, results_dir)
-            if power_baseline is not None:
-                baseline_data['power'] = power_baseline
-            
-            # 加载各容量比例的数据
-            for ratio in capacity_ratios:
-                version_name = config_versions[ratio]
-                costs = load_costs_data(version_name, year, results_dir)
-                if costs is not None:
-                    costs_data[ratio] = costs
-            
-            if not costs_data or not baseline_data:
-                logger.warning(f"没有找到 {year}年-{market}市场 的数据")
-                continue
-            
-            # 计算净价值
-            net_values = []
-            capacity_values = []
-            
-            for ratio in capacity_ratios:
-                if ratio in costs_data and 'power' in baseline_data:
-                    # 计算电力系统成本变化（成本减少为正方向）
-                    current_costs = calculate_cost_categories(costs_data[ratio])
-                    baseline_costs = calculate_cost_categories(baseline_data['power'])
+            for flexibility in flexibilities:
+                logger.info(f"Analyzing optimal point for {year}-{market}-{flexibility}...")
+                
+                # Build version names
+                version_names = []
+                config_versions = {}
+                
+                for ratio in capacity_ratios:
+                    # Version format: base_version-{flexibility}{demand}{market}-{year}-{ratio}
+                    # Demand is fixed as 'M' (mid)
+                    version = f"{base_version}-{flexibility}M{market}-{year}-{ratio}"
+                    version_names.append(version)
+                    config_versions[ratio] = version
+                
+                # Baseline versions
+                aluminum_baseline_version = f"{base_version}-{flexibility}M{market}-{year}-5p"
+                power_baseline_version = f"{base_version}-{flexibility}M{market}-{year}-non_flexible"
+                
+                # Collect data
+                costs_data = {}
+                baseline_data = {}
+                
+                # Load baseline data
+                aluminum_baseline = load_costs_data(aluminum_baseline_version, year, results_dir)
+                if aluminum_baseline is not None:
+                    baseline_data['aluminum'] = aluminum_baseline
+                
+                power_baseline = load_costs_data(power_baseline_version, year, results_dir)
+                if power_baseline is not None:
+                    baseline_data['power'] = power_baseline
+                
+                # Load data for each capacity ratio
+                for ratio in capacity_ratios:
+                    version_name = config_versions[ratio]
+                    costs = load_costs_data(version_name, year, results_dir)
+                    if costs is not None:
+                        costs_data[ratio] = costs
+                
+                if not costs_data or not baseline_data:
+                    logger.warning(f"No data found for {year}-{market}-{flexibility}")
+                    continue
+                
+                # Calculate net values (same method as plot_capacity_multi_year_market_comparison)
+                power_cost_changes = []
+                aluminum_cost_changes = []
+                capacity_values = []
+                
+                for ratio in capacity_ratios:
+                    if ratio in costs_data and 'power' in baseline_data:
+                        # Calculate power system cost changes (cost reduction is positive)
+                        current_costs = calculate_cost_categories(costs_data[ratio])
+                        baseline_costs = calculate_cost_categories(baseline_data['power'])
+                        
+                        # Calculate total cost change (excluding aluminum related)
+                        power_cost_change = 0
+                        for category, value in current_costs.items():
+                            if 'aluminum' not in category.lower():
+                                baseline_value = baseline_costs.get(category, 0)
+                                power_cost_change += (value - baseline_value)
+                        
+                        # Cost reduction is positive direction, so take negative value
+                        power_cost_changes.append(-power_cost_change * EUR_TO_CNY)
+                    else:
+                        power_cost_changes.append(0)
                     
-                    # 计算总成本变化（排除aluminum相关）
-                    power_cost_change = 0
-                    for category, value in current_costs.items():
-                        if 'aluminum' not in category.lower():
-                            baseline_value = baseline_costs.get(category, 0)
-                            power_cost_change += (value - baseline_value)
-                    
-                    # 计算电解铝成本变化
-                    aluminum_cost_change = 0
-                    if 'aluminum' in baseline_data:
-                        aluminum_baseline_costs = calculate_cost_categories(baseline_data['aluminum'])
+                    if ratio in costs_data and 'aluminum' in baseline_data:
+                        # Calculate aluminum cost changes (cost reduction is positive)
+                        current_costs = calculate_cost_categories(costs_data[ratio])
+                        baseline_costs = calculate_cost_categories(baseline_data['aluminum'])
+                        
+                        # Calculate aluminum related cost changes
+                        aluminum_cost_change = 0
                         for category, value in current_costs.items():
                             if 'aluminum' in category.lower():
-                                baseline_value = aluminum_baseline_costs.get(category, 0)
+                                baseline_value = baseline_costs.get(category, 0)
                                 aluminum_cost_change += (value - baseline_value)
+                        
+                        # Cost reduction is positive direction, so take negative value
+                        aluminum_cost_changes.append(-aluminum_cost_change * EUR_TO_CNY)
+                    else:
+                        aluminum_cost_changes.append(0)
                     
-                    # 计算净价值（成本减少为正方向，所以取负值）
-                    net_value = -(power_cost_change + aluminum_cost_change) * EUR_TO_CNY
-                    net_values.append(net_value)
-                    
-                    # 读取容量比例值
-                    market_part = base_version.split('-')[1] if len(base_version.split('-')) > 1 else 'MML'
-                    config_file = f"configs/config_{market_part}_{year}_{ratio}.yaml"
+                    # Read capacity ratio values
+                    scenario_suffix = f"{flexibility}M{market}"
+                    config_file = f"configs/config_{scenario_suffix}_{year}_{ratio}.yaml"
                     config = load_config(config_file)
                     if config is not None:
                         capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
                         if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
                             capacity_ratio = config['aluminum']['capacity_ratio']
                         
-                        # 计算实际容量 (4500 * capacity ratio)
+                        # Calculate actual capacity (4500 * capacity ratio)
                         actual_capacity = 4500 * capacity_ratio
                         capacity_values.append(actual_capacity)
                     else:
-                        # 如果配置文件不存在，使用默认值
+                        # If config file doesn't exist, use default value
                         default_ratio = float(ratio.replace('p', '')) / 100.0
                         default_capacity = 4500 * default_ratio
                         capacity_values.append(default_capacity)
-                else:
-                    net_values.append(0)
-                    capacity_values.append(0)
-            
-            # 找到净价值最大的点
-            if net_values:
-                max_index = np.argmax(net_values)
-                optimal_capacity = capacity_values[max_index]
-                optimal_net_value = net_values[max_index]
                 
-                optimal_points.append({
-                    'year': year,
-                    'market': market,
-                    'capacity': optimal_capacity,
-                    'net_value': optimal_net_value / 1e9  # 转换为十亿人民币
-                })
+                # Calculate net cost savings (same as plot_capacity_multi_year_market_comparison)
+                net_cost_savings = [power_cost_changes[i] + aluminum_cost_changes[i] for i in range(len(capacity_values))]
                 
-                logger.info(f"{year}年-{market}市场 最优点: 容量={optimal_capacity:.0f}MW, 净价值={optimal_net_value/1e9:.2f}B CNY")
+                # Find the point with maximum net savings
+                if net_cost_savings:
+                    max_saving_index = np.argmax(net_cost_savings)
+                    optimal_capacity = capacity_values[max_saving_index]
+                    optimal_net_value = net_cost_savings[max_saving_index]
+                    
+                    optimal_points.append({
+                        'year': year,
+                        'market': market,
+                        'flexibility': flexibility,
+                        'capacity': optimal_capacity,
+                        'net_value': optimal_net_value / 1e9  # Convert to billion CNY
+                    })
+                    
+                    logger.info(f"{year}-{market}-{flexibility} optimal point: capacity={optimal_capacity:.0f}MW, net_value={optimal_net_value/1e9:.2f}B CNY")
     
     return optimal_points
 
 def plot_optimal_points_scatter():
     """
-    绘制最优点对应的容量和净价值散点图
+    Plot scatter chart of optimal points showing capacity and net value
     """
-    # 从主配置文件读取基础版本号
+    # Load base version from main config file
     main_config = load_config('config.yaml')
     if main_config is None:
-        logger.error("无法加载主配置文件 config.yaml")
+        logger.error("Cannot load main config file config.yaml")
         return
     
     base_version = main_config.get('version', '0814.4H.2')
-    logger.info(f"从主配置文件读取到基础版本号: {base_version}")
+    logger.info(f"Loaded base version from main config: {base_version}")
     
-    # 定义容量比例
+    # Define capacity ratios
     capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
     
-    # 找到所有最优点
+    # Find all optimal points
     optimal_points = find_optimal_points(base_version, capacity_ratios, 'results')
     
     if not optimal_points:
-        logger.error("没有找到任何最优点数据")
+        logger.error("No optimal point data found")
         return
     
-    # 创建散点图
-    fig, ax = plt.subplots(figsize=(12, 8))
+    # Create scatter plot
+    fig, ax = plt.subplots(figsize=(14, 10))
     
-    # 按年份分组数据
+    # Group data by year
     years = sorted(list(set([point['year'] for point in optimal_points])))
     colors = plt.cm.viridis(np.linspace(0, 1, len(years)))
     year_colors = dict(zip(years, colors))
     
-    # 为每个市场机会创建不同的标记
+    # Create different markers for market opportunities
     markets = ['L', 'M', 'H']
-    markers = ['o', 's', '^']
-    market_markers = dict(zip(markets, markers))
+    market_markers = {'L': 'o', 'M': 's', 'H': '^'}
     
-    # 绘制散点
+    # Create different colors for flexibility levels
+    flexibilities = ['L', 'M', 'H', 'N']
+    flexibility_colors = {'L': 'blue', 'M': 'green', 'H': 'orange', 'N': 'red'}
+    
+    # Plot scatter points
     for point in optimal_points:
         year = point['year']
         market = point['market']
+        flexibility = point['flexibility']
         capacity = point['capacity']
         net_value = point['net_value']
         
+        # Use year color for main color, flexibility for edge color
         ax.scatter(capacity, net_value, 
-                  c=[year_colors[year]], 
+                  c=year_colors[year], 
                   marker=market_markers[market],
-                  s=150, alpha=0.8, edgecolors='black', linewidth=1)
+                  s=200, alpha=0.7, 
+                  edgecolors=flexibility_colors[flexibility], 
+                  linewidth=2)
     
-    # 添加标签
-    ax.set_xlabel('铝产能容量 (MW)', fontsize=14, fontweight='bold')
-    ax.set_ylabel('净价值 (十亿人民币)', fontsize=14, fontweight='bold')
-    ax.set_title('最优点对应的容量和净价值分析', fontsize=16, fontweight='bold')
+    # Add labels
+    ax.set_xlabel('Aluminum Capacity (MW)', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Net Value (Billion CNY)', fontsize=14, fontweight='bold')
+    ax.set_title('Optimal Points: Capacity vs Net Value Analysis', fontsize=16, fontweight='bold')
     
-    # 添加网格
+    # Add grid
     ax.grid(True, alpha=0.3)
     
-    # 创建图例
+    # Create legend
     legend_elements = []
     
-    # 年份图例
+    # Year legend
     for year in years:
         legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
                                         markerfacecolor=year_colors[year], 
-                                        markersize=10, label=f'{year}年'))
+                                        markersize=12, label=f'Year {year}'))
     
-    # 市场图例
+    # Market legend
     for market in markets:
-        market_desc = {'L': '低市场机会', 'M': '中市场机会', 'H': '高市场机会'}
+        market_desc = {'L': 'Low Market', 'M': 'Mid Market', 'H': 'High Market'}
         legend_elements.append(plt.Line2D([0], [0], marker=market_markers[market], 
                                         color='w', markerfacecolor='gray', 
-                                        markersize=10, label=market_desc[market]))
+                                        markersize=12, label=market_desc[market]))
     
-    # 添加图例
-    ax.legend(handles=legend_elements, loc='upper left', fontsize=12)
+    # Flexibility legend
+    for flexibility in flexibilities:
+        flex_desc = {'L': 'Low Flexibility', 'M': 'Mid Flexibility', 'H': 'High Flexibility', 'N': 'Non-constrained'}
+        legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                        markerfacecolor='w', markeredgecolor=flexibility_colors[flexibility],
+                                        markersize=12, markeredgewidth=2, label=flex_desc[flexibility]))
     
-    # 为每个点添加标签
+    # Add legend
+    ax.legend(handles=legend_elements, loc='upper left', fontsize=11, ncol=2)
+    
+    # Add labels for each point
     for point in optimal_points:
         year = point['year']
         market = point['market']
+        flexibility = point['flexibility']
         capacity = point['capacity']
         net_value = point['net_value']
         
-        ax.annotate(f'{year}-{market}', 
+        ax.annotate(f'{year}-{market}-{flexibility}', 
                    xy=(capacity, net_value),
                    xytext=(5, 5), textcoords='offset points',
-                   fontsize=10, alpha=0.8)
+                   fontsize=9, alpha=0.8)
     
     plt.tight_layout()
     
-    # 保存图表
+    # Save plot
     output_dir = Path('results/optimal_points_analysis')
     output_dir.mkdir(parents=True, exist_ok=True)
     
     plot_file = output_dir / "optimal_points_scatter.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"最优点散点图已保存到: {plot_file}")
+    logger.info(f"Optimal points scatter plot saved to: {plot_file}")
     
-    # 显示图表
+    # Show plot
     plt.show()
 
 def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(description='绘制最优点对应的容量和净价值散点图')
-    parser.add_argument('--results-dir', default='results', help='结果目录路径 (默认: results)')
-    parser.add_argument('--output', default='results/optimal_points_analysis', help='输出目录')
+    """Main function"""
+    parser = argparse.ArgumentParser(description='Plot scatter chart of optimal points showing capacity and net value')
+    parser.add_argument('--results-dir', default='results', help='Results directory path (default: results)')
+    parser.add_argument('--output', default='results/optimal_points_analysis', help='Output directory')
     
     args = parser.parse_args()
     
-    logger.info(f"开始分析最优点对应的容量和净价值")
-    logger.info(f"结果目录: {args.results_dir}")
-    logger.info(f"输出目录: {args.output}")
+    logger.info(f"Starting analysis of optimal points for capacity and net value")
+    logger.info(f"Results directory: {args.results_dir}")
+    logger.info(f"Output directory: {args.output}")
     
-    # 绘制最优点散点图
+    # Plot optimal points scatter chart
     plot_optimal_points_scatter()
     
-    logger.info("分析完成！")
+    logger.info("Analysis completed!")
 
 if __name__ == "__main__":
     main()
