@@ -583,6 +583,266 @@ def calculate_total_emissions_from_costs(costs_data):
     
     return total_emissions
 
+def load_costs_data(version_name, year, results_dir='results'):
+    """
+    加载指定版本的成本数据
+    
+    Parameters:
+    -----------
+    version_name : str
+        版本名称，如 '0814.4H.2-MMM-2050-100p'
+    year : int
+        年份
+    results_dir : str
+        结果目录
+        
+    Returns:
+    --------
+    pd.DataFrame or None
+        成本数据
+    """
+    try:
+        # 构建文件路径
+        file_path = Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-{year}/costs.csv")
+        
+        if not file_path.exists():
+            logger.warning(f"文件不存在: {file_path}")
+            return None
+        
+        # 读取CSV文件
+        df = pd.read_csv(file_path, header=None)
+        
+        # 处理多级索引结构
+        if len(df.columns) >= 4:
+            # 设置多级索引：前两列作为索引，第三列作为技术名称
+            df.set_index([0, 1, 2], inplace=True)
+            # 重命名最后一列为数值列名
+            df.columns = [df.columns[0]]
+            # 将数值列转换为数值类型
+            df[df.columns[0]] = pd.to_numeric(df[df.columns[0]], errors='coerce')
+        else:
+            # 如果列数不足，使用默认的多级索引
+            df = pd.read_csv(file_path, index_col=[0, 1])
+            numeric_col = df.columns[0]
+            df[numeric_col] = pd.to_numeric(df[numeric_col], errors='coerce')
+        
+        return df
+        
+    except Exception as e:
+        logger.error(f"加载数据时出错: {str(e)}")
+        return None
+
+def plot_single_flexibility_market(flexibility, market, base_version, capacity_ratios, results_dir, ax):
+    """
+    绘制单个灵活性-市场组合的图表
+    
+    Parameters:
+    -----------
+    flexibility : str
+        灵活性级别 (L, M, H, N)
+    market : str
+        市场机会级别 (L, M, H)
+    base_version : str
+        基础版本号
+    capacity_ratios : list
+        容量比例列表
+    results_dir : str
+        结果目录
+    ax : matplotlib.axes.Axes
+        子图对象
+    """
+    # 欧元到人民币转换率
+    EUR_TO_CNY = 7.8
+    year = 2050
+    
+    # 构建版本名称 - 使用正确的格式
+    version_names = []
+    config_versions = {}
+    
+    for ratio in capacity_ratios:
+        # 版本号格式: base_version-{flexibility}M{market}-{year}-{ratio}
+        version = f"{base_version}-{flexibility}M{market}-{year}-{ratio}"
+        version_names.append(version)
+        config_versions[ratio] = version
+    
+    # 基准版本
+    aluminum_baseline_version = f"{base_version}-{flexibility}M{market}-{year}-5p"
+    power_baseline_version = f"{base_version}-{flexibility}M{market}-{year}-non_flexible"
+    
+    # 收集数据
+    costs_data = {}
+    baseline_data = {}
+    
+    # 加载基准版本数据
+    aluminum_baseline = load_costs_data(aluminum_baseline_version, year, results_dir)
+    if aluminum_baseline is not None:
+        baseline_data['aluminum'] = aluminum_baseline
+    
+    power_baseline = load_costs_data(power_baseline_version, year, results_dir)
+    if power_baseline is not None:
+        baseline_data['power'] = power_baseline
+    
+    # 加载各容量比例的数据
+    for ratio in capacity_ratios:
+        version_name = config_versions[ratio]
+        costs = load_costs_data(version_name, year, results_dir)
+        if costs is not None:
+            costs_data[ratio] = costs
+    
+    if not costs_data or not baseline_data:
+        ax.text(0.5, 0.5, f'No data for {flexibility}-{market}', ha='center', va='center', 
+               transform=ax.transAxes, fontsize=12)
+        return
+    
+    # 计算成本变化（成本减少为正方向）
+    power_cost_changes = []
+    aluminum_cost_changes = []
+    emissions_changes = []
+    capacity_values = []
+    
+    for ratio in capacity_ratios:
+        if ratio in costs_data and 'power' in baseline_data:
+            # 计算电力系统成本变化（成本减少为正方向）
+            current_costs = calculate_cost_categories(costs_data[ratio])
+            baseline_costs = calculate_cost_categories(baseline_data['power'])
+            
+            # 计算总成本变化（排除aluminum相关）
+            total_change = 0
+            for category, value in current_costs.items():
+                if 'aluminum' not in category.lower():
+                    baseline_value = baseline_costs.get(category, 0)
+                    total_change += (value - baseline_value)
+            
+            # 成本减少为正方向，所以取负值
+            power_cost_changes.append(-total_change * EUR_TO_CNY)  # 转换为人民币，成本减少为正
+        else:
+            power_cost_changes.append(0)
+        
+        if ratio in costs_data and 'aluminum' in baseline_data:
+            # 计算电解铝成本变化（成本减少为正方向）
+            current_costs = calculate_cost_categories(costs_data[ratio])
+            baseline_costs = calculate_cost_categories(baseline_data['aluminum'])
+            
+            # 计算aluminum相关成本变化
+            aluminum_change = 0
+            for category, value in current_costs.items():
+                if 'aluminum' in category.lower():
+                    baseline_value = baseline_costs.get(category, 0)
+                    aluminum_change += (value - baseline_value)
+            
+            # 成本减少为正方向，所以取负值
+            aluminum_cost_changes.append(-aluminum_change * EUR_TO_CNY)  # 转换为人民币，成本减少为正
+        else:
+            aluminum_cost_changes.append(0)
+        
+        # 计算碳排放变化（碳排放减少为正方向）
+        if ratio in costs_data and 'power' in baseline_data:
+            current_emissions = calculate_total_emissions_from_costs(costs_data[ratio])
+            baseline_emissions_total = calculate_total_emissions_from_costs(baseline_data['power'])
+            
+            # 碳排放减少为正方向，所以取负值
+            emissions_change = -(current_emissions - baseline_emissions_total)  # 碳排放减少为正
+            # 转换为百万吨CO2
+            emissions_changes.append(emissions_change / 1e6)
+        else:
+            emissions_changes.append(0)
+        
+        # 读取容量比例值
+        # 从base_version中提取市场机会部分，格式：0815.1H.1-MML-2030-5p -> MML
+        market_part = base_version.split('-')[1] if len(base_version.split('-')) > 1 else f'{flexibility}M{market}'
+        config_file = f"configs/config_{market_part}_{year}_{ratio}.yaml"
+        config = load_config(config_file)
+        if config is not None:
+            capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
+            if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
+                capacity_ratio = config['aluminum']['capacity_ratio']
+            
+            # 计算实际容量 (4500 * capacity ratio)
+            actual_capacity = 4500 * capacity_ratio
+            capacity_values.append(actual_capacity)
+        else:
+            # 如果配置文件不存在，使用默认值
+            default_ratio = float(ratio.replace('p', '')) / 100.0
+            default_capacity = 4500 * default_ratio
+            capacity_values.append(default_capacity)
+    
+    # 创建双y轴图表
+    ax2 = ax.twinx()
+    
+    # 创建图表
+    x = capacity_values
+    bar_width = 150  # 减少柱子宽度
+    
+    # 为电力系统成本和电解铝成本创建稍微错开的位置
+    x_power = [pos - bar_width/6 for pos in x]  # 电力系统成本稍微向左
+    x_aluminum = [pos + bar_width/6 for pos in x]  # 电解铝成本稍微向右
+    
+    # 绘制电力系统成本节约（底部）
+    bars1 = ax.bar(x_power, power_cost_changes, bar_width*0.8, color='#1f77b4', alpha=0.8, 
+                   label='Power System Cost Savings')
+    
+    # 绘制电解铝运行成本节约（从电力系统成本顶部往上堆叠，稍微错开）
+    bars2 = ax.bar(x_aluminum, aluminum_cost_changes, bar_width*0.8, bottom=power_cost_changes, 
+                   color='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Increase')
+    
+    # 计算净值（总成本节约）
+    net_cost_savings = [power_cost_changes[i] + aluminum_cost_changes[i] for i in range(len(capacity_values))]
+    
+    # 绘制净值曲线（黑色线，使用原始x轴位置）
+    ax.plot(x, net_cost_savings, 'k-', linewidth=3, label='Net Cost Savings', marker='o', markersize=8, zorder=20)
+    
+    # 找出净值最大的位置
+    max_saving_index = np.argmax(net_cost_savings)
+    max_saving_value = net_cost_savings[max_saving_index]
+    max_saving_capacity = capacity_values[max_saving_index]
+    
+    # 用星号标出净值最大处
+    ax.plot(max_saving_capacity, max_saving_value, 'r*', markersize=15, 
+            label=f'Highest Net Savings: {max_saving_value/1e9:.1f}B CNY', zorder=30)
+    
+    # 为净值最大点添加数值标签
+    ax.annotate(f'{max_saving_value/1e9:.1f}B',
+                xy=(max_saving_capacity, max_saving_value),
+                xytext=(0, 20),
+                textcoords="offset points",
+                ha='center', va='bottom', 
+                fontsize=12, weight='bold', color='red',
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
+    
+    # 绘制碳排放变化（右y轴，使用原始x轴位置）
+    line1 = ax2.plot(x, emissions_changes, linewidth=2, marker='o', 
+                     markersize=6, label='Emissions Reduction', color='red')
+    
+    # 设置标签
+    ax.set_xlabel('Aluminum Capacity (MW)', fontsize=12)
+    ax.set_ylabel('Cost Savings (Billion CNY)', fontsize=12, color='blue')
+    ax2.set_ylabel('Emissions Reduction (Million Tonnes CO2)', fontsize=12, color='red')
+    ax.set_title(f'Flexibility: {flexibility}, Market: {market}', fontsize=14, fontweight='bold')
+                        
+                        # 添加零线
+    ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1)
+    ax2.axhline(y=0, color='red', linestyle='--', alpha=0.5, linewidth=1)
+    # 添加网格
+    ax.grid(True, alpha=0.3, axis='y')
+                        
+    # 设置x轴刻度和标签
+    ax.set_xticks(x)
+    ax.set_xticklabels([f'{cap:.0f}' for cap in capacity_values], fontsize=10)
+    
+    # 设置y轴标签为十亿人民币单位
+    y_ticks = ax.get_yticks()
+    y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
+    ax.set_yticks(y_ticks)
+    ax.set_yticklabels(y_tick_labels, fontsize=10, color='blue')
+    
+    # 设置右y轴标签为百万吨CO2单位
+    y2_ticks = ax2.get_yticks()
+    y2_tick_labels = [f'{tick:.1f}M' for tick in y2_ticks]
+    ax2.set_yticks(y2_ticks)
+    ax2.set_yticklabels(y2_tick_labels, fontsize=10, color='red')
+    
+    # 不在这里添加图例，只在总图上添加一个统一的图例
+
 def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     """
     生成场景对比图表
@@ -608,276 +868,83 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         'N': 'Non-constrained'
     }
     
-    # 欧元到人民币转换率
-    EUR_TO_CNY = 7.8
-    
-    # 第一步：收集所有数据并保存到CSV
-    all_plot_data = []
-    market_levels = ['L', 'M', 'H']
-    flexibility_levels = ['L', 'M', 'H', 'N']
-    
-    logger.info(f"开始收集绘图数据，总共需要处理 {len(flexibility_levels) * len(market_levels)} 个场景组合")
-    for flexibility in flexibility_levels:
-        for market in market_levels:
-            scenario_code = f"{flexibility}M{market}"
-            logger.info(f"处理场景 {scenario_code} (F:{flexibility}, D:M, M:{market})")
-            if scenario_code in scenarios:
-                scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
-                
-                # 检查是否有数据
-                has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
-                has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
-                
-                # 如果数据不可用，直接跳过，不打印任何信息
-                if not has_100p_data or not has_non_flex_data:
-                    continue
-                
-                # 计算成本差异
-                cost_diff = calculate_cost_difference(scenario_data['100p'], scenario_data['non_flexible'])
-                
-                if cost_diff:
-                    # 转换为人民币并排除Total Change
-                    for k, v in cost_diff.items():
-                        if k != 'Total Change':
-                            if not pd.isna(v):
-                                value_cny = v * EUR_TO_CNY
-                                all_plot_data.append({
-                                    'Market': market,
-                                    'Flexibility': flexibility,
-                                    'Category': k,
-                                    'Value (CNY)': value_cny,
-                                    'Value (Billion CNY)': value_cny / 1e9,
-                                    'Scenario_Code': scenario_code
-                                })
-                    logger.info(f"场景 {scenario_code}: 添加了 {len([k for k, v in cost_diff.items() if k != 'Total Change' and not pd.isna(v)])} 条数据")
-                else:
-                    logger.warning(f"场景 {scenario_code}: cost_diff 为空或False")
-    
-    logger.info(f"数据收集循环完成，all_plot_data 长度: {len(all_plot_data)}")
-    
-    # 保存汇总的绘图数据
-    logger.info(f"收集到的绘图数据条数: {len(all_plot_data)}")
-    if not all_plot_data:
-        logger.warning("没有找到有效的绘图数据，无法生成图表")
-        logger.warning("请检查场景数据是否正确加载")
+    # 从主配置文件读取基础版本号
+    main_config = load_config('config.yaml')
+    if main_config is None:
+        logger.error("无法加载主配置文件 config.yaml")
         return
     
-    all_plot_df = pd.DataFrame(all_plot_data)
-    summary_plot_csv = plots_dir / f"all_plot_data_{file_type}.csv"
-    all_plot_df.to_csv(summary_plot_csv, index=False)
+    base_version = main_config.get('version', '0814.4H.2')
+    logger.info(f"从主配置文件读取到基础版本号: {base_version}")
     
-    # 第二步：基于CSV数据生成图表
-    # 为每个market-flexibility组合创建子图
-    fig, axes = plt.subplots(3, 4, figsize=(20, 16), sharey=True)
+    # 定义容量比例
+    capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
     
-    # 设置子图之间的间距，移除内部边框，调整行间距
-    # 使用gridspec来精确控制行间距
-    from matplotlib import gridspec
-    gs = gridspec.GridSpec(3, 4, figure=fig, height_ratios=[1, 1, 1], hspace=0.1, wspace=0.1)
+    # 定义市场机会和灵活性级别
+    markets = ['L', 'M', 'H']
+    flexibility_levels = ['L', 'M', 'H', 'N']
     
-    # 重新分配axes
-    axes = []
-    for i in range(3):
-        row_axes = []
-        for j in range(4):
-            ax = fig.add_subplot(gs[i, j])
-            row_axes.append(ax)
-        axes.append(row_axes)
-    axes = np.array(axes)
+    # 创建子图
+    n_markets = len(markets)
+    n_flexibility = len(flexibility_levels)
     
-    for i, market in enumerate(market_levels):
+    fig, axes = plt.subplots(n_markets, n_flexibility, figsize=(6*n_flexibility, 5*n_markets))
+    
+    # 如果只有一个市场，确保axes是二维数组
+    if n_markets == 1:
+        axes = axes.reshape(1, -1)
+    
+    # 设置子图之间的间距
+    plt.subplots_adjust(hspace=0.3, wspace=0.3)
+    
+    # 为每个市场-灵活性组合绘制图表
+    for i, market in enumerate(markets):
         for j, flexibility in enumerate(flexibility_levels):
             ax = axes[i, j]
             
-            # 移除内部边框，只保留外部边框
-            if i < 2:  # 不是最后一行
-                ax.spines['bottom'].set_visible(False)
-            if j < 3:  # 不是最后一列
-                ax.spines['right'].set_visible(False)
-            if i > 0:  # 不是第一行
-                ax.spines['top'].set_visible(False)
-            if j > 0:  # 不是第一列
-                ax.spines['left'].set_visible(False)
-            
-            # 从CSV数据中筛选当前market-flexibility组合的数据
-            current_data = all_plot_df[
-                (all_plot_df['Market'] == market) & 
-                (all_plot_df['Flexibility'] == flexibility)
-            ]
-            
-            if not current_data.empty:
-                # 获取该market-flexibility组合下所有分类的数据
-                category_data_dict = {}
-                for _, row in current_data.iterrows():
-                    category_data_dict[row['Category']] = row['Value (CNY)']
-                
-                if category_data_dict:
-                    # 获取所有分类
-                    categories = list(category_data_dict.keys())
-                    
-                    if categories:
-                        # 从配置文件读取成本分类颜色
-                        config = load_config('config.yaml')
-                        category_colors = config.get('cost_category_colors', {}) if config else {}
-                        
-                        # 定义资源分类的优先级顺序，用于在正负号相同时进行排序
-                        category_priority = {
-                            "variable cost-non-renewable": 1,
-                            "capital-non-renewable": 2,
-                            "heating-electrification": 3,
-                            "capital-renewable": 4,
-                            "transmission lines": 5,
-                            "batteries": 6,
-                            "long-duration storages": 7,
-                            "carbon capture": 8,
-                            "synthetic fuels": 9,
-                            "carbon management": 10,
-                        }
-                        
-                        # 按照优先级排序分类
-                        def sort_key(category):
-                            priority = category_priority.get(category, 999)
-                            return priority
-                        
-                        categories = sorted(categories, key=sort_key)
-                        
-                        # 为每个分类分配颜色，如果不在预定义中则使用默认颜色
-                        colors = []
-                        for category in categories:
-                            if category in category_colors:
-                                colors.append(category_colors[category])
-                            else:
-                                # 使用默认颜色映射
-                                colors.append(plt.cm.tab20(len(colors) % 20))
-                        
-                        # 准备堆叠数据
-                        positive_changes = []
-                        negative_changes = []
-                        
-                        for category in categories:
-                            value = category_data_dict.get(category, 0)
-                            # 调整方向：成本减少（负值）显示在上方，成本增加（正值）显示在下方
-                            if value < 0:  # 成本减少，显示在上方
-                                positive_changes.append(abs(value))  # 取绝对值
-                                negative_changes.append(0)
-                            elif value > 0:  # 成本增加，显示在下方
-                                positive_changes.append(0)
-                                negative_changes.append(value)
-                            else:
-                                positive_changes.append(0)
-                                negative_changes.append(0)
-                        
-                        # 用于跟踪已经添加到legend的分类
-                        added_to_legend = set()
-                        
-                        # 创建堆叠柱状图
-                        x_pos = [0]  # 只有一个柱子
-                        width = 0.6  # 柱子宽度
-                        
-                        # 绘制正值堆叠（成本减少，在横轴上面）
-                        bottom_positive = 0
-                        for cat_idx, category in enumerate(categories):
-                            category_value = positive_changes[cat_idx]
-                            if category_value > 0:
-                                # 只在第一次遇到该分类时添加到legend
-                                label = category if category not in added_to_legend else ""
-                                ax.bar(x_pos, [category_value], width, 
-                                       bottom=[bottom_positive],
-                                       color=colors[cat_idx], 
-                                       alpha=0.8,
-                                       label=label)
-                                bottom_positive += category_value
-                                added_to_legend.add(category)
-                        
-                        # 绘制负值堆叠（成本增加，在横轴下面）
-                        bottom_negative = 0
-                        for cat_idx, category in enumerate(categories):
-                            category_value = negative_changes[cat_idx]
-                            if category_value > 0:
-                                # 负值部分也添加到legend，但只在第一次遇到该分类时添加
-                                label = category if category not in added_to_legend else ""
-                                ax.bar(x_pos, [-category_value], width,  # 使用负值
-                                       bottom=[bottom_negative],
-                                       color=colors[cat_idx], 
-                                       alpha=0.8,
-                                       label=label)
-                                bottom_negative += category_value
-                                added_to_legend.add(category)
-                        
-                        # 设置标签
-                        ax.set_xticks(x_pos)
-                        ax.set_xticklabels([''], fontsize=14)
-                        
-                        # 只在最左边的子图显示y轴标签
-                        if j == 0:
-                            ax.set_ylabel('Cost Change (Billion CNY)', fontsize=14)
-                        else:
-                            ax.set_ylabel('')
-                        
-                        # 添加零线
-                        ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1.5)
-                        
-                        # 设置标题，将情景编号放在外面
-                        if i == 0:  # 第一行显示market标签
-                            ax.set_title(f'Flexibility: {scenario_descriptions[flexibility]}', 
-                                       fontsize=14, fontweight='bold', pad=10)
-                        if j == 0:  # 第一列显示market标签
-                            ax.text(-0.2, 0.5, f'Market: {scenario_descriptions[market]}', 
-                                   fontsize=14, fontweight='bold', rotation=90, 
-                                   ha='center', va='center', transform=ax.transAxes)
-                        
-                        # 添加网格
-                        ax.grid(True, alpha=0.3, axis='y')
-                        
-                        # 设置y轴标签为十亿人民币单位，所有子图都显示
-                        y_ticks = ax.get_yticks()
-                        y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
-                        ax.set_yticks(y_ticks)
-                        ax.set_yticklabels(y_tick_labels, fontsize=12)
-                        
-                        # 设置统一的y轴范围
-                        ax.set_ylim(-40e9, 100e9)
-                    else:
-                        ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
-                               transform=ax.transAxes, fontsize=10)
-                else:
-                    ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
-                           transform=ax.transAxes, fontsize=10)
-            else:
-                ax.text(0.5, 0.5, f'No data for\nMarket:{market}, Flexibility:{flexibility}', ha='center', va='center', 
-                       transform=ax.transAxes, fontsize=10)
+            logger.info(f"正在绘制 {market}市场-{flexibility}灵活性 的图表...")
+            plot_single_flexibility_market(flexibility, market, base_version, capacity_ratios, 'results', ax)
     
-    # 创建图例
-    if not all_plot_df.empty:
-        # 获取所有唯一的分类
-        all_categories = all_plot_df['Category'].unique()
-        
-        # 从配置文件读取成本分类颜色
-        config = load_config('config.yaml')
-        category_colors = config.get('cost_category_colors', {}) if config else {}
+    # 创建统一的图例
+    # 从第一个子图获取图例元素
+    first_ax = axes[0, 0] if n_markets == 1 else axes[0, 0]
+    first_ax2 = first_ax.twinx()
         
         # 创建图例元素
-        legend_elements = []
-        for category in all_categories:
-            if category in category_colors:
-                color = category_colors[category]
-            else:
-                # 使用默认颜色
-                color = plt.cm.tab20(len(legend_elements) % 20)
-            
-            legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=color, 
-                                               label=category, alpha=0.8))
-        
-        # 在图表外部添加统一图例
-        fig.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5),
-                   title='Resource Categories', fontsize=14, title_fontsize=16)
+    legend_elements = [
+        plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='Power System Cost Savings'),
+        plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Savings'),
+        plt.Line2D([0], [0], color='black', linewidth=3, marker='o', markersize=8, label='Net Cost Savings'),
+        plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='Highest Net Savings'),
+        plt.Line2D([0], [0], color='red', linewidth=2, marker='o', markersize=6, label='Emissions Reduction')
+    ]
+    
+    # 在总图右侧添加统一图例
+    fig.legend(handles=legend_elements, loc='center right', bbox_to_anchor=(1.15, 0.5),
+               title='Legend', fontsize=12, title_fontsize=14)
+    
+    # 添加总标题
+    fig.suptitle('Multi-Flexibility Market Opportunity Analysis\n(Demand: M, Year: 2050)\nCost Savings (Positive) & Emissions Reduction (Positive)', 
+                 fontsize=16, fontweight='bold', y=0.98)
+    
+    # 添加行标签（市场机会）
+    for i, market in enumerate(markets):
+        market_desc = {'L': 'Low', 'M': 'Mid', 'H': 'High'}
+        fig.text(0.02, 0.8 - i*(0.8/(n_markets-1)) if n_markets > 1 else 0.8, f'Market: {market_desc[market]}', 
+                fontsize=14, fontweight='bold', rotation=90, ha='center', va='center')
+    
+    # 添加列标签（灵活性级别）
+    for j, flexibility in enumerate(flexibility_levels):
+        flexibility_desc = {'L': 'Low', 'M': 'Mid', 'H': 'High', 'N': 'Non-constrained'}
+        fig.text(0.2 + j*(0.6/(n_flexibility-1)) if n_flexibility > 1 else 0.2, 0.95, 
+                f'Flexibility: {flexibility_desc[flexibility]}', fontsize=14, fontweight='bold', ha='center')
     
     plt.tight_layout()
     
     # 保存图表
-    plot_file = plots_dir / f"scenario_comparison_{file_type}.png"
+    plot_file = plots_dir / f"flexibility_market_comparison_{file_type}.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"Scenario comparison plot saved to: {plot_file}")
+    logger.info(f"灵活性市场对比图表已保存到: {plot_file}")
     
     plt.close()
 
