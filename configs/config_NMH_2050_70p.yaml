@@ -114,15 +114,19 @@ aluminum:
       low:
         p_min_pu: 0.9
         restart_cost: 110000
+        stand_by_cost: 1.5
       mid:
         p_min_pu: 0.7
         restart_cost: 16000
+        stand_by_cost: 1.5
       high:
         p_min_pu: 0.5
         restart_cost: 3200
+        stand_by_cost: 1.5
       non_constrained:
         p_min_pu: 0.0
         restart_cost: 0
+        stand_by_cost: 0
     market_opportunity:
       low:
         vre_cost_factor: 0.8

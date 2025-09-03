@@ -131,15 +131,19 @@ aluminum:
       low:
         p_min_pu: 0.9  # p.u.
         restart_cost: 110000  # $/MW
+        stand_by_cost: 1.5  # $/MW/h
       mid:
         p_min_pu: 0.7  # p.u.
         restart_cost: 16000  # $/MW
+        stand_by_cost: 1.5  # $/MW/h
       high:
         p_min_pu: 0.5  # p.u.
         restart_cost: 3200  # $/MW
+        stand_by_cost: 1.5  # $/MW/h
       non_constrained:
         p_min_pu: 0.0  # p.u.
         restart_cost: 0  # $/MW
+        stand_by_cost: 0  # $/MW/h
     
     # 2. 市场机会情景 (Market opportunity scenarios)
     market_opportunity:

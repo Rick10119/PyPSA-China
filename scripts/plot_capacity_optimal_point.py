@@ -537,10 +537,20 @@ def plot_optimal_points_scatter():
     # Add grid
     ax.grid(True, alpha=0.3)
     
-    # Add vertical line for annual demand (1166.6836345743664 万吨)
-    annual_demand = 1166.6836345743664  # 万吨
-    ax.axvline(x=annual_demand, color='red', linestyle='--', linewidth=2, alpha=0.8, 
-               label=f'Annual Demand: {annual_demand:.1f} 10,000 tons/year')
+    # Add vertical lines for annual demand by year
+    demand_by_year = {
+        2030: 2902.417177819193,
+        2040: 1508.1703393209764,
+        2050: 1166.6836345743664,
+    }
+    
+    # Colors for demand lines
+    demand_colors = {2030: 'red', 2040: 'orange', 2050: 'purple'}
+    
+    for year, demand in demand_by_year.items():
+        if year in years:  # Only plot demand lines for years that have data
+            ax.axvline(x=demand, color=demand_colors[year], linestyle='--', linewidth=2, alpha=0.8, 
+                       label=f'{year} Demand: {demand:.1f} 10,000 tons/year')
     
     # Create legend
     legend_elements = []
@@ -565,9 +575,11 @@ def plot_optimal_points_scatter():
                                         markerfacecolor='w', markeredgecolor=flexibility_colors[flexibility],
                                         markersize=12, markeredgewidth=2, label=flex_desc[flexibility]))
     
-    # Add annual demand line to legend
-    legend_elements.append(plt.Line2D([0], [0], color='red', linestyle='--', linewidth=2, 
-                                    label=f'Annual Demand: {annual_demand:.1f} 10,000 tons/year'))
+    # Add demand lines to legend (only for years that have data)
+    for year, demand in demand_by_year.items():
+        if year in years:
+            legend_elements.append(plt.Line2D([0], [0], color=demand_colors[year], linestyle='--', linewidth=2, 
+                                            label=f'{year} Demand: {demand:.1f} 10,000 tons/year'))
     
     # Add legend
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10, ncol=2)
@@ -580,7 +592,7 @@ def plot_optimal_points_scatter():
         capacity = point['capacity']
         net_value = point['net_value']
         
-        ax.annotate(f'{year}-{market}-{flexibility}', 
+        ax.annotate(f'{year}-{flexibility}-{market}', 
                    xy=(capacity, net_value),
                    xytext=(5, 5), textcoords='offset points',
                    fontsize=9, alpha=0.8)
