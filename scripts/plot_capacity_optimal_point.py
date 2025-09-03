@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-绘制多年份多市场机会的成本分析图表
-竖轴：不同年份（2030、2040、2050）
-横轴：不同市场机会（L、M、H）
-每个子图显示不同灵活性场景下的结果
-Demand和灵活性都设为M
-成本减少为正方向，碳排放减少为正方向
+绘制最优点对应的容量和净价值散点图
+横轴：铝产能容量 (MW)
+纵轴：净价值 (十亿人民币)
+不同年份用不同颜色表示
 """
 
 import pandas as pd
@@ -283,220 +281,150 @@ def calculate_total_emissions_from_costs(costs_data):
     
     return total_emissions
 
-def plot_single_year_market(year, market, base_version, capacity_ratios, results_dir, ax):
+
+
+def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
     """
-    绘制单个年份-市场组合的图表
+    找到每个年份-市场组合的最优点
     
     Parameters:
     -----------
-    year : int
-        年份
-    market : str
-        市场机会级别 (L, M, H)
     base_version : str
         基础版本号
     capacity_ratios : list
         容量比例列表
     results_dir : str
         结果目录
-    ax : matplotlib.axes.Axes
-        子图对象
+        
+    Returns:
+    --------
+    list
+        包含最优点信息的列表，每个元素为(year, market, capacity, net_value)
     """
     # 欧元到人民币转换率
     EUR_TO_CNY = 7.8
     
-    # 构建版本名称 - 使用正确的格式
-    version_names = []
-    config_versions = {}
+    # 查找可用的年份
+    available_years = find_available_years(results_dir, base_version)
+    logger.info(f"找到可用的年份: {available_years}")
     
-    for ratio in capacity_ratios:
-        # 版本号格式: base_version-MM{market}-{year}-{ratio}
-        version = f"{base_version}-MM{market}-{year}-{ratio}"
-        version_names.append(version)
-        config_versions[ratio] = version
+    # 定义市场机会
+    markets = ['L', 'M', 'H']
     
-    # 基准版本
-    aluminum_baseline_version = f"{base_version}-MM{market}-{year}-5p"
-    power_baseline_version = f"{base_version}-MM{market}-{year}-non_flexible"
+    optimal_points = []
     
-    # 收集数据
-    costs_data = {}
-    baseline_data = {}
-    
-    # 加载基准版本数据
-    aluminum_baseline = load_costs_data(aluminum_baseline_version, year, results_dir)
-    if aluminum_baseline is not None:
-        baseline_data['aluminum'] = aluminum_baseline
-    
-    power_baseline = load_costs_data(power_baseline_version, year, results_dir)
-    if power_baseline is not None:
-        baseline_data['power'] = power_baseline
-    
-    # 加载各容量比例的数据
-    for ratio in capacity_ratios:
-        version_name = config_versions[ratio]
-        costs = load_costs_data(version_name, year, results_dir)
-        if costs is not None:
-            costs_data[ratio] = costs
-    
-    if not costs_data or not baseline_data:
-        ax.text(0.5, 0.5, f'No data for {year}-{market}', ha='center', va='center', 
-               transform=ax.transAxes, fontsize=12)
-        return
-    
-    # 计算成本变化（成本减少为正方向）
-    power_cost_changes = []
-    aluminum_cost_changes = []
-    emissions_changes = []
-    capacity_values = []
-    
-    for ratio in capacity_ratios:
-        if ratio in costs_data and 'power' in baseline_data:
-            # 计算电力系统成本变化（成本减少为正方向）
-            current_costs = calculate_cost_categories(costs_data[ratio])
-            baseline_costs = calculate_cost_categories(baseline_data['power'])
+    for year in available_years:
+        for market in markets:
+            logger.info(f"正在分析 {year}年-{market}市场 的最优点...")
             
-            # 计算总成本变化（排除aluminum相关）
-            total_change = 0
-            for category, value in current_costs.items():
-                if 'aluminum' not in category.lower():
-                    baseline_value = baseline_costs.get(category, 0)
-                    total_change += (value - baseline_value)
+            # 构建版本名称
+            version_names = []
+            config_versions = {}
             
-            # 成本减少为正方向，所以取负值
-            power_cost_changes.append(-total_change * EUR_TO_CNY)  # 转换为人民币，成本减少为正
-        else:
-            power_cost_changes.append(0)
-        
-        if ratio in costs_data and 'aluminum' in baseline_data:
-            # 计算电解铝成本变化（成本减少为正方向）
-            current_costs = calculate_cost_categories(costs_data[ratio])
-            baseline_costs = calculate_cost_categories(baseline_data['aluminum'])
+            for ratio in capacity_ratios:
+                version = f"{base_version}-MM{market}-{year}-{ratio}"
+                version_names.append(version)
+                config_versions[ratio] = version
             
-            # 计算aluminum相关成本变化
-            aluminum_change = 0
-            for category, value in current_costs.items():
-                if 'aluminum' in category.lower():
-                    baseline_value = baseline_costs.get(category, 0)
-                    aluminum_change += (value - baseline_value)
+            # 基准版本
+            aluminum_baseline_version = f"{base_version}-MM{market}-{year}-5p"
+            power_baseline_version = f"{base_version}-MM{market}-{year}-non_flexible"
             
-            # 成本减少为正方向，所以取负值
-            aluminum_cost_changes.append(-aluminum_change * EUR_TO_CNY)  # 转换为人民币，成本减少为正
-        else:
-            aluminum_cost_changes.append(0)
-        
-        # 计算碳排放变化（碳排放减少为正方向）
-        if ratio in costs_data and 'power' in baseline_data:
-            current_emissions = calculate_total_emissions_from_costs(costs_data[ratio])
-            baseline_emissions_total = calculate_total_emissions_from_costs(baseline_data['power'])
+            # 收集数据
+            costs_data = {}
+            baseline_data = {}
             
-            # 碳排放减少为正方向，所以取负值
-            emissions_change = -(current_emissions - baseline_emissions_total)  # 碳排放减少为正
-            # 转换为百万吨CO2
-            emissions_changes.append(emissions_change / 1e6)
-        else:
-            emissions_changes.append(0)
-        
-        # 读取容量比例值
-        # 从base_version中提取市场机会部分，格式：0815.1H.1-MML-2030-5p -> MML
-        market_part = base_version.split('-')[1] if len(base_version.split('-')) > 1 else 'MML'
-        config_file = f"configs/config_{market_part}_{year}_{ratio}.yaml"
-        config = load_config(config_file)
-        if config is not None:
-            capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
-            if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
-                capacity_ratio = config['aluminum']['capacity_ratio']
+            # 加载基准版本数据
+            aluminum_baseline = load_costs_data(aluminum_baseline_version, year, results_dir)
+            if aluminum_baseline is not None:
+                baseline_data['aluminum'] = aluminum_baseline
             
-            # 计算实际容量 (4500 * capacity ratio)
-            actual_capacity = 4500 * capacity_ratio
-            capacity_values.append(actual_capacity)
-        else:
-            # 如果配置文件不存在，使用默认值
-            default_ratio = float(ratio.replace('p', '')) / 100.0
-            default_capacity = 4500 * default_ratio
-            capacity_values.append(default_capacity)
+            power_baseline = load_costs_data(power_baseline_version, year, results_dir)
+            if power_baseline is not None:
+                baseline_data['power'] = power_baseline
+            
+            # 加载各容量比例的数据
+            for ratio in capacity_ratios:
+                version_name = config_versions[ratio]
+                costs = load_costs_data(version_name, year, results_dir)
+                if costs is not None:
+                    costs_data[ratio] = costs
+            
+            if not costs_data or not baseline_data:
+                logger.warning(f"没有找到 {year}年-{market}市场 的数据")
+                continue
+            
+            # 计算净价值
+            net_values = []
+            capacity_values = []
+            
+            for ratio in capacity_ratios:
+                if ratio in costs_data and 'power' in baseline_data:
+                    # 计算电力系统成本变化（成本减少为正方向）
+                    current_costs = calculate_cost_categories(costs_data[ratio])
+                    baseline_costs = calculate_cost_categories(baseline_data['power'])
+                    
+                    # 计算总成本变化（排除aluminum相关）
+                    power_cost_change = 0
+                    for category, value in current_costs.items():
+                        if 'aluminum' not in category.lower():
+                            baseline_value = baseline_costs.get(category, 0)
+                            power_cost_change += (value - baseline_value)
+                    
+                    # 计算电解铝成本变化
+                    aluminum_cost_change = 0
+                    if 'aluminum' in baseline_data:
+                        aluminum_baseline_costs = calculate_cost_categories(baseline_data['aluminum'])
+                        for category, value in current_costs.items():
+                            if 'aluminum' in category.lower():
+                                baseline_value = aluminum_baseline_costs.get(category, 0)
+                                aluminum_cost_change += (value - baseline_value)
+                    
+                    # 计算净价值（成本减少为正方向，所以取负值）
+                    net_value = -(power_cost_change + aluminum_cost_change) * EUR_TO_CNY
+                    net_values.append(net_value)
+                    
+                    # 读取容量比例值
+                    market_part = base_version.split('-')[1] if len(base_version.split('-')) > 1 else 'MML'
+                    config_file = f"configs/config_{market_part}_{year}_{ratio}.yaml"
+                    config = load_config(config_file)
+                    if config is not None:
+                        capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
+                        if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
+                            capacity_ratio = config['aluminum']['capacity_ratio']
+                        
+                        # 计算实际容量 (4500 * capacity ratio)
+                        actual_capacity = 4500 * capacity_ratio
+                        capacity_values.append(actual_capacity)
+                    else:
+                        # 如果配置文件不存在，使用默认值
+                        default_ratio = float(ratio.replace('p', '')) / 100.0
+                        default_capacity = 4500 * default_ratio
+                        capacity_values.append(default_capacity)
+                else:
+                    net_values.append(0)
+                    capacity_values.append(0)
+            
+            # 找到净价值最大的点
+            if net_values:
+                max_index = np.argmax(net_values)
+                optimal_capacity = capacity_values[max_index]
+                optimal_net_value = net_values[max_index]
+                
+                optimal_points.append({
+                    'year': year,
+                    'market': market,
+                    'capacity': optimal_capacity,
+                    'net_value': optimal_net_value / 1e9  # 转换为十亿人民币
+                })
+                
+                logger.info(f"{year}年-{market}市场 最优点: 容量={optimal_capacity:.0f}MW, 净价值={optimal_net_value/1e9:.2f}B CNY")
     
-    # 创建双y轴图表
-    ax2 = ax.twinx()
-    
-    # 创建图表
-    x = capacity_values
-    bar_width = 150  # 减少柱子宽度
-    
-    # 为电力系统成本和电解铝成本创建稍微错开的位置
-    x_power = [pos - bar_width/6 for pos in x]  # 电力系统成本稍微向左
-    x_aluminum = [pos + bar_width/6 for pos in x]  # 电解铝成本稍微向右
-    
-    # 绘制电力系统成本节约（底部）
-    bars1 = ax.bar(x_power, power_cost_changes, bar_width*0.8, color='#1f77b4', alpha=0.8, 
-                   label='Power System Cost Savings')
-    
-    # 绘制电解铝运行成本节约（从电力系统成本顶部往上堆叠，稍微错开）
-    bars2 = ax.bar(x_aluminum, aluminum_cost_changes, bar_width*0.8, bottom=power_cost_changes, 
-                   color='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Increase')
-    
-    # 计算净值（总成本节约）
-    net_cost_savings = [power_cost_changes[i] + aluminum_cost_changes[i] for i in range(len(capacity_values))]
-    
-    # 绘制净值曲线（黑色线，使用原始x轴位置）
-    ax.plot(x, net_cost_savings, 'k-', linewidth=3, label='Net Cost Savings', marker='o', markersize=8, zorder=20)
-    
-    # 找出净值最大的位置
-    max_saving_index = np.argmax(net_cost_savings)
-    max_saving_value = net_cost_savings[max_saving_index]
-    max_saving_capacity = capacity_values[max_saving_index]
-    
-    # 用星号标出净值最大处
-    ax.plot(max_saving_capacity, max_saving_value, 'r*', markersize=15, 
-            label=f'Highest Net Savings: {max_saving_value/1e9:.1f}B CNY', zorder=30)
-    
-    # 为净值最大点添加数值标签
-    ax.annotate(f'{max_saving_value/1e9:.1f}B',
-                xy=(max_saving_capacity, max_saving_value),
-                xytext=(0, 20),
-                textcoords="offset points",
-                ha='center', va='bottom', 
-                fontsize=12, weight='bold', color='red',
-                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
-    
-    # 绘制碳排放变化（右y轴，使用原始x轴位置）
-    line1 = ax2.plot(x, emissions_changes, linewidth=2, marker='o', 
-                     markersize=6, label='Emissions Reduction', color='red')
-    
-    # 设置标签
-    ax.set_xlabel('Aluminum Capacity (MW)', fontsize=12)
-    ax.set_ylabel('Cost Savings (Billion CNY)', fontsize=12, color='blue')
-    ax2.set_ylabel('Emissions Reduction (Million Tonnes CO2)', fontsize=12, color='red')
-    ax.set_title(f'Year {year}, Market {market}', fontsize=14, fontweight='bold')
-    
-    # 添加零线
-    ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1)
-    ax2.axhline(y=0, color='red', linestyle='--', alpha=0.5, linewidth=1)
-    
-    # 添加网格
-    ax.grid(True, alpha=0.3, axis='y')
-    
-    # 设置x轴刻度和标签
-    ax.set_xticks(x)
-    ax.set_xticklabels([f'{cap:.0f}' for cap in capacity_values], fontsize=10)
-    
-    # 设置y轴标签为十亿人民币单位
-    y_ticks = ax.get_yticks()
-    y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
-    ax.set_yticks(y_ticks)
-    ax.set_yticklabels(y_tick_labels, fontsize=10, color='blue')
-    
-    # 设置右y轴标签为百万吨CO2单位
-    y2_ticks = ax2.get_yticks()
-    y2_tick_labels = [f'{tick:.1f}M' for tick in y2_ticks]
-    ax2.set_yticks(y2_ticks)
-    ax2.set_yticklabels(y2_tick_labels, fontsize=10, color='red')
-    
-    # 不在这里添加图例，只在总图上添加一个统一的图例
+    return optimal_points
 
-def plot_multi_year_market_comparison():
+def plot_optimal_points_scatter():
     """
-    绘制多年份多市场机会的成本分析图表
+    绘制最优点对应的容量和净价值散点图
     """
     # 从主配置文件读取基础版本号
     main_config = load_config('config.yaml')
@@ -510,93 +438,104 @@ def plot_multi_year_market_comparison():
     # 定义容量比例
     capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
     
-    # 查找可用的年份
-    available_years = find_available_years('results', base_version)
-    logger.info(f"找到可用的年份: {available_years}")
+    # 找到所有最优点
+    optimal_points = find_optimal_points(base_version, capacity_ratios, 'results')
     
-    # 定义市场机会
+    if not optimal_points:
+        logger.error("没有找到任何最优点数据")
+        return
+    
+    # 创建散点图
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # 按年份分组数据
+    years = sorted(list(set([point['year'] for point in optimal_points])))
+    colors = plt.cm.viridis(np.linspace(0, 1, len(years)))
+    year_colors = dict(zip(years, colors))
+    
+    # 为每个市场机会创建不同的标记
     markets = ['L', 'M', 'H']
+    markers = ['o', 's', '^']
+    market_markers = dict(zip(markets, markers))
     
-    # 创建子图
-    n_years = len(available_years)
-    n_markets = len(markets)
+    # 绘制散点
+    for point in optimal_points:
+        year = point['year']
+        market = point['market']
+        capacity = point['capacity']
+        net_value = point['net_value']
+        
+        ax.scatter(capacity, net_value, 
+                  c=[year_colors[year]], 
+                  marker=market_markers[market],
+                  s=150, alpha=0.8, edgecolors='black', linewidth=1)
     
-    fig, axes = plt.subplots(n_years, n_markets, figsize=(6*n_markets, 5*n_years))
+    # 添加标签
+    ax.set_xlabel('铝产能容量 (MW)', fontsize=14, fontweight='bold')
+    ax.set_ylabel('净价值 (十亿人民币)', fontsize=14, fontweight='bold')
+    ax.set_title('最优点对应的容量和净价值分析', fontsize=16, fontweight='bold')
     
-    # 如果只有一个年份，确保axes是二维数组
-    if n_years == 1:
-        axes = axes.reshape(1, -1)
+    # 添加网格
+    ax.grid(True, alpha=0.3)
     
-    # 设置子图之间的间距
-    plt.subplots_adjust(hspace=0.3, wspace=0.3)
+    # 创建图例
+    legend_elements = []
     
-    # 为每个年份-市场组合绘制图表
-    for i, year in enumerate(available_years):
-        for j, market in enumerate(markets):
-            ax = axes[i, j]
-            
-            logger.info(f"正在绘制 {year}年-{market}市场 的图表...")
-            plot_single_year_market(year, market, base_version, capacity_ratios, 'results', ax)
+    # 年份图例
+    for year in years:
+        legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                        markerfacecolor=year_colors[year], 
+                                        markersize=10, label=f'{year}年'))
     
-    # 创建统一的图例
-    # 从第一个子图获取图例元素
-    first_ax = axes[0, 0] if n_years == 1 else axes[0, 0]
-    first_ax2 = first_ax.twinx()
+    # 市场图例
+    for market in markets:
+        market_desc = {'L': '低市场机会', 'M': '中市场机会', 'H': '高市场机会'}
+        legend_elements.append(plt.Line2D([0], [0], marker=market_markers[market], 
+                                        color='w', markerfacecolor='gray', 
+                                        markersize=10, label=market_desc[market]))
     
-    # 创建图例元素
-    legend_elements = [
-        plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='Power System Cost Savings'),
-        plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Savings'),
-        plt.Line2D([0], [0], color='black', linewidth=3, marker='o', markersize=8, label='Net Cost Savings'),
-        plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='Highest Net Savings'),
-        plt.Line2D([0], [0], color='red', linewidth=2, marker='o', markersize=6, label='Emissions Reduction')
-    ]
+    # 添加图例
+    ax.legend(handles=legend_elements, loc='upper left', fontsize=12)
     
-    # 在总图右侧添加统一图例
-    fig.legend(handles=legend_elements, loc='center right', bbox_to_anchor=(1.15, 0.5),
-               title='Legend', fontsize=12, title_fontsize=14)
-    
-    # 添加总标题
-    fig.suptitle('Multi-Year Market Opportunity Analysis\n(Demand: M, Flexibility: M)\nCost Savings (Positive) & Emissions Reduction (Positive)', 
-                 fontsize=16, fontweight='bold', y=0.98)
-    
-    # 添加行标签（年份）
-    for i, year in enumerate(available_years):
-        fig.text(0.02, 0.8 - i*(0.8/(n_years-1)) if n_years > 1 else 0.8, f'Year {year}', 
-                fontsize=14, fontweight='bold', rotation=90, ha='center', va='center')
-    
-    # 添加列标签（市场机会）
-    for j, market in enumerate(markets):
-        market_desc = {'L': 'Low', 'M': 'Mid', 'H': 'High'}
-        fig.text(0.2 + j*(0.6/(n_markets-1)) if n_markets > 1 else 0.2, 0.95, 
-                f'Market: {market_desc[market]}', fontsize=14, fontweight='bold', ha='center')
+    # 为每个点添加标签
+    for point in optimal_points:
+        year = point['year']
+        market = point['market']
+        capacity = point['capacity']
+        net_value = point['net_value']
+        
+        ax.annotate(f'{year}-{market}', 
+                   xy=(capacity, net_value),
+                   xytext=(5, 5), textcoords='offset points',
+                   fontsize=10, alpha=0.8)
     
     plt.tight_layout()
     
     # 保存图表
-    output_dir = Path('results/multi_year_analysis')
+    output_dir = Path('results/optimal_points_analysis')
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    plot_file = output_dir / "multi_year_market_comparison.png"
+    plot_file = output_dir / "optimal_points_scatter.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"多年份市场对比图表已保存到: {plot_file}")
+    logger.info(f"最优点散点图已保存到: {plot_file}")
     
-    # plt.show()
+    # 显示图表
+    plt.show()
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description='绘制多年份多市场机会的成本分析图表')
+    parser = argparse.ArgumentParser(description='绘制最优点对应的容量和净价值散点图')
     parser.add_argument('--results-dir', default='results', help='结果目录路径 (默认: results)')
-    parser.add_argument('--output', default='results/multi_year_analysis', help='输出目录')
+    parser.add_argument('--output', default='results/optimal_points_analysis', help='输出目录')
     
     args = parser.parse_args()
     
-    logger.info(f"开始分析多年份多市场机会结果")
+    logger.info(f"开始分析最优点对应的容量和净价值")
     logger.info(f"结果目录: {args.results_dir}")
     logger.info(f"输出目录: {args.output}")
     
-    # 绘制多年份市场对比图表
-    plot_multi_year_market_comparison()
+    # 绘制最优点散点图
+    plot_optimal_points_scatter()
     
     logger.info("分析完成！")
 
