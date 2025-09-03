@@ -22,36 +22,36 @@ module load gurobi/12.0.0
 mkdir -p logs
 
 echo "=========================================="
-echo "开始运行多年市场比较分析作业"
+echo "开始运行多灵活性多市场比较分析作业"
 echo "作业ID: $SLURM_JOB_ID"
 echo "开始时间: $(date)"
 echo "=========================================="
 
 
 echo "=========================================="
-echo "运行多年市场比较分析脚本..."
+echo "运行多灵活性多市场比较分析脚本..."
 echo "=========================================="
 
-# 运行多年市场比较分析脚本
-python scripts/plot_capacity_multi_year_market_comparison.py
+# 运行多灵活性多市场比较分析脚本
+python scripts/plot_capacity_flexibility_market_comparison.py
 
 if [ $? -eq 0 ]; then
-    echo "✅ 多年市场比较分析脚本运行成功"
+    echo "✅ 多灵活性多市场比较分析脚本运行成功"
 else
-    echo "❌ 多年市场比较分析脚本运行失败"
+    echo "❌ 多灵活性多市场比较分析脚本运行失败"
     exit 1
 fi
 
 echo "=========================================="
-echo "多年市场比较分析脚本运行完成！"
+echo "多灵活性多市场比较分析脚本运行完成！"
 echo "结束时间: $(date)"
-echo "输出目录: results/multi_year_market_comparison"
+echo "输出目录: results/flexibility_market_comparison"
 echo "=========================================="
 
 # 显示生成的文件
 echo "生成的文件列表："
-ls -la results/multi_year_analysis/plots/ 2>/dev/null || echo "plots目录不存在"
-ls -la results/multi_year_analysis/ 2>/dev/null || echo "multi_year_market_comparison目录不存在"
+ls -la results/flexibility_market_analysis/plots/ 2>/dev/null || echo "plots目录不存在"
+ls -la results/flexibility_market_analysis/ 2>/dev/null || echo "flexibility_market_comparison目录不存在"
 
 echo "=========================================="
 echo "作业完成！"
