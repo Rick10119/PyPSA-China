@@ -348,20 +348,30 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
             for flexibility in flexibilities:
                 logger.info(f"Analyzing optimal point for {year}-{market}-{flexibility}...")
                 
-                # Build version names
+                # Build version names - use different base_version for different scenarios
+                # Extract the base part and construct scenario-specific base_version
+                base_parts = base_version.split('-')
+                if len(base_parts) >= 2:
+                    # Use the scenario part (e.g., MMM, HML, etc.) from base_version
+                    scenario_part = base_parts[1]  # e.g., "MMM", "HML", etc.
+                    scenario_base_version = f"{base_parts[0]}-{scenario_part}"
+                else:
+                    # Fallback to original base_version
+                    scenario_base_version = base_version
+                
                 version_names = []
                 config_versions = {}
                 
                 for ratio in capacity_ratios:
-                    # Version format: base_version-{flexibility}{demand}{market}-{year}-{ratio}
+                    # Version format: scenario_base_version-{flexibility}{demand}{market}-{year}-{ratio}
                     # Demand is fixed as 'M' (mid)
-                    version = f"{base_version}-{flexibility}M{market}-{year}-{ratio}"
+                    version = f"{scenario_base_version}-{flexibility}M{market}-{year}-{ratio}"
                     version_names.append(version)
                     config_versions[ratio] = version
                 
                 # Baseline versions
-                aluminum_baseline_version = f"{base_version}-{flexibility}M{market}-{year}-5p"
-                power_baseline_version = f"{base_version}-{flexibility}M{market}-{year}-non_flexible"
+                aluminum_baseline_version = f"{scenario_base_version}-{flexibility}M{market}-{year}-5p"
+                power_baseline_version = f"{scenario_base_version}-{flexibility}M{market}-{year}-non_flexible"
                 
                 # Collect data
                 costs_data = {}
@@ -431,23 +441,17 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
                     scenario_suffix = f"{flexibility}M{market}"
                     config_file = f"configs/config_{scenario_suffix}_{year}_{ratio}.yaml"
                     config = load_config(config_file)
-                    if config is not None:
-                        capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
-                        if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
-                            capacity_ratio = config['aluminum']['capacity_ratio']
-                        
-                        # Calculate actual capacity using the same method as generate_capacity_test_configs
-                        # Convert cap_ratio from percentage to decimal (e.g., "10p" -> 0.1)
-                        cap_ratio_decimal = float(ratio.replace('p', '')) / 100.0
-                        actual_capacity_ratio = calculate_actual_capacity_ratio(year, cap_ratio_decimal, 'mid')
-                        actual_capacity = 4500 * actual_capacity_ratio / 10000  # Convert to 10,000 tons/year
-                        capacity_values.append(actual_capacity)
-                    else:
-                        # If config file doesn't exist, use default calculation
-                        cap_ratio_decimal = float(ratio.replace('p', '')) / 100.0
-                        actual_capacity_ratio = calculate_actual_capacity_ratio(year, cap_ratio_decimal, 'mid')
-                        default_capacity = 4500 * actual_capacity_ratio / 10000  # Convert to 10,000 tons/year
-                        capacity_values.append(default_capacity)
+                    capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
+                    if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
+                        capacity_ratio = config['aluminum']['capacity_ratio']
+                    
+                    # Calculate actual capacity using the same method as generate_capacity_test_configs
+                    # Convert cap_ratio from percentage to decimal (e.g., "10p" -> 0.1)
+                    cap_ratio_decimal = float(ratio.replace('p', '')) / 100.0
+                    actual_capacity_ratio = calculate_actual_capacity_ratio(year, cap_ratio_decimal, 'mid')
+                    # Calculate actual capacity in 10,000 tons/year (4500 * actual_capacity_ratio)
+                    actual_capacity = 4500 * actual_capacity_ratio
+                    capacity_values.append(actual_capacity)
                 
                 # Calculate net cost savings (same as plot_capacity_multi_year_market_comparison)
                 net_cost_savings = [power_cost_changes[i] + aluminum_cost_changes[i] for i in range(len(capacity_values))]
@@ -480,7 +484,7 @@ def plot_optimal_points_scatter():
         logger.error("Cannot load main config file config.yaml")
         return
     
-    base_version = main_config.get('version', '0814.4H.2')
+    base_version = main_config.get('version', '0815.1H.1')
     logger.info(f"Loaded base version from main config: {base_version}")
     
     # Define capacity ratios
