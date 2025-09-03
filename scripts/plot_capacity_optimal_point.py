@@ -283,6 +283,35 @@ def calculate_total_emissions_from_costs(costs_data):
 
 
 
+def calculate_actual_capacity_ratio(year: int, cap_ratio: float, demand_level: str) -> float:
+    """
+    Calculate actual capacity ratio
+    
+    Args:
+        year: Year
+        cap_ratio: Excess capacity retention ratio (e.g., 0.1 means 10%)
+        demand_level: Demand level ('mid')
+        
+    Returns:
+        Actual capacity ratio
+    """
+    # Total capacity
+    total_capacity = 4500
+    
+    # Set demand by year (using actual data)
+    demand_by_year = {
+        "2030": 2902.417177819193,
+        "2040": 1508.1703393209764,
+        "2050": 1166.6836345743664,
+    }
+    
+    demand = demand_by_year.get(str(year), 0)
+    
+    # Calculate actual capacity ratio: demand/capacity × (1-cap) + cap
+    actual_ratio = (demand / total_capacity) * (1 - cap_ratio) + cap_ratio
+    
+    return actual_ratio
+
 def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
     """
     Find optimal points for each year-market-flexibility combination
@@ -398,7 +427,7 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
                     else:
                         aluminum_cost_changes.append(0)
                     
-                    # Read capacity ratio values
+                    # Read capacity ratio values and calculate actual capacity
                     scenario_suffix = f"{flexibility}M{market}"
                     config_file = f"configs/config_{scenario_suffix}_{year}_{ratio}.yaml"
                     config = load_config(config_file)
@@ -407,13 +436,17 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
                         if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
                             capacity_ratio = config['aluminum']['capacity_ratio']
                         
-                        # Calculate actual capacity (4500 * capacity ratio)
-                        actual_capacity = 4500 * capacity_ratio
+                        # Calculate actual capacity using the same method as generate_capacity_test_configs
+                        # Convert cap_ratio from percentage to decimal (e.g., "10p" -> 0.1)
+                        cap_ratio_decimal = float(ratio.replace('p', '')) / 100.0
+                        actual_capacity_ratio = calculate_actual_capacity_ratio(year, cap_ratio_decimal, 'mid')
+                        actual_capacity = 4500 * actual_capacity_ratio / 10000  # Convert to 10,000 tons/year
                         capacity_values.append(actual_capacity)
                     else:
-                        # If config file doesn't exist, use default value
-                        default_ratio = float(ratio.replace('p', '')) / 100.0
-                        default_capacity = 4500 * default_ratio
+                        # If config file doesn't exist, use default calculation
+                        cap_ratio_decimal = float(ratio.replace('p', '')) / 100.0
+                        actual_capacity_ratio = calculate_actual_capacity_ratio(year, cap_ratio_decimal, 'mid')
+                        default_capacity = 4500 * actual_capacity_ratio / 10000  # Convert to 10,000 tons/year
                         capacity_values.append(default_capacity)
                 
                 # Calculate net cost savings (same as plot_capacity_multi_year_market_comparison)
@@ -433,7 +466,7 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
                         'net_value': optimal_net_value / 1e9  # Convert to billion CNY
                     })
                     
-                    logger.info(f"{year}-{market}-{flexibility} optimal point: capacity={optimal_capacity:.0f}MW, net_value={optimal_net_value/1e9:.2f}B CNY")
+                    logger.info(f"{year}-{market}-{flexibility} optimal point: capacity={optimal_capacity:.1f} 10,000 tons/year, net_value={optimal_net_value/1e9:.2f}B CNY")
     
     return optimal_points
 
@@ -493,12 +526,17 @@ def plot_optimal_points_scatter():
                   linewidth=2)
     
     # Add labels
-    ax.set_xlabel('Aluminum Capacity (MW)', fontsize=14, fontweight='bold')
+    ax.set_xlabel('Aluminum Capacity (10,000 tons/year)', fontsize=14, fontweight='bold')
     ax.set_ylabel('Net Value (Billion CNY)', fontsize=14, fontweight='bold')
     ax.set_title('Optimal Points: Capacity vs Net Value Analysis', fontsize=16, fontweight='bold')
     
     # Add grid
     ax.grid(True, alpha=0.3)
+    
+    # Add vertical line for annual demand (1166.6836345743664 万吨)
+    annual_demand = 1166.6836345743664  # 万吨
+    ax.axvline(x=annual_demand, color='red', linestyle='--', linewidth=2, alpha=0.8, 
+               label=f'Annual Demand: {annual_demand:.1f} 10,000 tons/year')
     
     # Create legend
     legend_elements = []
@@ -523,8 +561,12 @@ def plot_optimal_points_scatter():
                                         markerfacecolor='w', markeredgecolor=flexibility_colors[flexibility],
                                         markersize=12, markeredgewidth=2, label=flex_desc[flexibility]))
     
+    # Add annual demand line to legend
+    legend_elements.append(plt.Line2D([0], [0], color='red', linestyle='--', linewidth=2, 
+                                    label=f'Annual Demand: {annual_demand:.1f} 10,000 tons/year'))
+    
     # Add legend
-    ax.legend(handles=legend_elements, loc='upper left', fontsize=11, ncol=2)
+    ax.legend(handles=legend_elements, loc='upper left', fontsize=10, ncol=2)
     
     # Add labels for each point
     for point in optimal_points:
