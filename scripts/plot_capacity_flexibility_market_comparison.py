@@ -766,10 +766,7 @@ def plot_single_flexibility_market(flexibility, market, base_version, capacity_r
             default_capacity = 4500 * default_ratio
             capacity_values.append(default_capacity)
     
-    # 创建双y轴图表
-    ax2 = ax.twinx()
-    
-    # 创建图表
+    # 创建图表（移除双y轴，不显示碳排放）
     x = capacity_values
     bar_width = 150  # 减少柱子宽度
     
@@ -809,19 +806,16 @@ def plot_single_flexibility_market(flexibility, market, base_version, capacity_r
                 fontsize=12, weight='bold', color='red',
                 bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
     
-    # 绘制碳排放变化（右y轴，使用原始x轴位置）
-    line1 = ax2.plot(x, emissions_changes, linewidth=2, marker='o', 
-                     markersize=6, label='Emissions Reduction', color='red')
-    
     # 设置标签
     ax.set_xlabel('Aluminum Capacity (MW)', fontsize=12)
     ax.set_ylabel('Cost Savings (Billion CNY)', fontsize=12, color='blue')
-    ax2.set_ylabel('Emissions Reduction (Million Tonnes CO2)', fontsize=12, color='red')
     ax.set_title(f'Flexibility: {flexibility}, Market: {market}', fontsize=14, fontweight='bold')
+    
+    # 设置左边纵轴范围：最小值-40，最大值50
+    ax.set_ylim(-40, 50)
                         
-                        # 添加零线
+    # 添加零线
     ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1)
-    ax2.axhline(y=0, color='red', linestyle='--', alpha=0.5, linewidth=1)
     # 添加网格
     ax.grid(True, alpha=0.3, axis='y')
                         
@@ -834,12 +828,6 @@ def plot_single_flexibility_market(flexibility, market, base_version, capacity_r
     y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
     ax.set_yticks(y_ticks)
     ax.set_yticklabels(y_tick_labels, fontsize=10, color='blue')
-    
-    # 设置右y轴标签为百万吨CO2单位
-    y2_ticks = ax2.get_yticks()
-    y2_tick_labels = [f'{tick:.1f}M' for tick in y2_ticks]
-    ax2.set_yticks(y2_ticks)
-    ax2.set_yticklabels(y2_tick_labels, fontsize=10, color='red')
     
     # 不在这里添加图例，只在总图上添加一个统一的图例
 
@@ -908,15 +896,13 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     # 创建统一的图例
     # 从第一个子图获取图例元素
     first_ax = axes[0, 0] if n_markets == 1 else axes[0, 0]
-    first_ax2 = first_ax.twinx()
         
-        # 创建图例元素
+    # 创建图例元素（移除碳排放相关）
     legend_elements = [
         plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='Power System Cost Savings'),
         plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Savings'),
         plt.Line2D([0], [0], color='black', linewidth=3, marker='o', markersize=8, label='Net Cost Savings'),
-        plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='Highest Net Savings'),
-        plt.Line2D([0], [0], color='red', linewidth=2, marker='o', markersize=6, label='Emissions Reduction')
+        plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='Highest Net Savings')
     ]
     
     # 在总图右侧添加统一图例
@@ -924,7 +910,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                title='Legend', fontsize=12, title_fontsize=14)
     
     # 添加总标题
-    fig.suptitle('Multi-Flexibility Market Opportunity Analysis\n(Demand: M, Year: 2050)\nCost Savings (Positive) & Emissions Reduction (Positive)', 
+    fig.suptitle('Multi-Flexibility Market Opportunity Analysis\n(Demand: M, Year: 2050)\nCost Savings (Positive)', 
                  fontsize=16, fontweight='bold', y=0.98)
     
     # 添加行标签（市场机会）
