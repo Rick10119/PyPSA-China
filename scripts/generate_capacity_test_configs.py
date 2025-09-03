@@ -178,7 +178,7 @@ def generate_single_config(base_config, base_version, flex, demand, market, cap_
         demand: 需求级别 (固定为mid)
         market: 市场机会级别 (low/mid/high)
         cap_ratio: 过剩产能保留比例 (0.1-1.0) 或 None
-        year: 年份 (2030, 2040, 2050)
+        year: 年份 (2050)
         config_type: 配置类型 ('non_flexible', 'no_aluminum', 'capacity')
         actual_capacity_ratio: 实际容量比例 (如果config_type为'capacity')
     """
@@ -280,7 +280,7 @@ def create_run_scripts():
     flexibility_levels = ['low', 'mid', 'high', 'non_constrained']
     demand_level = 'mid'
     market_levels = ['low', 'mid', 'high']
-    years = [2030, 2040, 2050]
+    years = [2050]
     cap_ratios = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     
     # 将级别映射为简短的标识符
@@ -390,7 +390,7 @@ def create_batch_run_script():
     flexibility_levels = ['low', 'mid', 'high', 'non_constrained']
     demand_level = 'mid'
     market_levels = ['low', 'mid', 'high']
-    years = [2030, 2040, 2050]
+    years = [2050]
     cap_ratios = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     
     # 将级别映射为简短的标识符
@@ -530,7 +530,7 @@ def main():
     print("- 灵活性(Flexibility): L=low, M=mid, H=high, N=non_constrained")
     print("- 需求(Demand): 固定为M=mid")
     print("- 市场机会(Market): L=low, M=mid, H=high")
-    print("- 年份(Year): 2030, 2040, 2050")
+    print("- 年份(Year): 2050")
     print("- 容量设置: non_flexible, no_aluminum, 10p, 20p, ..., 100p (13种)")
     print("- Cap含义: 过剩产能保留比例，如10p=保留10%过剩产能")
     print("- 实际容量比例: demand/capacity × (1-cap) + cap")
