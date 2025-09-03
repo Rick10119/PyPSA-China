@@ -303,6 +303,27 @@ def save_to_snakemake_outputs(n, config):
                 print(f"Warning: No Snakefile output defined for {tech}")
         plt.close()
     
+    # Plot aluminum smelter heatmap to Snakefile output path
+    if config.get("add_aluminum", False):
+        fig, ax = plt.subplots(figsize=map_figsize)
+        df, base = creat_aluminum_df(n)
+        if not df.empty and base > 0:
+            base = str(int(base / 1e3))  # Convert to GW for display
+            
+            # Create heatmap
+            sns.heatmap(df, ax=ax, cmap='coolwarm', cbar_kws={'label': 'pu'}, vmin=0.0, vmax=1.0)
+            ax.set_title('Aluminum Smelter heatmap with ' + freq + ' resolution in ' + planning_horizon + ' P_base = ' + base + ' GW')
+            
+            # Save to Snakefile output path
+            if hasattr(snakemake.output, "aluminum"):
+                fig.savefig(snakemake.output["aluminum"], dpi=150, bbox_inches='tight')
+                print(f"Saved aluminum heatmap to Snakefile output: {snakemake.output['aluminum']}")
+            else:
+                print("Warning: No Snakefile output defined for aluminum")
+        else:
+            print("Warning: No aluminum data found or power is zero")
+        plt.close()
+    
     # Plot water tank storage to Snakefile output path
     fig, ax = plt.subplots(figsize=map_figsize)
     water_stores = n.stores_t.e.filter(like='water')

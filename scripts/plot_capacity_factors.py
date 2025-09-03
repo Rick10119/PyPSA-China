@@ -642,7 +642,8 @@ if __name__ == "__main__":
     n = pypsa.Network(snakemake.input.network)
     
     # Check if province filtering is requested
-    target_province = "Shandong"
+    # target_province = "Yunnan"
+    target_province = None
     if hasattr(snakemake.config, 'single_node_province') and snakemake.config.get('using_single_node', False):
         target_province = snakemake.config['single_node_province']
         print(f"检测到单节点模式，将过滤 {target_province} 省份的结果")
