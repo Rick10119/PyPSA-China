@@ -56,7 +56,7 @@ def generate_capacity_test_configs():
     flexibility_levels = ['low', 'mid', 'high', 'non_constrained']  # L, M, H, N
     demand_level = 'mid'  # 固定为M
     market_levels = ['low', 'mid', 'high']  # L, M, H
-    years = [2050]  # 年份
+    years = [2030, 2040, 2050]  # 年份
     
     # 定义过剩产能保留比例 (Cap值)
     # Cap=10%意味着保留过剩产能的10%，对应实际容量比例约为70%
@@ -280,7 +280,7 @@ def create_run_scripts():
     flexibility_levels = ['low', 'mid', 'high', 'non_constrained']
     demand_level = 'mid'
     market_levels = ['low', 'mid', 'high']
-    years = [2050]
+    years = [2030, 2040, 2050]
     cap_ratios = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     
     # 将级别映射为简短的标识符
@@ -390,7 +390,7 @@ def create_batch_run_script():
     flexibility_levels = ['low', 'mid', 'high', 'non_constrained']
     demand_level = 'mid'
     market_levels = ['low', 'mid', 'high']
-    years = [2050]
+    years = [2030, 2040, 2050]
     cap_ratios = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     
     # 将级别映射为简短的标识符
