@@ -48,7 +48,7 @@ def load_config(config_path):
             config = yaml.safe_load(f)
         return config
     except Exception as e:
-        logger.error(f"加载配置文件 {config_path} 时出错: {str(e)}")
+        logger.error(f"Error loading config file {config_path}: {str(e)}")
         return None
 
 def find_available_years(results_dir, base_version):
@@ -89,7 +89,7 @@ def find_available_years(results_dir, base_version):
     # 如果没有找到任何年份，默认使用2050
     if not available_years:
         available_years = [2050]
-        logger.warning("未找到任何年份的数据，默认使用2050年")
+        logger.warning("No year data found, defaulting to 2050")
     
     return sorted(list(set(available_years)))
 
@@ -116,7 +116,7 @@ def load_costs_data(version_name, year, results_dir='results'):
         file_path = Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-{year}/costs.csv")
         
         if not file_path.exists():
-            logger.warning(f"文件不存在: {file_path}")
+            logger.warning(f"File does not exist: {file_path}")
             return None
         
         # 读取CSV文件
@@ -139,7 +139,7 @@ def load_costs_data(version_name, year, results_dir='results'):
         return df
         
     except Exception as e:
-        logger.error(f"加载数据时出错: {str(e)}")
+        logger.error(f"Error loading data: {str(e)}")
         return None
 
 def calculate_cost_categories(costs_data):
@@ -501,11 +501,11 @@ def plot_mmm_2050_analysis():
     # 从主配置文件读取基础版本号
     main_config = load_config('config.yaml')
     if main_config is None:
-        logger.error("无法加载主配置文件 config.yaml")
+        logger.error("Unable to load main config file config.yaml")
         return
     
     base_version = main_config.get('version', '0814.4H.2')
-    logger.info(f"从主配置文件读取到基础版本号: {base_version}")
+    logger.info(f"Base version read from main config file: {base_version}")
     
     # 定义容量比例
     capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
@@ -517,23 +517,23 @@ def plot_mmm_2050_analysis():
     # 创建单个图表
     fig, ax = plt.subplots(1, 1, figsize=(12, 8))
     
-    logger.info(f"正在绘制 MMM-2050 情景的图表...")
+    logger.info(f"Plotting MMM-2050 scenario chart...")
     plot_single_year_market(year, market, base_version, capacity_ratios, 'results', ax)
     
     # 创建图例
     legend_elements = [
-        plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='电力系统成本节约'),
-        plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='电解铝运行成本增加'),
-        plt.Line2D([0], [0], color='black', linewidth=3, marker='o', markersize=8, label='净成本节约'),
-        plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='最高净节约'),
-        plt.Line2D([0], [0], color='red', linewidth=2, marker='o', markersize=6, label='碳排放减少')
+        plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='Power System Cost Savings'),
+        plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Increase'),
+        plt.Line2D([0], [0], color='black', linewidth=3, marker='o', markersize=8, label='Net Cost Savings'),
+        plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='Highest Net Savings'),
+        plt.Line2D([0], [0], color='red', linewidth=2, marker='o', markersize=6, label='Emissions Reduction')
     ]
     
     # 添加图例
     ax.legend(handles=legend_elements, loc='upper right', fontsize=12)
     
     # 添加总标题
-    fig.suptitle('MMM-2050情景分析\n(需求: M, 灵活性: M)\n成本节约(正值) & 碳排放减少(正值)', 
+    fig.suptitle('MMM-2050 Scenario Analysis\n(Demand: M, Flexibility: M)\nCost Savings (Positive) & Emissions Reduction (Positive)', 
                  fontsize=16, fontweight='bold', y=0.95)
     
     plt.tight_layout()
@@ -544,26 +544,26 @@ def plot_mmm_2050_analysis():
     
     plot_file = output_dir / "mmm_2050_analysis.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"MMM-2050情景分析图表已保存到: {plot_file}")
+    logger.info(f"MMM-2050 scenario analysis chart saved to: {plot_file}")
     
     # plt.show()
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description='绘制MMM-2050情景的成本分析图表')
-    parser.add_argument('--results-dir', default='results', help='结果目录路径 (默认: results)')
-    parser.add_argument('--output', default='results/mmm_2050_analysis', help='输出目录')
+    parser = argparse.ArgumentParser(description='Plot cost analysis chart for MMM-2050 scenario')
+    parser.add_argument('--results-dir', default='results', help='Results directory path (default: results)')
+    parser.add_argument('--output', default='results/mmm_2050_analysis', help='Output directory')
     
     args = parser.parse_args()
     
-    logger.info(f"开始分析MMM-2050情景结果")
-    logger.info(f"结果目录: {args.results_dir}")
-    logger.info(f"输出目录: {args.output}")
+    logger.info(f"Starting MMM-2050 scenario analysis")
+    logger.info(f"Results directory: {args.results_dir}")
+    logger.info(f"Output directory: {args.output}")
     
-    # 绘制MMM-2050情景分析图表
+    # Plot MMM-2050 scenario analysis chart
     plot_mmm_2050_analysis()
     
-    logger.info("分析完成！")
+    logger.info("Analysis completed!")
 
 if __name__ == "__main__":
     main()
