@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""
+电解铝成本构成饼状图可视化程序
+展示2020年和2050年的电解铝成本构成变化
+"""
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib import font_manager
+import os
+
+# 设置中文字体
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+
+def create_aluminum_cost_pie_chart():
+    """创建电解铝成本构成饼状图"""
+    
+    # 数据准备
+    categories = ['Raw Materials', 'Labor', 'Other Fixed Costs', 'Restart', 'Depreciation', 'Storage', 'Electricity']
+    costs_2020 = [8451.2, 150, 1900, 0.01, 300, 1, 6250]
+    costs_2050 = [8451.2, 159.1901429, 2984.318766, 299.1122492, 1156.812339, 15.6, 2476.284987]
+    
+    # 创建DataFrame
+    df = pd.DataFrame({
+        '类别': categories,
+        '2020成本（每吨）': costs_2020,
+        '2050成本（每吨）': costs_2050
+    })
+    
+    # 计算总成本
+    total_2020 = sum(costs_2020)
+    total_2050 = sum(costs_2050)
+    
+    print(f"2020年总成本: {total_2020:.2f} 元/吨")
+    print(f"2050年总成本: {total_2050:.2f} 元/吨")
+    print(f"成本变化: {total_2050 - total_2020:.2f} 元/吨")
+    
+    # 创建子图
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+    
+    # 定义颜色
+    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
+    
+    # 2020年饼状图
+    # 过滤掉成本为0的项目
+    non_zero_2020 = [(cat, cost) for cat, cost in zip(categories, costs_2020) if cost > 0]
+    labels_2020 = [item[0] for item in non_zero_2020]
+    sizes_2020 = [item[1] for item in non_zero_2020]
+    colors_2020 = colors[:len(non_zero_2020)]
+    
+    wedges1, texts1, autotexts1 = ax1.pie(sizes_2020, labels=labels_2020, colors=colors_2020, 
+                                         autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
+    ax1.set_title('2020 Aluminum Cost Composition\n(Total Cost: {:.0f} CNY/ton)'.format(total_2020), 
+                  fontsize=14, fontweight='bold', pad=20)
+    
+    # 2050年饼状图
+    wedges2, texts2, autotexts2 = ax2.pie(costs_2050, labels=categories, colors=colors, 
+                                         autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
+    ax2.set_title('2050 Aluminum Cost Composition\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050), 
+                  fontsize=14, fontweight='bold', pad=20)
+    
+    # 调整布局
+    plt.tight_layout()
+    
+    # 添加总标题
+    fig.suptitle('Aluminum Cost Composition Comparison (2020 vs 2050)', fontsize=16, fontweight='bold', y=0.95)
+    
+    # 保存图片
+    output_path = 'results/aluminum_cost_composition_2020_2050.png'
+    plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+    print(f"Image saved to: {output_path}")
+    
+    # 显示图片
+    # plt.show()
+    
+    return df
+
+def create_detailed_comparison_table():
+    """创建详细的成本对比表格"""
+    
+    # 数据准备
+    categories = ['Raw Materials', 'Labor', 'Other Fixed Costs', 'Restart', 'Depreciation', 'Storage', 'Electricity']
+    costs_2020 = [8451.2, 150, 1900, 0, 300, 1, 6250]
+    costs_2050 = [8451.2, 159.1901429, 2984.318766, 299.1122492, 1156.812339, 15.6, 2476.284987]
+    
+    # 创建DataFrame
+    df = pd.DataFrame({
+        '类别': categories,
+        '2020成本（元/吨）': costs_2020,
+        '2050成本（元/吨）': costs_2050
+    })
+    
+    # 计算变化
+    df['成本变化（元/吨）'] = df['2050成本（元/吨）'] - df['2020成本（元/吨）']
+    df['变化百分比'] = (df['成本变化（元/吨）'] / df['2020成本（元/吨）'] * 100).round(2)
+    
+    # 处理除零情况
+    df.loc[df['2020成本（元/吨）'] == 0, '变化百分比'] = np.inf
+    
+    # 计算总成本
+    total_2020 = df['2020成本（元/吨）'].sum()
+    total_2050 = df['2050成本（元/吨）'].sum()
+    total_change = total_2050 - total_2020
+    total_change_pct = (total_change / total_2020 * 100)
+    
+    print("\n=== 电解铝成本构成详细对比 ===")
+    print(df.to_string(index=False, float_format='%.2f'))
+    print(f"\n总成本变化:")
+    print(f"2020年总成本: {total_2020:.2f} 元/吨")
+    print(f"2050年总成本: {total_2050:.2f} 元/吨")
+    print(f"成本变化: {total_change:.2f} 元/吨 ({total_change_pct:.2f}%)")
+    
+    return df
+
+def main():
+    """主函数"""
+    print("Creating aluminum cost composition pie chart...")
+    
+    # 创建饼状图
+    df = create_aluminum_cost_pie_chart()
+    
+    # 创建详细对比表格
+    create_detailed_comparison_table()
+    
+    print("\nVisualization completed!")
+
+if __name__ == "__main__":
+    main()
