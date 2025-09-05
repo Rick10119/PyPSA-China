@@ -28,8 +28,9 @@ sbatch jobs/job_HMM_2050_100p.slurm
 
 snakemake --configfile configs/config_LMM_2040_60p.yaml -np
 
-snakemake --configfile configs/config_LMM_2040_60p.yaml -np --rerun-incomplete --ignore-incomplete --rerun-triggers mtime
+snakemake --configfile configs/config_MMM_2050_20p.yaml -np --rerun-incomplete --ignore-incomplete --rerun-triggers mtime
 
+snakemake --configfile configs/config_NMM_2050_20p.yaml --cores 6 --rerun-incomplete --ignore-incomplete --rerun-triggers mtime
 
 
 snakemake --cores 6 --rerun-incomplete --ignore-incomplete --rerun-triggers mtime

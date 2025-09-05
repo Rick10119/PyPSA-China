@@ -145,6 +145,57 @@ def creat_aluminum_df(n, province_filter=None):
     summary = summary.fillna(0).infer_objects(copy=False)
     return summary, base
 
+def get_aluminum_storage_daily_average(n, province_filter=None):
+    """
+    Gets daily average aluminum storage levels for overlay on heatmap.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The PyPSA network object containing the simulation results
+    province_filter : str, optional
+        If provided, filter aluminum storage to only include those in the specified province
+    
+    Returns:
+    --------
+    tuple
+        (daily average storage levels, min storage level for normalization)
+    """
+    # Get aluminum storage data
+    aluminum_stores = n.stores_t.e.filter(like='aluminum storage')
+    
+    if aluminum_stores.empty:
+        print("Warning: No aluminum storage found in the network")
+        return pd.Series(), 0
+    
+    # Apply province filter if specified
+    if province_filter:
+        # Filter aluminum storage to only include those in the specified province
+        province_stores = aluminum_stores.columns[aluminum_stores.columns.str.contains(province_filter, case=False)]
+        if len(province_stores) > 0:
+            aluminum_stores = aluminum_stores[province_stores]
+        else:
+            print(f"Warning: No aluminum storage found in province {province_filter}")
+            return pd.Series(), 0
+    
+    # Calculate total storage across all stores
+    total_storage = aluminum_stores.sum(axis=1)
+    
+    if total_storage.empty:
+        print(f"Warning: Aluminum storage data is empty for {'province ' + province_filter if province_filter else 'national'}")
+        return pd.Series(), 0
+    
+    # Get minimum storage level for normalization
+    min_storage = total_storage.min()
+    
+    # Calculate daily average storage levels
+    daily_avg = total_storage.groupby(total_storage.index.strftime('%m-%d')).mean()
+    
+    # Subtract minimum value for normalization
+    daily_avg_normalized = daily_avg - min_storage
+    
+    return daily_avg_normalized, min_storage
+
 def plot_heatmap(n, config, output_dir, province_filter=None):
     """
     Generates heatmap plots for all storage technologies and aluminum smelters.
@@ -195,16 +246,47 @@ def plot_heatmap(n, config, output_dir, province_filter=None):
     if config.get("add_aluminum", False):
         # First check if aluminum data exists before creating any plots
         df, base = creat_aluminum_df(n, province_filter)
+        daily_storage, min_storage = get_aluminum_storage_daily_average(n, province_filter)
         
         # Only create and save the plot if we have valid aluminum data
         if not df.empty and base > 0:
             # Create figure with single heatmap
             fig, ax = plt.subplots(figsize=map_figsize)
             
-            base = str(int(base / 1e3))  # Convert to GW for display
+            base = str(int(base / 1e3))  # Convert to wton for display
             
             # Create heatmap
             sns.heatmap(df, ax=ax, cmap='coolwarm', cbar_kws={'label': 'pu'}, vmin=0.0, vmax=1.0)
+            
+            # Add storage level overlay if storage data exists
+            if not daily_storage.empty:
+                # Get the column positions for the daily storage data
+                day_columns = df.columns
+                storage_values = []
+                storage_positions = []
+                
+                for i, day in enumerate(day_columns):
+                    if day in daily_storage.index:
+                        storage_values.append(daily_storage[day]/1e4) # Convert to wton
+                        storage_positions.append(i + 0.5)  # Center of the column
+                
+                if storage_values:
+                    # Create a second y-axis for storage levels
+                    ax2 = ax.twinx()
+                    
+                    # Plot storage levels as black line
+                    ax2.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Daily Avg Storage')
+                    
+                    # Set y-axis properties for storage
+                    ax2.set_ylabel('Storage Level (wton)', color='black')
+                    ax2.tick_params(axis='y', labelcolor='black')
+                    
+                    # Add legend
+                    ax2.legend(loc='upper right')
+                    
+                    # Set x-axis limits to match heatmap
+                    ax2.set_xlim(0, len(day_columns))
+            
             ax.set_title('Aluminum Smelter heatmap with ' + freq + ' resolution in ' + planning_horizon + 
                         plot_title_suffix + ' P_base = ' + base + ' GW')
             
@@ -305,13 +387,47 @@ def save_to_snakemake_outputs(n, config):
     
     # Plot aluminum smelter heatmap to Snakefile output path
     if config.get("add_aluminum", False):
-        fig, ax = plt.subplots(figsize=map_figsize)
         df, base = creat_aluminum_df(n)
+        daily_storage, min_storage = get_aluminum_storage_daily_average(n)
+        
         if not df.empty and base > 0:
+            # Create figure with single heatmap
+            fig, ax = plt.subplots(figsize=map_figsize)
+            
             base = str(int(base / 1e3))  # Convert to GW for display
             
             # Create heatmap
             sns.heatmap(df, ax=ax, cmap='coolwarm', cbar_kws={'label': 'pu'}, vmin=0.0, vmax=1.0)
+            
+            # Add storage level overlay if storage data exists
+            if not daily_storage.empty:
+                # Get the column positions for the daily storage data
+                day_columns = df.columns
+                storage_values = []
+                storage_positions = []
+                
+                for i, day in enumerate(day_columns):
+                    if day in daily_storage.index:
+                        storage_values.append(daily_storage[day]/1e4) # Convert to wton
+                        storage_positions.append(i + 0.5)  # Center of the column
+                
+                if storage_values:
+                    # Create a second y-axis for storage levels
+                    ax2 = ax.twinx()
+                    
+                    # Plot storage levels as black line
+                    ax2.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Daily Avg Storage')
+                    
+                    # Set y-axis properties for storage
+                    ax2.set_ylabel('Storage Level (wton)', color='black')
+                    ax2.tick_params(axis='y', labelcolor='black')
+                    
+                    # Add legend
+                    ax2.legend(loc='upper right')
+                    
+                    # Set x-axis limits to match heatmap
+                    ax2.set_xlim(0, len(day_columns))
+            
             ax.set_title('Aluminum Smelter heatmap with ' + freq + ' resolution in ' + planning_horizon + ' P_base = ' + base + ' GW')
             
             # Save to Snakefile output path
