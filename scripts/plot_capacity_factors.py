@@ -209,17 +209,13 @@ def calculate_monthly_capacity_factors(n):
         capacity = non_zero_capacity[gen]
         print(f"  {gen} ({carrier}): {capacity:.2f} MW")
     
-    # Define technology groups with more specific matching
+    # Define technology groups with more specific matching (removed wind, solar, biomass)
     tech_groups = {
-        'Solar': ['solar'],
-        'Wind Onshore': ['onwind'],
-        'Wind Offshore': ['offwind'],
         'Hydro': ['hydro', 'hydroelectricity'],
         'Nuclear': ['nuclear'],
         'Coal': ['coal cc', 'CHP coal', 'coal power plant'],
         'Gas': ['OCGT gas', 'CHP gas'],
         'Aluminum': ['aluminum', 'smelter'],
-        'Biomass': ['biomass', 'biogas'],
         'Other': []  # Will catch any other technologies
     }
     
@@ -477,20 +473,16 @@ def plot_capacity_factors(n, config, target_province=None):
         print("Warning: No capacity factor or load data available")
         return
     
-    # Create the plot with 3 subplots
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 15))
+    # Create a single plot
+    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
     
     # Define colors for different technologies
     colors = {
-        'Solar': '#FFA500',      # Orange
-        'Wind Onshore': '#87CEEB',  # Light blue
-        'Wind Offshore': '#4169E1', # Royal blue
         'Hydro': '#000080',      # Navy
         'Nuclear': '#800080',    # Purple
         'Coal': '#000000',       # Black
         'Gas': '#FF0000',        # Red
         'Aluminum': '#FF69B4',   # Hot pink
-        'Biomass': '#228B22',    # Forest green
         'Other': '#808080'       # Gray
     }
     
@@ -501,90 +493,50 @@ def plot_capacity_factors(n, config, target_province=None):
         'Aluminum Load': '#2ca02c'        # Green
     }
     
-    # Plot 1: Renewable and Nuclear (typically higher capacity factors)
-    renewable_techs = ['Solar', 'Wind Onshore', 'Wind Offshore', 'Hydro', 'Nuclear']
-    for tech in renewable_techs:
+    # Plot all capacity factors in one graph
+    all_techs = ['Hydro', 'Nuclear', 'Coal', 'Gas', 'Aluminum', 'Other']
+    for tech in all_techs:
         if tech in monthly_cf:
             months = monthly_cf[tech].index
             values = monthly_cf[tech].values
-            ax1.plot(months, values, 'o-', color=colors.get(tech, '#000000'), 
+            ax.plot(months, values, 'o-', color=colors.get(tech, '#000000'), 
                     linewidth=2, markersize=6, label=tech)
     
-    ax1.set_ylabel('Capacity Factor (p.u.)', fontsize=12)
-    ax1.set_title('Monthly Capacity Factors - Renewable & Nuclear', fontsize=14, fontweight='bold')
-    ax1.set_xlim(1, 12)
-    ax1.set_ylim(0, 1.0)
-    ax1.set_xticks(range(1, 13))
-    ax1.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
-    ax1.grid(True, alpha=0.3)
-    ax1.legend(loc='best')
-    
-    # Add value labels for renewable technologies
-    for tech in renewable_techs:
-        if tech in monthly_cf:
-            months = monthly_cf[tech].index
-            values = monthly_cf[tech].values
-            for month, value in zip(months, values):
-                ax1.annotate(f'{value:.2f}', (month, value), 
-                           textcoords="offset points", xytext=(0,10), 
-                           ha='center', fontsize=8)
-    
-    # Plot 2: Conventional and Other (typically lower capacity factors)
-    conventional_techs = ['Coal', 'Gas', 'Aluminum', 'Biomass', 'Other']
-    for tech in conventional_techs:
-        if tech in monthly_cf:
-            months = monthly_cf[tech].index
-            values = monthly_cf[tech].values
-            ax2.plot(months, values, 'o-', color=colors.get(tech, '#000000'), 
-                    linewidth=2, markersize=6, label=tech)
-    
-    ax2.set_ylabel('Capacity Factor (p.u.)', fontsize=12)
-    ax2.set_title('Monthly Capacity Factors - Conventional & Other', fontsize=14, fontweight='bold')
-    ax2.set_xlim(1, 12)
-    ax2.set_ylim(0, 1.0)
-    ax2.set_xticks(range(1, 13))
-    ax2.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
-    ax2.grid(True, alpha=0.3)
-    ax2.legend(loc='best')
-    
-    # Add value labels for conventional technologies
-    for tech in conventional_techs:
-        if tech in monthly_cf:
-            months = monthly_cf[tech].index
-            values = monthly_cf[tech].values
-            for month, value in zip(months, values):
-                ax2.annotate(f'{value:.2f}', (month, value), 
-                           textcoords="offset points", xytext=(0,10), 
-                           ha='center', fontsize=8)
-    
-    # Plot 3: Load factors
+    # Plot load factors
     for load_type in ['Electricity Load', 'Heating Load', 'Aluminum Load']:
         if load_type in monthly_load:
             months = monthly_load[load_type].index
             values = monthly_load[load_type].values
-            ax3.plot(months, values, 'o-', color=load_colors.get(load_type, '#000000'), 
+            ax.plot(months, values, 's--', color=load_colors.get(load_type, '#000000'), 
                     linewidth=2, markersize=6, label=load_type)
     
-    ax3.set_ylabel('Load Factor (p.u.)', fontsize=12)
-    ax3.set_xlabel('Month', fontsize=12)
-    ax3.set_title('Monthly Load Factors', fontsize=14, fontweight='bold')
-    ax3.set_xlim(1, 12)
-    ax3.set_ylim(0, 1.0)
-    ax3.set_xticks(range(1, 13))
-    ax3.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+    ax.set_ylabel('Capacity/Load Factor (p.u.)', fontsize=12)
+    ax.set_xlabel('Month', fontsize=12)
+    ax.set_title('Monthly Capacity Factors & Load Factors', fontsize=14, fontweight='bold')
+    ax.set_xlim(1, 12)
+    ax.set_ylim(0, 1.0)
+    ax.set_xticks(range(1, 13))
+    ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
-    ax3.grid(True, alpha=0.3)
-    ax3.legend(loc='best')
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc='best', ncol=2)
     
-    # Add value labels for load factors
+    # Add value labels for all technologies and loads
+    for tech in all_techs:
+        if tech in monthly_cf:
+            months = monthly_cf[tech].index
+            values = monthly_cf[tech].values
+            for month, value in zip(months, values):
+                ax.annotate(f'{value:.2f}', (month, value), 
+                           textcoords="offset points", xytext=(0,10), 
+                           ha='center', fontsize=8)
+    
     for load_type in ['Electricity Load', 'Heating Load', 'Aluminum Load']:
         if load_type in monthly_load:
             months = monthly_load[load_type].index
             values = monthly_load[load_type].values
             for month, value in zip(months, values):
-                ax3.annotate(f'{value:.2f}', (month, value), 
+                ax.annotate(f'{value:.2f}', (month, value), 
                            textcoords="offset points", xytext=(0,10), 
                            ha='center', fontsize=8)
     
