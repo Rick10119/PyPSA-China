@@ -41,9 +41,9 @@ cd /scratch/gpfs/rl8728/PyPSA-China-0
 module load anaconda3/2024.6
 conda activate pypsa-plot
 
-find ./results | xargs touch
 git restore .
 git pull
+find ./results | xargs touch
 snakemake --unlock
 chmod +x submit_multiple_jobs.sh 
 ./submit_multiple_jobs.sh
