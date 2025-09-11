@@ -310,28 +310,28 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
     # 定义成本类型和资源组合的分类映射
     cost_category_mapping = {
         # variable cost-non-renewable - 非可再生能源可变成本
-        ('marginal', 'coal'): 'Non-renewable-variable',
-        ('marginal', 'coal power plant'): 'Non-renewable-variable',
-        ('marginal', 'coal cc'): 'Non-renewable-variable',
-        ('marginal', 'gas'): 'Non-renewable-variable',
-        ('marginal', 'nuclear'): 'Non-renewable-variable',
-        ('marginal', 'CHP coal'): 'Non-renewable-variable',
-        ('marginal', 'CHP gas'): 'Non-renewable-variable',
-        ('marginal', 'OCGT gas'): 'Non-renewable-variable',
-        ('marginal', 'coal boiler'): 'Non-renewable-variable',
-        ('marginal', 'gas boiler'): 'Non-renewable-variable',
+        ('marginal', 'coal'): 'Non-renewable-operation',
+        ('marginal', 'coal power plant'): 'Non-renewable-operation',
+        ('marginal', 'coal cc'): 'Non-renewable-operation',
+        ('marginal', 'gas'): 'Non-renewable-operation',
+        ('marginal', 'nuclear'): 'Non-renewable-operation',
+        ('marginal', 'CHP coal'): 'Non-renewable-operation',
+        ('marginal', 'CHP gas'): 'Non-renewable-operation',
+        ('marginal', 'OCGT gas'): 'Non-renewable-operation',
+        ('marginal', 'coal boiler'): 'Non-renewable-operation',
+        ('marginal', 'gas boiler'): 'Non-renewable-operation',
         
         # capital-non-renewable - 非可再生能源资本成本
-        ('capital', 'coal'): 'Non-renewable-capital',
-        ('capital', 'coal power plant'): 'Non-renewable-capital',
-        ('capital', 'coal cc'): 'Non-renewable-capital',
-        ('capital', 'gas'): 'Non-renewable-capital',
-        ('capital', 'nuclear'): 'Non-renewable-capital',
-        ('capital', 'CHP coal'): 'Non-renewable-capital',
-        ('capital', 'CHP gas'): 'Non-renewable-capital',
-        ('capital', 'OCGT gas'): 'Non-renewable-capital',
-        ('capital', 'coal boiler'): 'Non-renewable-capital',
-        ('capital', 'gas boiler'): 'Non-renewable-capital',
+        ('capital', 'coal'): 'Non-renewable-investment',
+        ('capital', 'coal power plant'): 'Non-renewable-investment',
+        ('capital', 'coal cc'): 'Non-renewable-investment',
+        ('capital', 'gas'): 'Non-renewable-investment',
+        ('capital', 'nuclear'): 'Non-renewable-investment',
+        ('capital', 'CHP coal'): 'Non-renewable-investment',
+        ('capital', 'CHP gas'): 'Non-renewable-investment',
+        ('capital', 'OCGT gas'): 'Non-renewable-investment',
+        ('capital', 'coal boiler'): 'Non-renewable-investment',
+        ('capital', 'gas boiler'): 'Non-renewable-investment',
         
         # capital-demand side - 需求侧资本成本
         ('capital', 'heat pump'): 'Heating-electrification',
@@ -368,14 +368,14 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
         ('capital', 'stations'): 'Long-duration storages',
         
         # 其他分类
-        ('capital', 'CO2 capture'): 'Non-renewable-capital',
-        ('marginal', 'CO2 capture'): 'Non-renewable-variable',
-        ('capital', 'Sabatier'): 'Non-renewable-capital',
-        ('marginal', 'Sabatier'): 'Non-renewable-variable',
-        ('capital', 'CO2'): 'Non-renewable-capital',
-        ('marginal', 'CO2'): 'Non-renewable-variable',
-        ('capital', 'DAC'): 'Non-renewable-capital',
-        ('marginal', 'DAC'): 'Non-renewable-variable',
+        ('capital', 'CO2 capture'): 'Non-renewable-operation',
+        ('marginal', 'CO2 capture'): 'Non-renewable-operation',
+        ('capital', 'Sabatier'): 'Non-renewable-operation',
+        ('marginal', 'Sabatier'): 'Non-renewable-operation',
+        ('capital', 'CO2'): 'Non-renewable-operation',
+        ('marginal', 'CO2'): 'Non-renewable-operation',
+        ('capital', 'DAC'): 'Non-renewable-operation',
+        ('marginal', 'DAC'): 'Non-renewable-operation',
     }
     
     # 按成本分类组织数据
@@ -614,10 +614,10 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     # 硬编码成本分类颜色
     category_colors = {
         # variable cost-non-renewable
-        "Non-renewable-variable": "#545454",  # coal color
+        "Non-renewable-operation": "#ff8c00",  # coal color
         
         # capital-non-renewable
-        "Non-renewable-capital": "#ff8c00",  # nuclear color
+        "Non-renewable-investment": "#545454",  # nuclear color
         
         # heating-electrification
         "Heating-electrification": "#bf13a0",  # heat pump color
@@ -628,7 +628,6 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         # onshore wind
         "Onshore wind": "#235ebc",  # onshore wind color
 
-        
         # transmission lines
         "Transmission lines": "#6c9459",
         # batteries
@@ -642,21 +641,22 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         
         # synthetic fuels
         "Synthetic fuels": "#9850ad",  # Sabatier color
-        
-        # carbon management
-        "Carbon management": "#f29dae",  # CO2 color
+
+        # other renewables
+        "Other renewables": "#298c81",
     }
     
     # 定义资源分类的优先级顺序，用于在正负号相同时进行排序
     category_priority = {
-        "Non-renewable-variable": 1,
-        "Non-renewable-capital": 2,
-        "Solar photovoltaic": 3,
-        "Onshore wind": 4,
-        "Transmission lines": 5,
-        "Batteries": 6,
-        "Long-duration storages": 7,
-        "Heating-electrification": 8,
+        "Solar photovoltaic": 1,
+        "Onshore wind": 2,
+        "Other renewables": 4,
+        "Non-renewable-operation": 5,
+        "Non-renewable-investment": 6,
+        "Transmission lines": 7,
+        "Batteries": 8,
+        "Long-duration storages": 9,
+        "Heating-electrification": 10,
     }
     
     # 按照优先级对所有分类进行统一排序
@@ -906,8 +906,8 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         
         # 在图表下方添加统一图例，横向排列
         fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05),
-                   ncol=min(len(legend_elements), 7), 
-                   fontsize=15, title_fontsize=15)
+                   ncol=min(len(legend_elements), 5), 
+                   fontsize=15)
         
         # logger.info(f"图例包含 {len(legend_elements)} 个分类")
     
