@@ -792,6 +792,8 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         # 设置标签
                         ax.set_xticks(x_pos)
                         ax.set_xticklabels([f'{demand}' for demand in demand_names], fontsize=14)
+                        # 隐藏x轴刻度数字
+                        ax.set_xticks([])
                         
                         # 只在最左边的子图显示y轴标签
                         if j == 0:
@@ -860,8 +862,8 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         
         # 在图表下方添加统一图例，横向排列
         fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05),
-                   ncol=min(len(legend_elements), 6), title='Resource Categories', 
-                   fontsize=12, title_fontsize=14)
+                   ncol=min(len(legend_elements), 7), 
+                   fontsize=15, title_fontsize=15)
         
         # logger.info(f"图例包含 {len(legend_elements)} 个分类")
     
