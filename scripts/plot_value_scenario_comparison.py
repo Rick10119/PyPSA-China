@@ -310,42 +310,42 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
     # 定义成本类型和资源组合的分类映射
     cost_category_mapping = {
         # variable cost-non-renewable - 非可再生能源可变成本
-        ('marginal', 'coal'): 'Non-renewable-operation',
-        ('marginal', 'coal power plant'): 'Non-renewable-operation',
-        ('marginal', 'coal cc'): 'Non-renewable-operation',
-        ('marginal', 'gas'): 'Non-renewable-operation',
-        ('marginal', 'nuclear'): 'Non-renewable-operation',
-        ('marginal', 'CHP coal'): 'Non-renewable-operation',
-        ('marginal', 'CHP gas'): 'Non-renewable-operation',
-        ('marginal', 'OCGT gas'): 'Non-renewable-operation',
-        ('marginal', 'coal boiler'): 'Non-renewable-operation',
-        ('marginal', 'gas boiler'): 'Non-renewable-operation',
+        ('marginal', 'coal'): 'Non-renewable operation',
+        ('marginal', 'coal power plant'): 'Non-renewable operation',
+        ('marginal', 'coal cc'): 'Non-renewable operation',
+        ('marginal', 'gas'): 'Non-renewable operation',
+        ('marginal', 'nuclear'): 'Non-renewable operation',
+        ('marginal', 'CHP coal'): 'Non-renewable operation',
+        ('marginal', 'CHP gas'): 'Non-renewable operation',
+        ('marginal', 'OCGT gas'): 'Non-renewable operation',
+        ('marginal', 'coal boiler'): 'Non-renewable operation',
+        ('marginal', 'gas boiler'): 'Non-renewable operation',
         
         # capital-non-renewable - 非可再生能源资本成本
-        ('capital', 'coal'): 'Non-renewable-investment',
-        ('capital', 'coal power plant'): 'Non-renewable-investment',
-        ('capital', 'coal cc'): 'Non-renewable-investment',
-        ('capital', 'gas'): 'Non-renewable-investment',
-        ('capital', 'nuclear'): 'Non-renewable-investment',
-        ('capital', 'CHP coal'): 'Non-renewable-investment',
-        ('capital', 'CHP gas'): 'Non-renewable-investment',
-        ('capital', 'OCGT gas'): 'Non-renewable-investment',
-        ('capital', 'coal boiler'): 'Non-renewable-investment',
-        ('capital', 'gas boiler'): 'Non-renewable-investment',
+        ('capital', 'coal'): 'Non-renewable investment',
+        ('capital', 'coal power plant'): 'Non-renewable investment',
+        ('capital', 'coal cc'): 'Non-renewable investment',
+        ('capital', 'gas'): 'Non-renewable investment',
+        ('capital', 'nuclear'): 'Non-renewable investment',
+        ('capital', 'CHP coal'): 'Non-renewable investment',
+        ('capital', 'CHP gas'): 'Non-renewable investment',
+        ('capital', 'OCGT gas'): 'Non-renewable investment',
+        ('capital', 'coal boiler'): 'Non-renewable investment',
+        ('capital', 'gas boiler'): 'Non-renewable investment',
         
         # capital-demand side - 需求侧资本成本
-        ('capital', 'heat pump'): 'Heating-electrification',
-        ('capital', 'resistive heater'): 'Heating-electrification',
+        ('capital', 'heat pump'): 'Heating electrification',
+        ('capital', 'resistive heater'): 'Heating electrification',
         
         # capital-renewable - 可再生能源资本成本
-        ('capital', 'hydro_inflow'): 'Other renewables',
-        ('capital', 'hydroelectricity'): 'Other renewables',
-        ('capital', 'offwind'): 'Other renewables',
-        ('capital', 'onwind'): 'Onshore wind',
-        ('capital', 'solar'): 'Solar photovoltaic',
-        ('capital', 'solar thermal'): 'Other renewables',
-        ('capital', 'biomass'): 'Other renewables',
-        ('capital', 'biogas'): 'Other renewables',
+        ('capital', 'hydro_inflow'): 'Renewable investment',
+        ('capital', 'hydroelectricity'): 'Renewable investment',
+        ('capital', 'offwind'): 'Renewable investment',
+        ('capital', 'onwind'): 'Renewable investment',
+        ('capital', 'solar'): 'Renewable investment',
+        ('capital', 'solar thermal'): 'Renewable investment',
+        ('capital', 'biomass'): 'Renewable investment',
+        ('capital', 'biogas'): 'Renewable investment',
         
         # transmission lines - 输电线路
         ('capital', 'AC'): 'Transmission lines',
@@ -368,14 +368,14 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
         ('capital', 'stations'): 'Long-duration storages',
         
         # 其他分类
-        ('capital', 'CO2 capture'): 'Non-renewable-operation',
-        ('marginal', 'CO2 capture'): 'Non-renewable-operation',
-        ('capital', 'Sabatier'): 'Non-renewable-operation',
-        ('marginal', 'Sabatier'): 'Non-renewable-operation',
-        ('capital', 'CO2'): 'Non-renewable-operation',
-        ('marginal', 'CO2'): 'Non-renewable-operation',
-        ('capital', 'DAC'): 'Non-renewable-operation',
-        ('marginal', 'DAC'): 'Non-renewable-operation',
+        ('capital', 'CO2 capture'): 'Non-renewable operation',
+        ('marginal', 'CO2 capture'): 'Non-renewable operation',
+        ('capital', 'Sabatier'): 'Non-renewable operation',
+        ('marginal', 'Sabatier'): 'Non-renewable operation',
+        ('capital', 'CO2'): 'Non-renewable operation',
+        ('marginal', 'CO2'): 'Non-renewable operation',
+        ('capital', 'DAC'): 'Non-renewable operation',
+        ('marginal', 'DAC'): 'Non-renewable operation',
     }
     
     # 按成本分类组织数据
@@ -614,19 +614,19 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     # 硬编码成本分类颜色
     category_colors = {
         # variable cost-non-renewable
-        "Non-renewable-operation": "#ff8c00",  # coal color
+        "Non-renewable operation": "#ff8c00",  # coal color
         
         # capital-non-renewable
-        "Non-renewable-investment": "#545454",  # nuclear color
+        "Non-renewable investment": "#545454",  # nuclear color
         
-        # heating-electrification
-        "Heating-electrification": "#bf13a0",  # heat pump color
+        # Heating electrification
+        "Heating electrification": "#bf13a0",  # heat pump color
         
         # capital-renewable
-        "Solar photovoltaic": "#f9d002",  # solar color
+        "Renewable investment": "#f9d002",  # solar color
 
-        # onshore wind
-        "Onshore wind": "#235ebc",  # onshore wind color
+        # Renewable investment
+        "Renewable investment": "#235ebc",  # Renewable investment color
 
         # transmission lines
         "Transmission lines": "#6c9459",
@@ -642,21 +642,21 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         # synthetic fuels
         "Synthetic fuels": "#9850ad",  # Sabatier color
 
-        # other renewables
-        "Other renewables": "#298c81",
+        # Renewable investment
+        "Renewable investment": "#298c81",
     }
     
     # 定义资源分类的优先级顺序，用于在正负号相同时进行排序
     category_priority = {
-        "Solar photovoltaic": 1,
-        "Onshore wind": 2,
-        "Other renewables": 4,
-        "Non-renewable-operation": 5,
-        "Non-renewable-investment": 6,
+        "Renewable investment": 1,
+        "Renewable investment": 2,
+        "Renewable investment": 4,
+        "Non-renewable operation": 5,
+        "Non-renewable investment": 6,
         "Transmission lines": 7,
         "Batteries": 8,
         "Long-duration storages": 9,
-        "Heating-electrification": 10,
+        "Heating electrification": 10,
     }
     
     # 按照优先级对所有分类进行统一排序
