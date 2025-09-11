@@ -322,30 +322,30 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
         ('marginal', 'gas boiler'): 'variable cost-non-renewable',
         
         # capital-non-renewable - 非可再生能源资本成本
-        ('capital', 'coal'): 'capital-non-renewable',
-        ('capital', 'coal power plant'): 'capital-non-renewable',
-        ('capital', 'coal cc'): 'capital-non-renewable',
-        ('capital', 'gas'): 'capital-non-renewable',
-        ('capital', 'nuclear'): 'capital-non-renewable',
-        ('capital', 'CHP coal'): 'capital-non-renewable',
-        ('capital', 'CHP gas'): 'capital-non-renewable',
-        ('capital', 'OCGT gas'): 'capital-non-renewable',
-        ('capital', 'coal boiler'): 'capital-non-renewable',
-        ('capital', 'gas boiler'): 'capital-non-renewable',
+        ('capital', 'coal'): 'capital cost-non-renewable',
+        ('capital', 'coal power plant'): 'capital cost-non-renewable',
+        ('capital', 'coal cc'): 'capital cost-non-renewable',
+        ('capital', 'gas'): 'capital cost-non-renewable',
+        ('capital', 'nuclear'): 'capital cost-non-renewable',
+        ('capital', 'CHP coal'): 'capital cost-non-renewable',
+        ('capital', 'CHP gas'): 'capital cost-non-renewable',
+        ('capital', 'OCGT gas'): 'capital cost-non-renewable',
+        ('capital', 'coal boiler'): 'capital cost-non-renewable',
+        ('capital', 'gas boiler'): 'capital cost-non-renewable',
         
         # capital-demand side - 需求侧资本成本
         ('capital', 'heat pump'): 'heating-electrification',
         ('capital', 'resistive heater'): 'heating-electrification',
         
         # capital-renewable - 可再生能源资本成本
-        ('capital', 'hydro_inflow'): 'capital-renewable',
-        ('capital', 'hydroelectricity'): 'capital-renewable',
-        ('capital', 'offwind'): 'capital-renewable',
-        ('capital', 'onwind'): 'capital-renewable',
-        ('capital', 'solar'): 'capital-renewable',
-        ('capital', 'solar thermal'): 'capital-renewable',
-        ('capital', 'biomass'): 'capital-renewable',
-        ('capital', 'biogas'): 'capital-renewable',
+        ('capital', 'hydro_inflow'): 'capital cost-renewable',
+        ('capital', 'hydroelectricity'): 'capital cost-renewable',
+        ('capital', 'offwind'): 'capital cost-renewable',
+        ('capital', 'onwind'): 'capital cost-renewable',
+        ('capital', 'solar'): 'capital cost-renewable',
+        ('capital', 'solar thermal'): 'capital cost-renewable',
+        ('capital', 'biomass'): 'capital cost-renewable',
+        ('capital', 'biogas'): 'capital cost-renewable',
         
         # transmission lines - 输电线路
         ('capital', 'AC'): 'transmission lines',
@@ -368,13 +368,13 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
         ('marginal', 'H2 CHP'): 'long-duration storages',
         
         # 其他分类
-        ('capital', 'CO2 capture'): 'capital-non-renewable',
+        ('capital', 'CO2 capture'): 'capital cost-non-renewable',
         ('marginal', 'CO2 capture'): 'variable cost-non-renewable',
-        ('capital', 'Sabatier'): 'capital-non-renewable',
+        ('capital', 'Sabatier'): 'capital cost-non-renewable',
         ('marginal', 'Sabatier'): 'variable cost-non-renewable',
-        ('capital', 'CO2'): 'capital-non-renewable',
+        ('capital', 'CO2'): 'capital cost-non-renewable',
         ('marginal', 'CO2'): 'variable cost-non-renewable',
-        ('capital', 'DAC'): 'capital-non-renewable',
+        ('capital', 'DAC'): 'capital cost-non-renewable',
         ('marginal', 'DAC'): 'variable cost-non-renewable',
     }
     
@@ -806,6 +806,9 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         if i == 0:  # 第一行显示market标签
                             ax.set_title(f'Flexibility: {scenario_descriptions[flex]}', 
                                        fontsize=14, fontweight='bold', pad=10)
+                            # 在第一排图片上方添加Demand标签
+                            ax.text(0.5, 1.15, 'Demand: Low/Mid/High', fontsize=12, fontweight='bold',
+                                   ha='center', va='center', transform=ax.transAxes)
                         if j == 0:  # 第一列显示flexibility标签
                             ax.text(-0.2, 0.5, f'Market: {scenario_descriptions[market]}', 
                                    fontsize=14, fontweight='bold', rotation=90, 
@@ -814,9 +817,9 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         # 添加网格
                         ax.grid(True, alpha=0.3, axis='y')
                         
-                        # 设置y轴标签为十亿人民币单位，所有子图都显示
+                        # 设置y轴标签为十亿人民币单位，所有子图都显示，精确到个位
                         y_ticks = ax.get_yticks()
-                        y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
+                        y_tick_labels = [f'{int(tick/1e9)}' for tick in y_ticks]
                         ax.set_yticks(y_ticks)
                         ax.set_yticklabels(y_tick_labels, fontsize=12)
                         
@@ -855,18 +858,21 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
             legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=color, 
                                                label=category, alpha=0.8))
         
-        # 在图表外部添加统一图例
-        fig.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5),
-                   title='Resource Categories', fontsize=14, title_fontsize=16)
+        # 在图表下方添加统一图例，横向排列
+        fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05),
+                   ncol=min(len(legend_elements), 6), title='Resource Categories', 
+                   fontsize=12, title_fontsize=14)
         
         # logger.info(f"图例包含 {len(legend_elements)} 个分类")
     
     plt.tight_layout()
+    # 为底部图例留出更多空间
+    plt.subplots_adjust(bottom=0.15)
     # plt.show()
     
     # 保存图表
     plot_file = plots_dir / f"scenario_comparison_{file_type}.png"
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+    plt.savefig(plot_file, dpi=300, bbox_inches='tight', pad_inches=0.2)
     # logger.info(f"Scenario comparison plot saved to: {plot_file}")
     
     plt.close()
