@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-电解铝成本构成饼状图可视化程序
+电解铝成本构成柱状图可视化程序
 展示2020年和2050年的电解铝成本构成变化
 """
 
@@ -14,8 +14,8 @@ import os
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
-def create_aluminum_cost_pie_chart():
-    """创建电解铝成本构成饼状图"""
+def create_aluminum_cost_bar_chart():
+    """创建电解铝成本构成柱状图"""
     
     # 数据准备
     categories = ['Raw Materials', 'Labor', 'Fixed o&m', 'Restart', 'Depreciation', 'Storage', 'Electricity']
@@ -59,32 +59,32 @@ def create_aluminum_cost_pie_chart():
     
     wedges1, texts1, autotexts1 = ax1.pie(sizes_2020, labels=labels_2020, colors=colors_2020, 
                                          autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-    ax1.set_title('2020 Aluminum Cost Composition\n(Total Cost: {:.0f} CNY/ton)'.format(total_2020), 
+    ax1.set_title('2020\n(Total Cost: {:.0f} CNY/ton)'.format(total_2020), 
                   fontsize=14, fontweight='bold', pad=15)
     
     # 2050_non_flex饼状图
     wedges2, texts2, autotexts2 = ax2.pie(costs_2050_non_flex, labels=categories, colors=colors, 
                                          autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-    ax2.set_title('2050_non_flex Aluminum Cost Composition\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050_non_flex), 
+    ax2.set_title('2050 No-overcapacity\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050_non_flex), 
                   fontsize=14, fontweight='bold', pad=15)
     
     # 2050_20p饼状图
     wedges3, texts3, autotexts3 = ax3.pie(costs_2050_20p, labels=categories, colors=colors, 
                                          autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-    ax3.set_title('2050_20p Aluminum Cost Composition\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050_20p), 
+    ax3.set_title('2050 36\% overcapacity\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050_20p), 
                   fontsize=14, fontweight='bold', pad=15)
     
     # 2050_100p饼状图
     wedges4, texts4, autotexts4 = ax4.pie(costs_2050_100p, labels=categories, colors=colors, 
                                          autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-    ax4.set_title('2050_100p Aluminum Cost Composition\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050_100p), 
+    ax4.set_title('2050 Retain all overcapacity\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050_100p), 
                   fontsize=14, fontweight='bold', pad=15)
     
     # 调整布局
     plt.tight_layout()
     
     # 添加总标题
-    fig.suptitle('Aluminum Cost Composition Comparison (2020 vs 2050 Scenarios)', fontsize=18, fontweight='bold', y=0.95)
+    # fig.suptitle('Aluminum Cost Composition Comparison (2020 vs 2050 Scenarios)', fontsize=18, fontweight='bold', y=0.95)
     
     # 保存图片
     output_path = 'results/aluminum_cost_composition_2020_2050.png'
@@ -92,7 +92,7 @@ def create_aluminum_cost_pie_chart():
     print(f"Image saved to: {output_path}")
     
     # 显示图片
-    # plt.show()
+    plt.show()
     
     return df
 
