@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-绘制最优点对应的容量和净价值散点图
-横轴：铝产能容量 (MW)
-纵轴：净价值 (十亿人民币)
-不同年份用不同颜色表示
+Plot scatter chart of optimal points showing capacity and net value
+X-axis: Aluminum smelting capacity (10,000 tons/year)
+Y-axis: Net value (billion CNY)
+Different years represented by different colors
 """
 
 import pandas as pd
@@ -18,64 +18,66 @@ import argparse
 import copy
 import glob
 import re
+from scipy import stats
+from scipy.stats import norm
 
-# 设置中文字体
+# Set Chinese font
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
-# 设置日志
+# Set logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 def load_config(config_path):
     """
-    加载配置文件
+    Load configuration file
     
     Parameters:
     -----------
     config_path : str or Path
-        配置文件路径
+        Configuration file path
         
     Returns:
     --------
     dict
-        配置内容
+        Configuration content
     """
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         return config
     except Exception as e:
-        logger.error(f"加载配置文件 {config_path} 时出错: {str(e)}")
+        logger.error(f"Error loading configuration file {config_path}: {str(e)}")
         return None
 
 def find_available_years(results_dir, base_version):
     """
-    查找可用的年份数据
+    Find available year data
     
     Parameters:
     -----------
     results_dir : str
-        结果目录
+        Results directory
     base_version : str
-        基础版本号
+        Base version number
         
     Returns:
     --------
     list
-        可用的年份列表
+        List of available years
     """
     available_years = []
     results_path = Path(results_dir)
     
-    # 查找所有可能的年份目录
+    # Find all possible year directories
     for year in [2030, 2040, 2050]:
-        # 查找包含该年份的版本目录
+        # Find version directories containing this year
         year_pattern = f"version-{base_version}-*{year}*"
         version_dirs = list(results_path.glob(year_pattern))
         
         for version_dir in version_dirs:
-            # 检查是否有该年份的数据
+            # Check if data exists for this year
             summary_dir = version_dir / 'summary' / 'postnetworks' / 'positive'
             if summary_dir.exists():
                 year_pattern = f"postnetwork-ll-current+Neighbor-linear2050-{year}"
@@ -84,52 +86,52 @@ def find_available_years(results_dir, base_version):
                     available_years.append(year)
                     break
     
-    # 如果没有找到任何年份，默认使用2050
+    # If no years found, default to 2050
     if not available_years:
         available_years = [2050]
-        logger.warning("未找到任何年份的数据，默认使用2050年")
+        logger.warning("No year data found, defaulting to 2050")
     
     return sorted(list(set(available_years)))
 
 def load_costs_data(version_name, year, results_dir='results'):
     """
-    加载指定版本的成本数据
+    Load cost data for specified version
     
     Parameters:
     -----------
     version_name : str
-        版本名称，如 '0814.4H.2-MMM-2050-100p'
+        Version name, e.g. '0814.4H.2-MMM-2050-100p'
     year : int
-        年份
+        Year
     results_dir : str
-        结果目录
+        Results directory
         
     Returns:
     --------
     pd.DataFrame or None
-        成本数据
+        Cost data
     """
     try:
-        # 构建文件路径
+        # Build file path
         file_path = Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-{year}/costs.csv")
         
         if not file_path.exists():
-            logger.warning(f"文件不存在: {file_path}")
+            logger.warning(f"File does not exist: {file_path}")
             return None
         
-        # 读取CSV文件
+        # Read CSV file
         df = pd.read_csv(file_path, header=None)
         
-        # 处理多级索引结构
+        # Handle multi-level index structure
         if len(df.columns) >= 4:
-            # 设置多级索引：前两列作为索引，第三列作为技术名称
+            # Set multi-level index: first two columns as index, third column as technology name
             df.set_index([0, 1, 2], inplace=True)
-            # 重命名最后一列为数值列名
+            # Rename last column as numeric column name
             df.columns = [df.columns[0]]
-            # 将数值列转换为数值类型
+            # Convert numeric column to numeric type
             df[df.columns[0]] = pd.to_numeric(df[df.columns[0]], errors='coerce')
         else:
-            # 如果列数不足，使用默认的多级索引
+            # If insufficient columns, use default multi-level index
             df = pd.read_csv(file_path, index_col=[0, 1])
             numeric_col = df.columns[0]
             df[numeric_col] = pd.to_numeric(df[numeric_col], errors='coerce')
@@ -137,29 +139,29 @@ def load_costs_data(version_name, year, results_dir='results'):
         return df
         
     except Exception as e:
-        logger.error(f"加载数据时出错: {str(e)}")
+        logger.error(f"Error loading data: {str(e)}")
         return None
 
 def calculate_cost_categories(costs_data):
     """
-    计算成本分类
+    Calculate cost categories
     
     Parameters:
     -----------
     costs_data : pd.DataFrame
-        成本数据
+        Cost data
         
     Returns:
     --------
     dict
-        按分类组织的成本数据
+        Cost data organized by category
     """
     if costs_data is None or costs_data.empty:
         return {}
     
-    # 定义成本类型和资源组合的分类映射
+    # Define cost type and resource combination category mapping
     cost_category_mapping = {
-        # variable cost-non-renewable - 非可再生能源可变成本
+        # variable cost-non-renewable - Non-renewable energy variable costs
         ('marginal', 'coal'): 'variable cost-non-renewable',
         ('marginal', 'coal power plant'): 'variable cost-non-renewable',
         ('marginal', 'coal cc'): 'variable cost-non-renewable',
@@ -171,7 +173,7 @@ def calculate_cost_categories(costs_data):
         ('marginal', 'coal boiler'): 'variable cost-non-renewable',
         ('marginal', 'gas boiler'): 'variable cost-non-renewable',
         
-        # capital-non-renewable - 非可再生能源资本成本
+        # capital-non-renewable - Non-renewable energy capital costs
         ('capital', 'coal'): 'capital-non-renewable',
         ('capital', 'coal power plant'): 'capital-non-renewable',
         ('capital', 'coal cc'): 'capital-non-renewable',
@@ -183,11 +185,11 @@ def calculate_cost_categories(costs_data):
         ('capital', 'coal boiler'): 'capital-non-renewable',
         ('capital', 'gas boiler'): 'capital-non-renewable',
         
-        # capital-demand side - 需求侧资本成本
+        # capital-demand side - Demand-side capital costs
         ('capital', 'heat pump'): 'heating-electrification',
         ('capital', 'resistive heater'): 'heating-electrification',
         
-        # capital-renewable - 可再生能源资本成本
+        # capital-renewable - Renewable energy capital costs
         ('capital', 'hydro_inflow'): 'capital-renewable',
         ('capital', 'hydroelectricity'): 'capital-renewable',
         ('capital', 'offwind'): 'capital-renewable',
@@ -197,17 +199,17 @@ def calculate_cost_categories(costs_data):
         ('capital', 'biomass'): 'capital-renewable',
         ('capital', 'biogas'): 'capital-renewable',
         
-        # transmission lines - 输电线路
+        # transmission lines - Transmission lines
         ('capital', 'AC'): 'transmission lines',
         ('capital', 'stations'): 'transmission lines',
         
-        # batteries - 电池储能
+        # batteries - Battery storage
         ('capital', 'battery'): 'batteries',
         ('capital', 'battery discharger'): 'batteries',
         ('marginal', 'battery'): 'batteries',
         ('marginal', 'battery discharger'): 'batteries',
         
-        # long-duration storages - 长时储能
+        # long-duration storages - Long-duration storage
         ('capital', 'PHS'): 'long-duration storages',
         ('capital', 'water tanks'): 'long-duration storages',
         ('capital', 'H2'): 'long-duration storages',
@@ -217,7 +219,7 @@ def calculate_cost_categories(costs_data):
         ('marginal', 'H2'): 'long-duration storages',
         ('marginal', 'H2 CHP'): 'long-duration storages',
         
-        # 其他分类
+        # Other categories
         ('capital', 'CO2 capture'): 'capital-non-renewable',
         ('marginal', 'CO2 capture'): 'variable cost-non-renewable',
         ('capital', 'Sabatier'): 'capital-non-renewable',
@@ -228,14 +230,14 @@ def calculate_cost_categories(costs_data):
         ('marginal', 'DAC'): 'variable cost-non-renewable',
     }
     
-    # 按成本分类组织数据
+    # Organize data by cost category
     category_costs = {}
     
     for idx in costs_data.index:
         if len(idx) >= 3:
             component_type, cost_type, carrier = idx[0], idx[1], idx[2]
             
-            # 使用分类映射
+            # Use category mapping
             category_key = (cost_type, carrier)
             category_name = cost_category_mapping.get(category_key, f"{cost_type} - {carrier}")
             
@@ -250,17 +252,17 @@ def calculate_cost_categories(costs_data):
 
 def calculate_total_emissions_from_costs(costs_data):
     """
-    从成本数据中计算总碳排放（通过coal和gas的marginal成本估算）
+    Calculate total carbon emissions from cost data (estimated through coal and gas marginal costs)
     
     Parameters:
     -----------
     costs_data : pd.DataFrame
-        成本数据
+        Cost data
         
     Returns:
     --------
     float
-        总碳排放量（吨CO2）
+        Total carbon emissions (tons CO2)
     """
     if costs_data is None or costs_data.empty:
         return 0
@@ -474,6 +476,174 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
     
     return optimal_points
 
+def calculate_excess_ratio(capacity, demand):
+    """
+    Calculate excess ratio: 1 - (demand/retention_ratio)
+    where retention_ratio = capacity/total_capacity, total_capacity fixed at 45 million tons
+    
+    Parameters:
+    -----------
+    capacity : float
+        Actual capacity (10,000 tons/year)
+    demand : float
+        Demand (10,000 tons/year)
+        
+    Returns:
+    --------
+    float
+        Excess ratio
+    """
+    total_capacity = 4500  # Total capacity 45 million tons
+    retention_ratio = capacity / total_capacity  # Retention ratio
+    excess_ratio = 1 - (demand / retention_ratio) if retention_ratio > 0 else 0
+    return excess_ratio
+
+def plot_optimal_points_distribution():
+    """
+    Plot optimal points distribution
+    Top: Point distribution and density function of optimal excess ratio
+    Bottom: Distribution and probability density function of optimal net value
+    """
+    from scipy import stats
+    from scipy.stats import norm
+    
+    # Load base version from main config file
+    main_config = load_config('config.yaml')
+    if main_config is None:
+        logger.error("Cannot load main config file config.yaml")
+        return
+    
+    base_version = main_config.get('version', '0815.1H.1')
+    logger.info(f"Loaded base version from main config: {base_version}")
+    
+    # Define capacity ratios
+    capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
+    
+    # Find all optimal points
+    optimal_points = find_optimal_points(base_version, capacity_ratios, 'results')
+    
+    if not optimal_points:
+        logger.error("No optimal point data found")
+        return
+    
+    # Group data by year
+    years = sorted(list(set([point['year'] for point in optimal_points])))
+    
+    # Demand data (10,000 tons/year)
+    demand_by_year = {
+        2030: 2902.417177819193,
+        2040: 1508.1703393209764,
+        2050: 1166.6836345743664,
+    }
+    
+    # Calculate excess ratio and net value for each year
+    year_data = {}
+    for year in years:
+        year_points = [point for point in optimal_points if point['year'] == year]
+        excess_ratios = []
+        net_values = []
+        
+        for point in year_points:
+            # Calculate excess ratio: 1 - (demand/retention_ratio)
+            capacity = point['capacity'] * 100  # Convert to 10,000 tons/year
+            demand = demand_by_year.get(year, 0)
+            excess_ratio = calculate_excess_ratio(capacity, demand)
+            excess_ratios.append(excess_ratio)
+            net_values.append(point['net_value'])
+        
+        year_data[year] = {
+            'excess_ratios': excess_ratios,
+            'net_values': net_values
+        }
+    
+    # Create subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+    
+    # Color settings
+    colors = plt.cm.viridis(np.linspace(0, 1, len(years)))
+    year_colors = dict(zip(years, colors))
+    
+    # Top plot: Optimal excess ratio distribution
+    ax1.set_title('Optimal Excess Ratio Distribution', fontsize=16, fontweight='bold', pad=20)
+    
+    for year in years:
+        excess_ratios = year_data[year]['excess_ratios']
+        if len(excess_ratios) > 1:  # Need at least 2 points to fit distribution
+            # Plot scatter points
+            x_positions = np.random.normal(year, 0.1, len(excess_ratios))  # Add small random offset to avoid overlap
+            ax1.scatter(x_positions, excess_ratios, 
+                       c=year_colors[year], alpha=0.7, s=100, 
+                       label=f'{year} (n={len(excess_ratios)})')
+            
+            # Fit Gaussian distribution
+            mu, sigma = norm.fit(excess_ratios)
+            
+            # Plot probability density function
+            x_range = np.linspace(min(excess_ratios) - 2*sigma, max(excess_ratios) + 2*sigma, 100)
+            pdf = norm.pdf(x_range, mu, sigma)
+            
+            # Scale PDF to appropriate range and offset to corresponding year
+            pdf_scaled = pdf * 0.3 + year  # Scale and offset
+            ax1.plot(pdf_scaled, x_range, color=year_colors[year], linewidth=2, alpha=0.8)
+            
+            # Add mean and standard deviation information
+            ax1.text(year, max(excess_ratios) + 0.1, f'Mean={mu:.3f}\nStd={sigma:.3f}', 
+                    ha='center', va='bottom', fontsize=10, 
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor=year_colors[year], alpha=0.3))
+    
+    ax1.set_xlabel('Year', fontsize=14, fontweight='bold')
+    ax1.set_ylabel('Excess Ratio', fontsize=14, fontweight='bold')
+    ax1.set_xticks(years)
+    ax1.grid(True, alpha=0.3)
+    ax1.legend(loc='upper right', fontsize=12)
+    
+    # Bottom plot: Optimal net value distribution
+    ax2.set_title('Optimal Net Value Distribution', fontsize=16, fontweight='bold', pad=20)
+    
+    for year in years:
+        net_values = year_data[year]['net_values']
+        if len(net_values) > 1:  # Need at least 2 points to fit distribution
+            # Plot scatter points
+            x_positions = np.random.normal(year, 0.1, len(net_values))  # Add small random offset to avoid overlap
+            ax2.scatter(x_positions, net_values, 
+                       c=year_colors[year], alpha=0.7, s=100, 
+                       label=f'{year} (n={len(net_values)})')
+            
+            # Fit Gaussian distribution
+            mu, sigma = norm.fit(net_values)
+            
+            # Plot probability density function
+            x_range = np.linspace(min(net_values) - 2*sigma, max(net_values) + 2*sigma, 100)
+            pdf = norm.pdf(x_range, mu, sigma)
+            
+            # Scale PDF to appropriate range and offset to corresponding year
+            pdf_scaled = pdf * 0.3 + year  # Scale and offset
+            ax2.plot(pdf_scaled, x_range, color=year_colors[year], linewidth=2, alpha=0.8)
+            
+            # Add mean and standard deviation information
+            ax2.text(year, max(net_values) + 0.5, f'Mean={mu:.2f}\nStd={sigma:.2f}', 
+                    ha='center', va='bottom', fontsize=10, 
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor=year_colors[year], alpha=0.3))
+    
+    ax2.set_xlabel('Year', fontsize=14, fontweight='bold')
+    ax2.set_ylabel('Net Value (Billion CNY)', fontsize=14, fontweight='bold')
+    ax2.set_xticks(years)
+    ax2.grid(True, alpha=0.3)
+    ax2.legend(loc='upper right', fontsize=12)
+    
+    plt.tight_layout()
+    
+    # Save plot
+    output_dir = Path('results/optimal_points_analysis')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    plot_file = output_dir / "optimal_points_distribution.png"
+    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+    logger.info(f"Optimal points distribution plot saved to: {plot_file}")
+    
+    # Show plot
+    # plt.show()
+
 def plot_optimal_points_scatter():
     """
     Plot scatter chart of optimal points showing capacity and net value
@@ -530,9 +700,9 @@ def plot_optimal_points_scatter():
                   linewidth=2)
     
     # Add labels
-    ax.set_xlabel('Aluminum Smelting Capacity (Mt/year)', fontsize=15, fontweight='bold')
+    ax.set_xlabel('Aluminum Smelting Capacity (10,000 tons/year)', fontsize=15, fontweight='bold')
     ax.set_ylabel('Net System Value (Billion CNY)', fontsize=15, fontweight='bold')
-    # ax.set_title('Optimal Points: Capacity vs Net Value Analysis', fontsize=16, fontweight='bold')
+    # ax.set_title('Optimal Points Analysis: Capacity vs Net Value', fontsize=16, fontweight='bold')
     
     # Set tick parameters for larger font size and integer formatting
     ax.tick_params(axis='both', which='major', labelsize=14)
@@ -560,7 +730,7 @@ def plot_optimal_points_scatter():
     for year, demand in demand_by_year.items():
         if year in years:  # Only plot demand lines for years that have data
             ax.axvline(x=demand, color=demand_colors[year], linestyle='--', linewidth=2, alpha=0.8, 
-                       label=f'{year} Demand: {demand:.0f} Mt/year')
+                       label=f'{year} Demand: {demand:.0f} 10k tons/year')
     
     # Create legend
     legend_elements = []
@@ -569,7 +739,7 @@ def plot_optimal_points_scatter():
     for year in years:
         legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
                                         markerfacecolor=year_colors[year], 
-                                        markersize=15, label=f'Year {year}'))
+                                        markersize=15, label=f'{year}'))
     
     # Market legend
     for market in markets:
@@ -589,7 +759,7 @@ def plot_optimal_points_scatter():
     for year, demand in demand_by_year.items():
         if year in years:
             legend_elements.append(plt.Line2D([0], [0], color=demand_colors[year], linestyle='--', linewidth=2, 
-                                            label=f'{year} Demand: {demand:.0f} Mt/year'))
+                                            label=f'{year} Demand: {demand:.0f} 10k tons/year'))
     
     # Add legend
     ax.legend(handles=legend_elements, loc='upper right', fontsize=15, ncol=2)
@@ -622,18 +792,25 @@ def plot_optimal_points_scatter():
 
 def main():
     """Main function"""
-    parser = argparse.ArgumentParser(description='Plot scatter chart of optimal points showing capacity and net value')
+    parser = argparse.ArgumentParser(description='Plot optimal points distribution showing excess ratio and net value distribution')
     parser.add_argument('--results-dir', default='results', help='Results directory path (default: results)')
     parser.add_argument('--output', default='results/optimal_points_analysis', help='Output directory')
+    parser.add_argument('--plot-type', choices=['distribution', 'scatter'], default='distribution', 
+                       help='Plot type: distribution (default) or scatter')
     
     args = parser.parse_args()
     
-    logger.info(f"Starting analysis of optimal points for capacity and net value")
+    logger.info(f"Starting analysis of optimal points capacity and net value")
     logger.info(f"Results directory: {args.results_dir}")
     logger.info(f"Output directory: {args.output}")
+    logger.info(f"Plot type: {args.plot_type}")
     
-    # Plot optimal points scatter chart
-    plot_optimal_points_scatter()
+    if args.plot_type == 'distribution':
+        # Plot optimal points distribution
+        plot_optimal_points_distribution()
+    else:
+        # Plot optimal points scatter
+        plot_optimal_points_scatter()
     
     logger.info("Analysis completed!")
 
