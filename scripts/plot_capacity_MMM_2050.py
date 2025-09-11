@@ -464,10 +464,10 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
                      markersize=6, label='Emissions Reduction', color='red')
     
     # 设置标签
-    ax.set_xlabel('Aluminum Capacity (MW)', fontsize=12)
+    ax.set_xlabel('Aluminum Smelting Capacity (Mt)', fontsize=12)
     ax.set_ylabel('Cost Savings (Billion CNY)', fontsize=12, color='blue')
     ax2.set_ylabel('Emissions Reduction (Million Tonnes CO2)', fontsize=12, color='red')
-    ax.set_title(f'Year {year}, Market {market}', fontsize=14, fontweight='bold')
+    # ax.set_title(f'Year {year}, Market {market}', fontsize=14, fontweight='bold')
     
     # 添加零线
     ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1)
@@ -478,19 +478,19 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
     
     # 设置x轴刻度和标签
     ax.set_xticks(x)
-    ax.set_xticklabels([f'{cap:.0f}' for cap in capacity_values], fontsize=10)
+    ax.set_xticklabels([f'{cap/100:.0f}' for cap in capacity_values], fontsize=12)
     
     # 设置y轴标签为十亿人民币单位
     y_ticks = ax.get_yticks()
-    y_tick_labels = [f'{tick/1e9:.1f}B' for tick in y_ticks]
+    y_tick_labels = [f'{tick/1e9:.0f}' for tick in y_ticks]
     ax.set_yticks(y_ticks)
-    ax.set_yticklabels(y_tick_labels, fontsize=10, color='blue')
+    ax.set_yticklabels(y_tick_labels, fontsize=12, color='blue')
     
     # 设置右y轴标签为百万吨CO2单位
     y2_ticks = ax2.get_yticks()
-    y2_tick_labels = [f'{tick:.1f}M' for tick in y2_ticks]
+    y2_tick_labels = [f'{tick:.0f}' for tick in y2_ticks]
     ax2.set_yticks(y2_ticks)
-    ax2.set_yticklabels(y2_tick_labels, fontsize=10, color='red')
+    ax2.set_yticklabels(y2_tick_labels, fontsize=12, color='red')
     
     # 不在这里添加图例，只在总图上添加一个统一的图例
 
@@ -504,7 +504,7 @@ def plot_mmm_2050_analysis():
         logger.error("Unable to load main config file config.yaml")
         return
     
-    base_version = main_config.get('version', '0814.4H.2')
+    base_version = main_config.get('version', '0815.1H.1')
     logger.info(f"Base version read from main config file: {base_version}")
     
     # 定义容量比例
@@ -515,7 +515,7 @@ def plot_mmm_2050_analysis():
     market = 'M'
     
     # 创建单个图表
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     
     logger.info(f"Plotting MMM-2050 scenario chart...")
     plot_single_year_market(year, market, base_version, capacity_ratios, 'results', ax)
@@ -530,11 +530,11 @@ def plot_mmm_2050_analysis():
     ]
     
     # 添加图例
-    ax.legend(handles=legend_elements, loc='upper right', fontsize=12)
+    ax.legend(handles=legend_elements, loc='lower left', fontsize=15)
     
-    # 添加总标题
-    fig.suptitle('MMM-2050 Scenario Analysis\n(Demand: M, Flexibility: M)\nCost Savings (Positive) & Emissions Reduction (Positive)', 
-                 fontsize=16, fontweight='bold', y=0.95)
+    # # 添加总标题
+    # fig.suptitle('MMM-2050 Scenario Analysis\n(Demand: M, Flexibility: M)\nCost Savings (Positive) & Emissions Reduction (Positive)', 
+    #              fontsize=16, fontweight='bold', y=0.95)
     
     plt.tight_layout()
     
