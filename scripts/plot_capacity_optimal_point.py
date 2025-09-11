@@ -450,7 +450,7 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
                     cap_ratio_decimal = float(ratio.replace('p', '')) / 100.0
                     actual_capacity_ratio = calculate_actual_capacity_ratio(year, cap_ratio_decimal, 'mid')
                     # Calculate actual capacity in 10,000 tons/year (4500 * actual_capacity_ratio)
-                    actual_capacity = 4500 * actual_capacity_ratio
+                    actual_capacity = 45 * actual_capacity_ratio
                     capacity_values.append(actual_capacity)
                 
                 # Calculate net cost savings (same as plot_capacity_multi_year_market_comparison)
@@ -498,7 +498,7 @@ def plot_optimal_points_scatter():
         return
     
     # Create scatter plot
-    fig, ax = plt.subplots(figsize=(14, 10))
+    fig, ax = plt.subplots(figsize=(10, 10))
     
     # Group data by year
     years = sorted(list(set([point['year'] for point in optimal_points])))
@@ -530,18 +530,28 @@ def plot_optimal_points_scatter():
                   linewidth=2)
     
     # Add labels
-    ax.set_xlabel('Aluminum Capacity (10,000 tons/year)', fontsize=14, fontweight='bold')
-    ax.set_ylabel('Net Value (Billion CNY)', fontsize=14, fontweight='bold')
-    ax.set_title('Optimal Points: Capacity vs Net Value Analysis', fontsize=16, fontweight='bold')
+    ax.set_xlabel('Aluminum Smelting Capacity (Mt/year)', fontsize=15, fontweight='bold')
+    ax.set_ylabel('Net System Value (Billion CNY)', fontsize=15, fontweight='bold')
+    # ax.set_title('Optimal Points: Capacity vs Net Value Analysis', fontsize=16, fontweight='bold')
+    
+    # Set tick parameters for larger font size and integer formatting
+    ax.tick_params(axis='both', which='major', labelsize=14)
+    ax.tick_params(axis='both', which='minor', labelsize=12)
+    
+    # Format x-axis to show integers only
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
+    
+    # Format y-axis to show integers only
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
     
     # Add grid
     ax.grid(True, alpha=0.3)
     
     # Add vertical lines for annual demand by year
     demand_by_year = {
-        2030: 2902.417177819193,
-        2040: 1508.1703393209764,
-        2050: 1166.6836345743664,
+        2030: 29.0241717,
+        2040: 15.0817033,
+        2050: 11.6668363,
     }
     
     # Colors for demand lines
@@ -550,7 +560,7 @@ def plot_optimal_points_scatter():
     for year, demand in demand_by_year.items():
         if year in years:  # Only plot demand lines for years that have data
             ax.axvline(x=demand, color=demand_colors[year], linestyle='--', linewidth=2, alpha=0.8, 
-                       label=f'{year} Demand: {demand:.1f} 10,000 tons/year')
+                       label=f'{year} Demand: {demand:.0f} Mt/year')
     
     # Create legend
     legend_elements = []
@@ -559,30 +569,30 @@ def plot_optimal_points_scatter():
     for year in years:
         legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
                                         markerfacecolor=year_colors[year], 
-                                        markersize=12, label=f'Year {year}'))
+                                        markersize=15, label=f'Year {year}'))
     
     # Market legend
     for market in markets:
         market_desc = {'L': 'Low Market', 'M': 'Mid Market', 'H': 'High Market'}
         legend_elements.append(plt.Line2D([0], [0], marker=market_markers[market], 
                                         color='w', markerfacecolor='gray', 
-                                        markersize=12, label=market_desc[market]))
+                                        markersize=15, label=market_desc[market]))
     
     # Flexibility legend
     for flexibility in flexibilities:
         flex_desc = {'L': 'Low Flexibility', 'M': 'Mid Flexibility', 'H': 'High Flexibility', 'N': 'Non-constrained'}
         legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
                                         markerfacecolor='w', markeredgecolor=flexibility_colors[flexibility],
-                                        markersize=12, markeredgewidth=2, label=flex_desc[flexibility]))
+                                        markersize=15, markeredgewidth=2, label=flex_desc[flexibility]))
     
     # Add demand lines to legend (only for years that have data)
     for year, demand in demand_by_year.items():
         if year in years:
             legend_elements.append(plt.Line2D([0], [0], color=demand_colors[year], linestyle='--', linewidth=2, 
-                                            label=f'{year} Demand: {demand:.1f} 10,000 tons/year'))
+                                            label=f'{year} Demand: {demand:.0f} Mt/year'))
     
     # Add legend
-    ax.legend(handles=legend_elements, loc='upper left', fontsize=10, ncol=2)
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=15, ncol=2)
     
     # Add labels for each point
     for point in optimal_points:
@@ -595,7 +605,7 @@ def plot_optimal_points_scatter():
         ax.annotate(f'{year}-{flexibility}-{market}', 
                    xy=(capacity, net_value),
                    xytext=(5, 5), textcoords='offset points',
-                   fontsize=9, alpha=0.8)
+                   fontsize=12, alpha=0.8)
     
     plt.tight_layout()
     
@@ -608,7 +618,7 @@ def plot_optimal_points_scatter():
     logger.info(f"Optimal points scatter plot saved to: {plot_file}")
     
     # Show plot
-    plt.show()
+    # plt.show()
 
 def main():
     """Main function"""
