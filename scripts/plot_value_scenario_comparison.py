@@ -594,6 +594,68 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     # 为每个market-flexibility组合创建子图
     fig, axes = plt.subplots(3, 4, figsize=(24, 16), sharey=True)
     
+    # 用于收集所有使用的分类和颜色，确保图例与画图一致
+    global_category_colors = {}
+    
+    # 首先收集所有可能的分类，并统一分配颜色
+    all_categories = set()
+    for i, market in enumerate(market_levels):
+        for j, flex in enumerate(flexibility_levels):
+            current_data = all_plot_df[
+                (all_plot_df['Market'] == market) & 
+                (all_plot_df['Flexibility'] == flex)
+            ]
+            if not current_data.empty:
+                for demand in demand_levels:
+                    demand_data = current_data[current_data['Demand'] == demand]
+                    if not demand_data.empty:
+                        all_categories.update(demand_data['Category'].unique())
+    
+    # 从配置文件读取成本分类颜色
+    config = load_config('config.yaml')
+    category_colors = config.get('cost_category_colors', {}) if config else {}
+    
+    # 定义资源分类的优先级顺序，用于在正负号相同时进行排序
+    category_priority = {
+        "variable cost-non-renewable": 1,
+        "capital-non-renewable": 2,
+        "heating-electrification": 3,
+        "capital-renewable": 4,
+        "transmission lines": 5,
+        "batteries": 6,
+        "long-duration storages": 7,
+        "carbon capture": 8,
+        "synthetic fuels": 9,
+        "carbon management": 10,
+        "hydro": 11, "hydro reservoir": 11, "ror": 12, "run of river": 12, "hydroelectricity": 11, "PHS": 13, "hydro+PHS": 14, "wave": 15,
+        "solar": 16, "solar PV": 16, "solar thermal": 17, "residential rural solar thermal": 18, "services rural solar thermal": 19,
+        "residential urban decentral solar thermal": 20, "services urban decentral solar thermal": 21, "urban central solar thermal": 22, "solar rooftop": 23,
+        "OCGT": 24, "OCGT marginal": 24, "OCGT-heat": 24, "gas boiler": 25, "gas boilers": 25, "gas boiler marginal": 25,
+        "residential rural gas boiler": 26, "residential urban decentral gas boiler": 27, "services rural gas boiler": 28, "services urban decentral gas boiler": 29, "urban central gas boiler": 30,
+        "gas": 31, "fossil gas": 31, "natural gas": 31, "biogas to gas": 32, "CCGT": 33, "CCGT marginal": 33, "allam": 34,
+        "gas for industry co2 to atmosphere": 35, "gas for industry co2 to stored": 36, "gas for industry": 37, "gas for industry CC": 38, "gas pipeline": 39, "gas pipeline new": 40,
+        "oil": 41, "oil boiler": 41, "residential rural oil boiler": 42, "services rural oil boiler": 43, "residential urban decentral oil boiler": 44, "urban central oil boiler": 45, "services urban decentral oil boiler": 46,
+        "agriculture machinery oil": 47, "shipping oil": 48, "land transport oil": 49,
+        "Nuclear": 50, "Nuclear marginal": 50, "nuclear": 50, "uranium": 50,
+        "Coal": 51, "coal": 51, "coal power plant": 51, "coal boiler": 52, "Coal marginal": 51, "solid": 51, "Lignite": 53, "lignite": 53
+    }
+    
+    # 按照优先级对所有分类进行统一排序
+    def sort_key(category):
+        priority = category_priority.get(category, 999)
+        return priority
+    
+    sorted_categories = sorted(all_categories, key=sort_key)
+    
+    # 为所有分类统一分配颜色
+    for cat_idx, category in enumerate(sorted_categories):
+        if category in category_colors:
+            color = category_colors[category]
+        else:
+            # 使用默认颜色映射
+            color = plt.cm.tab20(cat_idx % 20)
+        global_category_colors[category] = color
+    
     # 设置子图之间的间距，移除内部边框，调整行间距
     # 使用gridspec来精确控制行间距
     from matplotlib import gridspec
@@ -653,35 +715,6 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         x_pos = np.arange(len(demand_names))
                         width = 0.6  # 减少柱子宽度，让图表更美观
                         
-                        # 从配置文件读取成本分类颜色
-                        config = load_config('config.yaml')
-                        category_colors = config.get('cost_category_colors', {}) if config else {}
-                        
-                        # 定义资源分类的优先级顺序，用于在正负号相同时进行排序
-                        category_priority = {
-                            "variable cost-non-renewable": 1,
-                            "capital-non-renewable": 2,
-                            "heating-electrification": 3,
-                            "capital-renewable": 4,
-                            "transmission lines": 5,
-                            "batteries": 6,
-                            "long-duration storages": 7,
-                            "carbon capture": 8,
-                            "synthetic fuels": 9,
-                            "carbon management": 10,
-                            "hydro": 11, "hydro reservoir": 11, "ror": 12, "run of river": 12, "hydroelectricity": 11, "PHS": 13, "hydro+PHS": 14, "wave": 15,
-                            "solar": 16, "solar PV": 16, "solar thermal": 17, "residential rural solar thermal": 18, "services rural solar thermal": 19,
-                            "residential urban decentral solar thermal": 20, "services urban decentral solar thermal": 21, "urban central solar thermal": 22, "solar rooftop": 23,
-                            "OCGT": 24, "OCGT marginal": 24, "OCGT-heat": 24, "gas boiler": 25, "gas boilers": 25, "gas boiler marginal": 25,
-                            "residential rural gas boiler": 26, "residential urban decentral gas boiler": 27, "services rural gas boiler": 28, "services urban decentral gas boiler": 29, "urban central gas boiler": 30,
-                            "gas": 31, "fossil gas": 31, "natural gas": 31, "biogas to gas": 32, "CCGT": 33, "CCGT marginal": 33, "allam": 34,
-                            "gas for industry co2 to atmosphere": 35, "gas for industry co2 to stored": 36, "gas for industry": 37, "gas for industry CC": 38, "gas pipeline": 39, "gas pipeline new": 40,
-                            "oil": 41, "oil boiler": 41, "residential rural oil boiler": 42, "services rural oil boiler": 43, "residential urban decentral oil boiler": 44, "urban central oil boiler": 45, "services urban decentral oil boiler": 46,
-                            "agriculture machinery oil": 47, "shipping oil": 48, "land transport oil": 49,
-                            "Nuclear": 50, "Nuclear marginal": 50, "nuclear": 50, "uranium": 50,
-                            "Coal": 51, "coal": 51, "coal power plant": 51, "coal boiler": 52, "Coal marginal": 51, "solid": 51, "Lignite": 53, "lignite": 53
-                        }
-                        
                         # 分析每个分类在不同demand级别下的正负号情况
                         category_signs = {}
                         for category in categories:
@@ -722,14 +755,11 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         # 按照新的排序逻辑重新排列分类
                         categories = sorted(categories, key=sort_key)
                         
-                        # 为每个分类分配颜色，如果不在预定义中则使用默认颜色
+                        # 使用预定义的全局颜色
                         colors = []
                         for category in categories:
-                            if category in category_colors:
-                                colors.append(category_colors[category])
-                            else:
-                                # 使用默认颜色映射
-                                colors.append(plt.cm.tab20(len(colors) % 20))
+                            color = global_category_colors.get(category, plt.cm.tab20(len(colors) % 20))
+                            colors.append(color)
                         
                         # 准备堆叠数据 - 为每个demand级别创建完整的数组
                         positive_changes = []
@@ -789,11 +819,24 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                                 bottom_negative += np.array(category_values)
                                 added_to_legend.add(category)
                         
-                        # 设置标签
+                        # 设置y轴刻度为10为间隔，统一范围
+                        y_min, y_max = -20e9, 100e9
+                        y_ticks = np.arange(y_min, y_max + 10e9, 10e9)
+                        y_tick_labels = [f'{int(tick/1e9)}' for tick in y_ticks]
+                        
+                        # 强制设置y轴范围和刻度，避免matplotlib自动调整
+                        ax.set_ylim(y_min, y_max)
+                        ax.set_yticks(y_ticks)
+                        ax.set_yticklabels(y_tick_labels, fontsize=12)
+                        
+                        # 设置x轴标签为L, M, H
                         ax.set_xticks(x_pos)
                         ax.set_xticklabels([f'{demand}' for demand in demand_names], fontsize=14)
-                        # 隐藏x轴刻度数字
-                        ax.set_xticks([])
+                        
+                        # 禁用所有自动刻度调整
+                        ax.tick_params(axis='both', which='both', left=True, right=False, top=False, bottom=True)
+                        ax.tick_params(axis='x', which='minor', bottom=False)
+                        ax.tick_params(axis='y', which='minor', left=False)
                         
                         # 只在最左边的子图显示y轴标签
                         if j == 0:
@@ -808,25 +851,18 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         if i == 0:  # 第一行显示market标签
                             ax.set_title(f'Flexibility: {scenario_descriptions[flex]}', 
                                        fontsize=14, fontweight='bold', pad=10)
-                            # 在第一排图片上方添加Demand标签
-                            ax.text(0.5, 1.15, 'Demand: Low/Mid/High', fontsize=12, fontweight='bold',
+                            # 显示Demand标签
+                            ax.text(-0.2, 0.5, f'Demand: {scenario_descriptions[demand]}', 
+                                   fontsize=14, fontweight='bold', rotation=90, 
                                    ha='center', va='center', transform=ax.transAxes)
                         if j == 0:  # 第一列显示flexibility标签
                             ax.text(-0.2, 0.5, f'Market: {scenario_descriptions[market]}', 
                                    fontsize=14, fontweight='bold', rotation=90, 
                                    ha='center', va='center', transform=ax.transAxes)
                         
-                        # 添加网格
-                        ax.grid(True, alpha=0.3, axis='y')
-                        
-                        # 设置y轴标签为十亿人民币单位，所有子图都显示，精确到个位
-                        y_ticks = ax.get_yticks()
-                        y_tick_labels = [f'{int(tick/1e9)}' for tick in y_ticks]
-                        ax.set_yticks(y_ticks)
-                        ax.set_yticklabels(y_tick_labels, fontsize=12)
-                        
-                        # 设置统一的y轴范围，最大值为40十亿人民币
-                        ax.set_ylim(-40e9, 100e9)
+                        # 第三列和第四列的y轴标签向左移动
+                        if j >= 2:  # 第三列和第四列
+                            ax.tick_params(axis='y', pad=15)  # 增加标签与轴的距离
                     else:
                         ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
                                transform=ax.transAxes, fontsize=10)
@@ -840,25 +876,14 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
 
     
     # 创建图例
-    if not all_plot_df.empty:
-        # 获取所有唯一的分类
-        all_categories = all_plot_df['Category'].unique()
-        
-        # 从配置文件读取成本分类颜色
-        config = load_config('config.yaml')
-        category_colors = config.get('cost_category_colors', {}) if config else {}
-        
-        # 创建图例元素
+    if not all_plot_df.empty and global_category_colors:
+        # 按照预定义的顺序创建图例，确保与图表中的颜色一致
         legend_elements = []
-        for category in all_categories:
-            if category in category_colors:
-                color = category_colors[category]
-            else:
-                # 使用默认颜色
-                color = plt.cm.tab20(len(legend_elements) % 20)
-            
-            legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=color, 
-                                               label=category, alpha=0.8))
+        for category in sorted_categories:
+            if category in global_category_colors:
+                color = global_category_colors[category]
+                legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=color, 
+                                                   label=category, alpha=0.8))
         
         # 在图表下方添加统一图例，横向排列
         fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05),
@@ -868,8 +893,6 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         # logger.info(f"图例包含 {len(legend_elements)} 个分类")
     
     plt.tight_layout()
-    # 为底部图例留出更多空间
-    plt.subplots_adjust(bottom=0.15)
     # plt.show()
     
     # 保存图表
