@@ -227,7 +227,7 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
         plot_title_suffix = " (National)"
     
     # 创建上下排列的子图，每个图长宽比9:4，整体约1:1
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8.5))
     
     # 处理 MMM 场景
     if tech == "aluminum":

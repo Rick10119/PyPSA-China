@@ -20,7 +20,7 @@ def create_aluminum_cost_bar_chart():
     # 数据准备
     categories = ['Raw Materials', 'Labor', 'Fixed o&m', 'Restart', 'Depreciation', 'Storage', 'Electricity']
     costs_2020 = [8451.2, 150, 1900, 0.01, 300, 1, 6250]
-    costs_2050_non_flex = [8451.2, 159.889114, 2171.893745, 769.1493874, 1156.812339, 1, 4529.662849]
+    costs_2050_5p = [8451.2, 159.889114, 2171.893745, 769.1493874, 1156.812339, 1, 4529.662849]
     costs_2050_20p = [8451.2, 159.1901429, 2984.318766, 299.1122492, 1156.812339, 15.6, 2476.284987]
     costs_2050_100p = [8451.2, 160.7041192, 7326.478149, 707.9584908, 1156.812339, 15.6, 797.0111764]
     
@@ -28,57 +28,93 @@ def create_aluminum_cost_bar_chart():
     df = pd.DataFrame({
         '类别': categories,
         '2020成本（每吨）': costs_2020,
-        '2050_non_flex成本（每吨）': costs_2050_non_flex,
+        '2050_5p成本（每吨）': costs_2050_5p,
         '2050_20p成本（每吨）': costs_2050_20p,
         '2050_100p成本（每吨）': costs_2050_100p
     })
     
     # 计算总成本
     total_2020 = sum(costs_2020)
-    total_2050_non_flex = sum(costs_2050_non_flex)
+    total_2050_5p = sum(costs_2050_5p)
     total_2050_20p = sum(costs_2050_20p)
     total_2050_100p = sum(costs_2050_100p)
     
     print(f"2020年总成本: {total_2020:.2f} 元/吨")
-    print(f"2050_non_flex总成本: {total_2050_non_flex:.2f} 元/吨")
+    print(f"2050_5p总成本: {total_2050_5p:.2f} 元/吨")
     print(f"2050_20p总成本: {total_2050_20p:.2f} 元/吨")
     print(f"2050_100p总成本: {total_2050_100p:.2f} 元/吨")
     
-    # 创建子图 - 2x2布局
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 12))
+    # 创建单个子图用于堆叠柱状图
+    fig, ax = plt.subplots(1, 1, figsize=(10, 8.5))
     
     # 定义颜色
     colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
     
-    # 2020年饼状图
-    # 过滤掉成本为0的项目
-    non_zero_2020 = [(cat, cost) for cat, cost in zip(categories, costs_2020) if cost > 0]
-    labels_2020 = [item[0] for item in non_zero_2020]
-    sizes_2020 = [item[1] for item in non_zero_2020]
-    colors_2020 = colors[:len(non_zero_2020)]
+    # 准备数据 - 每个场景作为一个柱子
+    scenarios = ['2024\nCurrent', 
+                '2050\n5% overcapacity', 
+                '2050\n36% overcapacity', 
+                '2050\nNo-discommissioning']
+    scenario_costs = [costs_2020, costs_2050_5p, costs_2050_20p, costs_2050_100p]
+    scenario_totals = [total_2020, total_2050_5p, total_2050_20p, total_2050_100p]
     
-    wedges1, texts1, autotexts1 = ax1.pie(sizes_2020, labels=labels_2020, colors=colors_2020, 
-                                         autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-    ax1.set_title('2020\n(Total Cost: {:.0f} CNY/ton)'.format(total_2020), 
-                  fontsize=14, fontweight='bold', pad=15)
+    # 设置x轴位置
+    x = np.arange(len(scenarios))
+    width = 0.6
     
-    # 2050_non_flex饼状图
-    wedges2, texts2, autotexts2 = ax2.pie(costs_2050_non_flex, labels=categories, colors=colors, 
-                                         autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-    ax2.set_title('2050 No-overcapacity\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050_non_flex), 
-                  fontsize=14, fontweight='bold', pad=15)
+    # 创建堆叠柱状图
+    bottom = np.zeros(len(scenarios))
     
-    # 2050_20p饼状图
-    wedges3, texts3, autotexts3 = ax3.pie(costs_2050_20p, labels=categories, colors=colors, 
-                                         autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-    ax3.set_title('2050 36\% overcapacity\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050_20p), 
-                  fontsize=14, fontweight='bold', pad=15)
+    for i, (category, color) in enumerate(zip(categories, colors)):
+        # 获取每个场景中该类别的成本
+        category_costs = [costs[i] for costs in scenario_costs]
+        
+        # 绘制堆叠柱状图
+        bars = ax.bar(x, category_costs, width, bottom=bottom, 
+                     label=category, color=color, alpha=0.8, 
+                     edgecolor='black', linewidth=0.5)
+        
+        # 添加数值标签（只对较大的值显示）
+        for j, (bar, cost) in enumerate(zip(bars, category_costs)):
+            if cost > 1 and cost < 8000:  # 只显示大于100的值
+                height = bar.get_height()
+                if height > 0:
+                    ax.text(bar.get_x() + bar.get_width()/2, 
+                           bar.get_y() + height/2, 
+                           f'{cost:.0f}', ha='center', va='center', 
+                           fontsize=9, fontweight='bold', color='black')
+        
+        # 更新底部位置
+        bottom += category_costs
     
-    # 2050_100p饼状图
-    wedges4, texts4, autotexts4 = ax4.pie(costs_2050_100p, labels=categories, colors=colors, 
-                                         autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-    ax4.set_title('2050 Retain all overcapacity\n(Total Cost: {:.0f} CNY/ton)'.format(total_2050_100p), 
-                  fontsize=14, fontweight='bold', pad=15)
+    # 设置图表属性
+    ax.set_xlabel('Scenarios', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Levelized cost (CNY/tonne)', fontsize=14, fontweight='bold')
+    # ax.set_title('Aluminum Cost Composition Comparison\n(Stacked Bar Chart)', 
+    #             fontsize=16, fontweight='bold', pad=20)
+    
+    # 设置x轴标签
+    ax.set_xticks(x)
+    ax.set_xticklabels(scenarios, fontsize=12)
+    
+    # 添加总成本标签在柱子顶部
+    for i, total in enumerate(scenario_totals):
+        ax.text(i, total + 200, f'Total: {total:.0f}', 
+               ha='center', va='bottom', fontsize=11, fontweight='bold')
+    
+    # 添加图例 - 放在图中间，分为两行，顺序相反
+    handles, labels = ax.get_legend_handles_labels()
+    # 反转顺序
+    handles = handles[::-1]
+    labels = labels[::-1]
+    ax.legend(handles, labels, bbox_to_anchor=(0.5, -0.05), loc='upper center', 
+              ncol=4, fontsize=12, frameon=True, fancybox=True, shadow=True)
+    
+    # 添加网格
+    ax.grid(True, alpha=0.3, axis='y')
+    
+    # 设置y轴范围
+    ax.set_ylim(8000, 20000)
     
     # 调整布局
     plt.tight_layout()
@@ -87,7 +123,7 @@ def create_aluminum_cost_bar_chart():
     # fig.suptitle('Aluminum Cost Composition Comparison (2020 vs 2050 Scenarios)', fontsize=18, fontweight='bold', y=0.95)
     
     # 保存图片
-    output_path = 'results/aluminum_cost_composition_2020_2050.png'
+    output_path = 'results/aluminum_cost_composition_2020_2050_stacked_bar.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
     print(f"Image saved to: {output_path}")
     
@@ -102,7 +138,7 @@ def create_detailed_comparison_table():
     # 数据准备
     categories = ['Raw Materials', 'Labor', 'Fixed o&m', 'Restart', 'Depreciation', 'Storage', 'Electricity']
     costs_2020 = [8451.2, 150, 1900, 0, 300, 1, 6250]
-    costs_2050_non_flex = [8451.2, 159.889114, 2171.893745, 769.1493874, 1156.812339, 1, 4529.662849]
+    costs_2050_5p = [8451.2, 159.889114, 2171.893745, 769.1493874, 1156.812339, 1, 4529.662849]
     costs_2050_20p = [8451.2, 159.1901429, 2984.318766, 299.1122492, 1156.812339, 15.6, 2476.284987]
     costs_2050_100p = [8451.2, 160.7041192, 7326.478149, 707.9584908, 1156.812339, 15.6, 797.0111764]
     
@@ -110,14 +146,14 @@ def create_detailed_comparison_table():
     df = pd.DataFrame({
         '类别': categories,
         '2020成本（元/吨）': costs_2020,
-        '2050_non_flex成本（元/吨）': costs_2050_non_flex,
+        '2050_5p成本（元/吨）': costs_2050_5p,
         '2050_20p成本（元/吨）': costs_2050_20p,
         '2050_100p成本（元/吨）': costs_2050_100p
     })
     
     # 计算总成本
     total_2020 = df['2020成本（元/吨）'].sum()
-    total_2050_non_flex = df['2050_non_flex成本（元/吨）'].sum()
+    total_2050_5p = df['2050_5p成本（元/吨）'].sum()
     total_2050_20p = df['2050_20p成本（元/吨）'].sum()
     total_2050_100p = df['2050_100p成本（元/吨）'].sum()
     
@@ -125,7 +161,7 @@ def create_detailed_comparison_table():
     print(df.to_string(index=False, float_format='%.2f'))
     print(f"\n总成本变化:")
     print(f"2020年总成本: {total_2020:.2f} 元/吨")
-    print(f"2050_non_flex总成本: {total_2050_non_flex:.2f} 元/吨 (变化: {total_2050_non_flex - total_2020:.2f} 元/吨)")
+    print(f"2050_5p总成本: {total_2050_5p:.2f} 元/吨 (变化: {total_2050_5p - total_2020:.2f} 元/吨)")
     print(f"2050_20p总成本: {total_2050_20p:.2f} 元/吨 (变化: {total_2050_20p - total_2020:.2f} 元/吨)")
     print(f"2050_100p总成本: {total_2050_100p:.2f} 元/吨 (变化: {total_2050_100p - total_2020:.2f} 元/吨)")
     
@@ -133,10 +169,10 @@ def create_detailed_comparison_table():
 
 def main():
     """主函数"""
-    print("Creating aluminum cost composition pie chart...")
+    print("Creating aluminum cost composition bar chart...")
     
-    # 创建饼状图
-    df = create_aluminum_cost_pie_chart()
+    # 创建柱状图
+    df = create_aluminum_cost_bar_chart()
     
     # 创建详细对比表格
     create_detailed_comparison_table()
