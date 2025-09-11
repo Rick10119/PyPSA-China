@@ -370,38 +370,6 @@ plotting:
     offwind-dc: "#74c6f2"
     offshore wind (DC): "#74c6f2"
     offshore wind dc: "#74c6f2"
-    
-  # 成本分类颜色配置，用于堆叠图
-  cost_category_colors:
-    # variable cost-non-renewable
-    "variable cost-non-renewable": "#545454"  # coal color
-    
-    # capital-non-renewable
-    "capital-non-renewable": "#ff8c00"  # nuclear color
-    
-    # heating-electrification
-    "heating-electrification": "#2fb537"  # heat pump color
-    
-    # capital-renewable
-    "capital-renewable": "#f9d002"  # solar color
-    
-    # transmission lines
-    "transmission lines": "#6c9459"  # transmission lines color
-    
-    # batteries
-    "batteries": "#ace37f"  # battery color
-    
-    # long-duration storages
-    "long-duration storages": "#bf13a0"  # H2 color
-    
-    # carbon capture
-    "carbon capture": "#f29dae"  # CO2 color
-    
-    # synthetic fuels
-    "synthetic fuels": "#9850ad"  # Sabatier color
-    
-    # carbon management
-    "carbon management": "#f29dae"  # CO2 color
     # water
     hydro: '#298c81'
     hydro reservoir: '#298c81'

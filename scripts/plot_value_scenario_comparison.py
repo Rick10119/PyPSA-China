@@ -310,72 +310,72 @@ def calculate_cost_difference(costs_100p, costs_non_flex):
     # 定义成本类型和资源组合的分类映射
     cost_category_mapping = {
         # variable cost-non-renewable - 非可再生能源可变成本
-        ('marginal', 'coal'): 'variable cost-non-renewable',
-        ('marginal', 'coal power plant'): 'variable cost-non-renewable',
-        ('marginal', 'coal cc'): 'variable cost-non-renewable',
-        ('marginal', 'gas'): 'variable cost-non-renewable',
-        ('marginal', 'nuclear'): 'variable cost-non-renewable',
-        ('marginal', 'CHP coal'): 'variable cost-non-renewable',
-        ('marginal', 'CHP gas'): 'variable cost-non-renewable',
-        ('marginal', 'OCGT gas'): 'variable cost-non-renewable',
-        ('marginal', 'coal boiler'): 'variable cost-non-renewable',
-        ('marginal', 'gas boiler'): 'variable cost-non-renewable',
+        ('marginal', 'coal'): 'Non-renewable-variable',
+        ('marginal', 'coal power plant'): 'Non-renewable-variable',
+        ('marginal', 'coal cc'): 'Non-renewable-variable',
+        ('marginal', 'gas'): 'Non-renewable-variable',
+        ('marginal', 'nuclear'): 'Non-renewable-variable',
+        ('marginal', 'CHP coal'): 'Non-renewable-variable',
+        ('marginal', 'CHP gas'): 'Non-renewable-variable',
+        ('marginal', 'OCGT gas'): 'Non-renewable-variable',
+        ('marginal', 'coal boiler'): 'Non-renewable-variable',
+        ('marginal', 'gas boiler'): 'Non-renewable-variable',
         
         # capital-non-renewable - 非可再生能源资本成本
-        ('capital', 'coal'): 'capital cost-non-renewable',
-        ('capital', 'coal power plant'): 'capital cost-non-renewable',
-        ('capital', 'coal cc'): 'capital cost-non-renewable',
-        ('capital', 'gas'): 'capital cost-non-renewable',
-        ('capital', 'nuclear'): 'capital cost-non-renewable',
-        ('capital', 'CHP coal'): 'capital cost-non-renewable',
-        ('capital', 'CHP gas'): 'capital cost-non-renewable',
-        ('capital', 'OCGT gas'): 'capital cost-non-renewable',
-        ('capital', 'coal boiler'): 'capital cost-non-renewable',
-        ('capital', 'gas boiler'): 'capital cost-non-renewable',
+        ('capital', 'coal'): 'Non-renewable-capital',
+        ('capital', 'coal power plant'): 'Non-renewable-capital',
+        ('capital', 'coal cc'): 'Non-renewable-capital',
+        ('capital', 'gas'): 'Non-renewable-capital',
+        ('capital', 'nuclear'): 'Non-renewable-capital',
+        ('capital', 'CHP coal'): 'Non-renewable-capital',
+        ('capital', 'CHP gas'): 'Non-renewable-capital',
+        ('capital', 'OCGT gas'): 'Non-renewable-capital',
+        ('capital', 'coal boiler'): 'Non-renewable-capital',
+        ('capital', 'gas boiler'): 'Non-renewable-capital',
         
         # capital-demand side - 需求侧资本成本
-        ('capital', 'heat pump'): 'heating-electrification',
-        ('capital', 'resistive heater'): 'heating-electrification',
+        ('capital', 'heat pump'): 'Heating-electrification',
+        ('capital', 'resistive heater'): 'Heating-electrification',
         
         # capital-renewable - 可再生能源资本成本
-        ('capital', 'hydro_inflow'): 'capital cost-renewable',
-        ('capital', 'hydroelectricity'): 'capital cost-renewable',
-        ('capital', 'offwind'): 'capital cost-renewable',
-        ('capital', 'onwind'): 'capital cost-renewable',
-        ('capital', 'solar'): 'capital cost-renewable',
-        ('capital', 'solar thermal'): 'capital cost-renewable',
-        ('capital', 'biomass'): 'capital cost-renewable',
-        ('capital', 'biogas'): 'capital cost-renewable',
+        ('capital', 'hydro_inflow'): 'Other renewables',
+        ('capital', 'hydroelectricity'): 'Other renewables',
+        ('capital', 'offwind'): 'Other renewables',
+        ('capital', 'onwind'): 'Onshore wind',
+        ('capital', 'solar'): 'Solar photovoltaic',
+        ('capital', 'solar thermal'): 'Other renewables',
+        ('capital', 'biomass'): 'Other renewables',
+        ('capital', 'biogas'): 'Other renewables',
         
         # transmission lines - 输电线路
-        ('capital', 'AC'): 'transmission lines',
-        ('capital', 'stations'): 'transmission lines',
+        ('capital', 'AC'): 'Transmission lines',
         
         # batteries - 电池储能
-        ('capital', 'battery'): 'batteries',
-        ('capital', 'battery discharger'): 'batteries',
-        ('marginal', 'battery'): 'batteries',
-        ('marginal', 'battery discharger'): 'batteries',
+        ('capital', 'battery'): 'Batteries',
+        ('capital', 'battery discharger'): 'Batteries',
+        ('marginal', 'battery'): 'Batteries',
+        ('marginal', 'battery discharger'): 'Batteries',
         
         # long-duration storages - 长时储能
-        ('capital', 'PHS'): 'long-duration storages',
-        ('capital', 'water tanks'): 'long-duration storages',
-        ('capital', 'H2'): 'long-duration storages',
-        ('capital', 'H2 CHP'): 'long-duration storages',
-        ('marginal', 'PHS'): 'long-duration storages',
-        ('marginal', 'water tanks'): 'long-duration storages',
-        ('marginal', 'H2'): 'long-duration storages',
-        ('marginal', 'H2 CHP'): 'long-duration storages',
+        ('capital', 'PHS'): 'Long-duration storages',
+        ('capital', 'water tanks'): 'Long-duration storages',
+        ('capital', 'H2'): 'Long-duration storages',
+        ('capital', 'H2 CHP'): 'Long-duration storages',
+        ('marginal', 'PHS'): 'Long-duration storages',
+        ('marginal', 'water tanks'): 'Long-duration storages',
+        ('marginal', 'H2'): 'Long-duration storages',
+        ('marginal', 'H2 CHP'): 'Long-duration storages',
+        ('capital', 'stations'): 'Long-duration storages',
         
         # 其他分类
-        ('capital', 'CO2 capture'): 'capital cost-non-renewable',
-        ('marginal', 'CO2 capture'): 'variable cost-non-renewable',
-        ('capital', 'Sabatier'): 'capital cost-non-renewable',
-        ('marginal', 'Sabatier'): 'variable cost-non-renewable',
-        ('capital', 'CO2'): 'capital cost-non-renewable',
-        ('marginal', 'CO2'): 'variable cost-non-renewable',
-        ('capital', 'DAC'): 'capital cost-non-renewable',
-        ('marginal', 'DAC'): 'variable cost-non-renewable',
+        ('capital', 'CO2 capture'): 'Non-renewable-capital',
+        ('marginal', 'CO2 capture'): 'Non-renewable-variable',
+        ('capital', 'Sabatier'): 'Non-renewable-capital',
+        ('marginal', 'Sabatier'): 'Non-renewable-variable',
+        ('capital', 'CO2'): 'Non-renewable-capital',
+        ('marginal', 'CO2'): 'Non-renewable-variable',
+        ('capital', 'DAC'): 'Non-renewable-capital',
+        ('marginal', 'DAC'): 'Non-renewable-variable',
     }
     
     # 按成本分类组织数据
@@ -611,33 +611,52 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                     if not demand_data.empty:
                         all_categories.update(demand_data['Category'].unique())
     
-    # 从配置文件读取成本分类颜色
-    config = load_config('config.yaml')
-    category_colors = config.get('cost_category_colors', {}) if config else {}
+    # 硬编码成本分类颜色
+    category_colors = {
+        # variable cost-non-renewable
+        "Non-renewable-variable": "#545454",  # coal color
+        
+        # capital-non-renewable
+        "Non-renewable-capital": "#ff8c00",  # nuclear color
+        
+        # heating-electrification
+        "Heating-electrification": "#bf13a0",  # heat pump color
+        
+        # capital-renewable
+        "Solar photovoltaic": "#f9d002",  # solar color
+
+        # onshore wind
+        "Onshore wind": "#235ebc",  # onshore wind color
+
+        
+        # transmission lines
+        "Transmission lines": "#6c9459",
+        # batteries
+        "Batteries": "#ace37f",  # battery color
+        
+        # long-duration storages
+        "Long-duration storages": "#2fb537",  # H2 color
+        
+        # carbon capture
+        "carbon capture": "#f29dae",  # CO2 color
+        
+        # synthetic fuels
+        "Synthetic fuels": "#9850ad",  # Sabatier color
+        
+        # carbon management
+        "Carbon management": "#f29dae",  # CO2 color
+    }
     
     # 定义资源分类的优先级顺序，用于在正负号相同时进行排序
     category_priority = {
-        "variable cost-non-renewable": 1,
-        "capital-non-renewable": 2,
-        "heating-electrification": 3,
-        "capital-renewable": 4,
-        "transmission lines": 5,
-        "batteries": 6,
-        "long-duration storages": 7,
-        "carbon capture": 8,
-        "synthetic fuels": 9,
-        "carbon management": 10,
-        "hydro": 11, "hydro reservoir": 11, "ror": 12, "run of river": 12, "hydroelectricity": 11, "PHS": 13, "hydro+PHS": 14, "wave": 15,
-        "solar": 16, "solar PV": 16, "solar thermal": 17, "residential rural solar thermal": 18, "services rural solar thermal": 19,
-        "residential urban decentral solar thermal": 20, "services urban decentral solar thermal": 21, "urban central solar thermal": 22, "solar rooftop": 23,
-        "OCGT": 24, "OCGT marginal": 24, "OCGT-heat": 24, "gas boiler": 25, "gas boilers": 25, "gas boiler marginal": 25,
-        "residential rural gas boiler": 26, "residential urban decentral gas boiler": 27, "services rural gas boiler": 28, "services urban decentral gas boiler": 29, "urban central gas boiler": 30,
-        "gas": 31, "fossil gas": 31, "natural gas": 31, "biogas to gas": 32, "CCGT": 33, "CCGT marginal": 33, "allam": 34,
-        "gas for industry co2 to atmosphere": 35, "gas for industry co2 to stored": 36, "gas for industry": 37, "gas for industry CC": 38, "gas pipeline": 39, "gas pipeline new": 40,
-        "oil": 41, "oil boiler": 41, "residential rural oil boiler": 42, "services rural oil boiler": 43, "residential urban decentral oil boiler": 44, "urban central oil boiler": 45, "services urban decentral oil boiler": 46,
-        "agriculture machinery oil": 47, "shipping oil": 48, "land transport oil": 49,
-        "Nuclear": 50, "Nuclear marginal": 50, "nuclear": 50, "uranium": 50,
-        "Coal": 51, "coal": 51, "coal power plant": 51, "coal boiler": 52, "Coal marginal": 51, "solid": 51, "Lignite": 53, "lignite": 53
+        "Non-renewable-variable": 1,
+        "Non-renewable-capital": 2,
+        "Solar photovoltaic": 3,
+        "Onshore wind": 4,
+        "Transmission lines": 5,
+        "Batteries": 6,
+        "Long-duration storages": 7,
+        "Heating-electrification": 8,
     }
     
     # 按照优先级对所有分类进行统一排序
