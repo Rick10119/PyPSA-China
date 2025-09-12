@@ -83,7 +83,7 @@ def create_cost_comparison_plot(df, output_dir):
             
             if current_data.empty:
                 ax.text(0.5, 0.5, f'No data\nMarket: {market}\nFlex: {flexibility}', 
-                       ha='center', va='center', transform=ax.transAxes, fontsize=10)
+                       ha='center', va='center', transform=ax.transAxes, fontsize=20)
                 continue
             
             # 按Demand级别组织数据
@@ -95,7 +95,7 @@ def create_cost_comparison_plot(df, output_dir):
             
             if not demand_data:
                 ax.text(0.5, 0.5, 'No demand data', ha='center', va='center', 
-                       transform=ax.transAxes, fontsize=10)
+                       transform=ax.transAxes, fontsize=20)
                 continue
             
             # 获取所有分类
@@ -161,7 +161,7 @@ def create_cost_comparison_plot(df, output_dir):
             # 在堆叠图顶部显示净值
             for i, (x, net_value) in enumerate(zip(x_pos, net_values)):
                 # 计算文本位置：正值堆叠的顶部
-                text_y = bottom_pos[i] + 4e9  # 在堆叠图顶部稍微上方
+                text_y = bottom_pos[i] + 5e9  # 在堆叠图顶部稍微上方
                 
                 # 格式化净值显示
                 value_text = f'{-net_value/1e9:.0f}'
@@ -169,19 +169,19 @@ def create_cost_comparison_plot(df, output_dir):
                 # 添加净值文本
                 ax.text(x, text_y, value_text, 
                        ha='center', va='bottom' if net_value >= 0 else 'top',
-                       fontsize=12, fontweight='bold')
+                       fontsize=18, fontweight='bold')
             
             # 设置x轴标签
             ax.set_xticks(x_pos)
-            x_labels = [f'Demand: {d}' if i == 0 else d for i, d in enumerate(demand_names)]
-            ax.set_xticklabels(x_labels, fontsize=15)
+            x_labels = [f'Demand: {d.replace("L", "Low").replace("M", "Mid").replace("H", "High")}' if i == 0 else d.replace("L", "Low").replace("M", "Mid").replace("H", "High") for i, d in enumerate(demand_names)]
+            ax.set_xticklabels(x_labels, fontsize=20)
             
             # 设置y轴
-            ax.set_ylim(-20e9, 100e9)
-            y_ticks = np.arange(-20e9, 101e9, 20e9)
+            ax.set_ylim(-20e9, 80e9)
+            y_ticks = np.arange(-20e9, 81e9, 20e9)
             y_labels = [f'{int(tick/1e9)}' for tick in y_ticks]
             ax.set_yticks(y_ticks)
-            ax.set_yticklabels(y_labels, fontsize=15)
+            ax.set_yticklabels(y_labels, fontsize=20)
             
             # 添加零线
             ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1)
@@ -189,11 +189,11 @@ def create_cost_comparison_plot(df, output_dir):
             # 设置标题和标签
             if market_idx == 0:  # 第一行显示Flexibility标签
                 ax.set_title(f'Flexibility: {scenario_descriptions[flexibility]}', 
-                           fontsize=15, fontweight='bold')
+                           fontsize=20, fontweight='bold')
             
             if flex_idx == 0:  # 第一列显示Market标签
                 ax.set_ylabel(f'Market: {scenario_descriptions[market]}\nCost Change (Billion CNY)', 
-                            fontsize=15, fontweight='bold')
+                            fontsize=20, fontweight='bold')
             else:
                 ax.set_ylabel('')
     
@@ -216,8 +216,8 @@ def create_cost_comparison_plot(df, output_dir):
             legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=color, 
                                                label=category, alpha=0.8))
     
-    fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05),
-               ncol=min(len(legend_elements), 4), fontsize=15)
+    fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.07),
+               ncol=min(len(legend_elements), 4), fontsize=20, frameon=False)
     
     plt.tight_layout()
     
@@ -226,7 +226,7 @@ def create_cost_comparison_plot(df, output_dir):
     plt.savefig(plot_file, dpi=300, bbox_inches='tight', pad_inches=0.3)
     logger.info(f"图表已保存到: {plot_file}")
     
-    plt.show()
+    # plt.show()
     plt.close()
 
 def create_summary_table(df, output_dir):
