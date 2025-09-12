@@ -641,6 +641,128 @@ def plot_optimal_points_distribution():
     # Show plot
     # plt.show()
 
+def plot_optimal_points_boxplot():
+    """
+    Plot box plot of optimal points showing capacity and net value distribution by year
+    """
+    # Load base version from main config file
+    main_config = load_config('config.yaml')
+    if main_config is None:
+        logger.error("Cannot load main config file config.yaml")
+        return
+    
+    base_version = main_config.get('version', '0815.1H.1')
+    logger.info(f"Loaded base version from main config: {base_version}")
+    
+    # Define capacity ratios
+    capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
+    
+    # Find all optimal points
+    optimal_points = find_optimal_points(base_version, capacity_ratios, 'results')
+    
+    if not optimal_points:
+        logger.error("No optimal point data found")
+        return
+    
+    # Create box plot
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+    
+    # Group data by year
+    years = sorted(list(set([point['year'] for point in optimal_points])))
+    colors = plt.cm.viridis(np.linspace(0, 1, len(years)))
+    year_colors = dict(zip(years, colors))
+    
+    # Prepare data for box plots
+    capacity_data = []
+    net_value_data = []
+    year_labels = []
+    
+    for year in years:
+        year_points = [point for point in optimal_points if point['year'] == year]
+        capacities = [point['capacity'] for point in year_points]
+        net_values = [point['net_value'] for point in year_points]
+        
+        capacity_data.append(capacities)
+        net_value_data.append(net_values)
+        year_labels.append(f'{year}\n(n={len(capacities)})')
+    
+    # Left plot: Capacity box plot
+    bp1 = ax1.boxplot(capacity_data, labels=year_labels, patch_artist=True, 
+                      boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
+    
+    # Color the boxes
+    for patch, year in zip(bp1['boxes'], years):
+        patch.set_facecolor(year_colors[year])
+    
+    ax1.set_title('Optimal Capacity Distribution by Year', fontsize=16, fontweight='bold', pad=20)
+    ax1.set_xlabel('Year', fontsize=14, fontweight='bold')
+    ax1.set_ylabel('Aluminum Smelting Capacity (10,000 tons/year)', fontsize=14, fontweight='bold')
+    ax1.grid(True, alpha=0.3)
+    ax1.tick_params(axis='both', which='major', labelsize=12)
+    
+    # Format y-axis to show integers only
+    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
+    
+    # Add horizontal lines for annual demand by year
+    demand_by_year = {
+        2030: 29.0241717,
+        2040: 15.0817033,
+        2050: 11.6668363,
+    }
+    
+    # Colors for demand lines
+    demand_colors = {2030: 'red', 2040: 'orange', 2050: 'purple'}
+    
+    for i, year in enumerate(years, 1):
+        if year in demand_by_year:
+            demand = demand_by_year[year]
+            ax1.axhline(y=demand, xmin=(i-1)/len(years), xmax=i/len(years), 
+                       color=demand_colors[year], linestyle='--', linewidth=3, alpha=0.8)
+    
+    # Right plot: Net value box plot
+    bp2 = ax2.boxplot(net_value_data, labels=year_labels, patch_artist=True, 
+                      boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
+    
+    # Color the boxes
+    for patch, year in zip(bp2['boxes'], years):
+        patch.set_facecolor(year_colors[year])
+    
+    ax2.set_title('Optimal Net Value Distribution by Year', fontsize=16, fontweight='bold', pad=20)
+    ax2.set_xlabel('Year', fontsize=14, fontweight='bold')
+    ax2.set_ylabel('Net System Value (Billion CNY)', fontsize=14, fontweight='bold')
+    ax2.grid(True, alpha=0.3)
+    ax2.tick_params(axis='both', which='major', labelsize=12)
+    
+    # Format y-axis to show integers only
+    ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
+    
+    # Add legend for years
+    legend_elements = []
+    for year in years:
+        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=year_colors[year], alpha=0.7, label=f'{year}'))
+    
+    # Add demand lines to legend
+    for year, demand in demand_by_year.items():
+        if year in years:
+            legend_elements.append(plt.Line2D([0], [0], color=demand_colors[year], linestyle='--', linewidth=3, 
+                                            label=f'{year} Demand: {demand:.0f} 10k tons/year'))
+    
+    # Add legend
+    ax1.legend(handles=legend_elements, loc='upper right', fontsize=12)
+    
+    plt.tight_layout()
+    
+    # Save plot
+    output_dir = Path('results/optimal_points_analysis')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    plot_file = output_dir / "optimal_points_boxplot.png"
+    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+    logger.info(f"Optimal points box plot saved to: {plot_file}")
+    
+    # Show plot
+    # plt.show()
+
 def plot_optimal_points_scatter():
     """
     Plot scatter chart of optimal points showing capacity and net value
@@ -792,8 +914,8 @@ def main():
     parser = argparse.ArgumentParser(description='Plot optimal points distribution showing excess ratio and net value distribution')
     parser.add_argument('--results-dir', default='results', help='Results directory path (default: results)')
     parser.add_argument('--output', default='results/optimal_points_analysis', help='Output directory')
-    parser.add_argument('--plot-type', choices=['distribution', 'scatter'], default='distribution', 
-                       help='Plot type: distribution (default) or scatter')
+    parser.add_argument('--plot-type', choices=['distribution', 'scatter', 'boxplot'], default='distribution', 
+                       help='Plot type: distribution (default), scatter, or boxplot')
     
     args = parser.parse_args()
     
@@ -805,9 +927,12 @@ def main():
     if args.plot_type == 'distribution':
         # Plot optimal points distribution
         plot_optimal_points_distribution()
-    else:
+    elif args.plot_type == 'scatter':
         # Plot optimal points scatter
         plot_optimal_points_scatter()
+    elif args.plot_type == 'boxplot':
+        # Plot optimal points box plot
+        plot_optimal_points_boxplot()
     
     logger.info("Analysis completed!")
 
