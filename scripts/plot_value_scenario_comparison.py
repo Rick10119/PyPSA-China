@@ -678,7 +678,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     # 设置子图之间的间距，移除内部边框，调整行间距
     # 使用gridspec来精确控制行间距
     from matplotlib import gridspec
-    gs = gridspec.GridSpec(3, 4, figure=fig, height_ratios=[1, 0.8, 1], hspace=0.1, wspace=0.1)
+    gs = gridspec.GridSpec(3, 4, figure=fig, height_ratios=[1, 1, 1], hspace=0.1, wspace=0.1)
     
     # 重新分配axes
     axes = []
@@ -952,7 +952,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     
     # 保存图表
     plot_file = plots_dir / f"scenario_comparison_{file_type}.png"
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight', pad_inches=0.2)
+    plt.savefig(plot_file, dpi=300, bbox_inches='tight', pad_inches=0.3)
     # logger.info(f"Scenario comparison plot saved to: {plot_file}")
     
     plt.close()
