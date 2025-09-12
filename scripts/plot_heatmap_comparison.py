@@ -30,8 +30,8 @@ def set_plot_style():
                    {'axes.grid': False, 'grid.linestyle': '--', 'grid.color': u'0.6',
                     'hatch.color': 'white',
                     'patch.linewidth': 0.5,
-                    'font.size': 12,
-                    'legend.fontsize': 'medium',
+                    'font.size': 18,
+                    'legend.fontsize': 'large',
                     'lines.linewidth': 1.5,
                     'pdf.fonttype': 42,
                     }])
@@ -227,7 +227,7 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
         plot_title_suffix = " (National)"
     
     # 创建上下排列的子图，每个图长宽比9:4，整体约1:1
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8.5))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 9))
     
     # 处理 MMM 场景
     if tech == "aluminum":
@@ -250,13 +250,16 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
         base_mmm_display = str(int(base_mmm / 1e3))  # 转换为 GW 显示
         
         if tech == "aluminum":
-            sns.heatmap(df_mmm, ax=ax1, cmap='coolwarm', cbar_kws={'label': 'pu'}, vmin=0.0, vmax=1.0)
+            sns.heatmap(df_mmm, ax=ax1, cmap='coolwarm', cbar_kws={'label': 'pu', 'shrink': 0.8}, vmin=0.0, vmax=1.0)
         else:
-            sns.heatmap(df_mmm, ax=ax1, cmap='coolwarm', cbar_kws={'label': 'pu'}, vmin=-1.0, vmax=1.0)
+            sns.heatmap(df_mmm, ax=ax1, cmap='coolwarm', cbar_kws={'label': 'pu', 'shrink': 0.8}, vmin=-1.0, vmax=1.0)
         
         ax1.set_title(f'Mid smelter flexibility')
+        # 隐藏第一个子图的x轴标签（Day）
+        ax1.set_xlabel('')
+        # ax1.set_xticklabels([])
         
-        # 为铝冶炼厂添加储能水平叠加
+        # 为铝冶炼厂添加储能水平叠加（不显示标签）
         if tech == "aluminum" and not daily_storage_mmm.empty:
             day_columns = df_mmm.columns
             storage_values = []
@@ -269,10 +272,9 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
             
             if storage_values:
                 ax1_twin = ax1.twinx()
-                ax1_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Stored aluminum')
+                ax1_twin.plot(storage_positions, storage_values, 'k-', linewidth=2)
                 ax1_twin.set_ylabel('Stored aluminum (Mt)', color='black')
                 ax1_twin.tick_params(axis='y', labelcolor='black')
-                ax1_twin.legend(loc='upper right')
                 ax1_twin.set_xlim(0, len(day_columns))
     else:
         ax1.text(0.5, 0.5, f'MMM Scenario\nNo {tech} data', ha='center', va='center', transform=ax1.transAxes)
@@ -283,11 +285,13 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
         base_nmm_display = str(int(base_nmm / 1e3))  # 转换为 GW 显示
         
         if tech == "aluminum":
-            sns.heatmap(df_nmm, ax=ax2, cmap='coolwarm', cbar_kws={'label': 'pu'}, vmin=0.0, vmax=1.0)
+            sns.heatmap(df_nmm, ax=ax2, cmap='coolwarm', cbar_kws={'label': 'pu', 'shrink': 0.8}, vmin=0.0, vmax=1.0)
         else:
-            sns.heatmap(df_nmm, ax=ax2, cmap='coolwarm', cbar_kws={'label': 'pu'}, vmin=-1.0, vmax=1.0)
+            sns.heatmap(df_nmm, ax=ax2, cmap='coolwarm', cbar_kws={'label': 'pu', 'shrink': 0.8}, vmin=-1.0, vmax=1.0)
         
         ax2.set_title(f'Non-constrained smelter flexibility')
+        # 为第二个子图添加x轴标签
+        ax2.set_xlabel('Day')
         
         # 为铝冶炼厂添加储能水平叠加
         if tech == "aluminum" and not daily_storage_nmm.empty:
@@ -305,17 +309,16 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
                 ax2_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Stored aluminum')
                 ax2_twin.set_ylabel('Stored aluminum (Mt)', color='black')
                 ax2_twin.tick_params(axis='y', labelcolor='black')
-                ax2_twin.legend(loc='upper right')
+                ax2_twin.legend(loc='lower right', bbox_to_anchor=(0.5, -0.5))
                 ax2_twin.set_xlim(0, len(day_columns))
     else:
         ax2.text(0.5, 0.5, f'NMM Scenario\nNo {tech} data', ha='center', va='center', transform=ax2.transAxes)
         ax2.set_title(f'NMM Scenario - {tech} Heatmap')
     
-    # 设置整体标题
-    # fig.suptitle(f'MMM vs NMM Scenario {tech} Operation Pattern Comparison', fontsize=16, y=0.95)
-    
-    # 调整布局
+    # 调整布局，为图例留出更多空间
     plt.tight_layout()
+    # 进一步调整子图间距，为右侧图例留出更多空间
+    plt.subplots_adjust(right=2)
     
     # 保存图片
     output_path = os.path.join(province_dir, f"smelter_flexibility_comparison.png")

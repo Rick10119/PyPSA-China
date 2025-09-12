@@ -45,7 +45,7 @@ def create_aluminum_cost_bar_chart():
     print(f"2050_100p总成本: {total_2050_100p:.2f} 元/吨")
     
     # 创建单个子图用于堆叠柱状图
-    fig, ax = plt.subplots(1, 1, figsize=(10, 8.5))
+    fig, ax = plt.subplots(1, 1, figsize=(12, 9))
     
     # 定义颜色
     colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
@@ -82,29 +82,29 @@ def create_aluminum_cost_bar_chart():
                     ax.text(bar.get_x() + bar.get_width()/2, 
                            bar.get_y() + height/2, 
                            f'{cost:.0f}', ha='center', va='center', 
-                           fontsize=12, fontweight='bold', color='black')
+                           fontsize=16, fontweight='bold', color='black')
         
         # 更新底部位置
         bottom += category_costs
     
     # 设置图表属性
-    ax.set_xlabel('Scenarios', fontsize=16, fontweight='bold')
-    ax.set_ylabel('Levelized cost (CNY/tonne)', fontsize=16, fontweight='bold')
+    # ax.set_xlabel('Scenarios', fontsize=20, fontweight='bold')
+    ax.set_ylabel('Levelized cost (CNY/tonne)', fontsize=20, fontweight='bold')
     # ax.set_title('Aluminum Cost Composition Comparison\n(Stacked Bar Chart)', 
     #             fontsize=16, fontweight='bold', pad=20)
     
     # 设置x轴标签
     ax.set_xticks(x)
-    ax.set_xticklabels(scenarios, fontsize=14)
+    ax.set_xticklabels(scenarios, fontsize=20)
     
     # 设置y轴标签
     ax.set_yticks(np.arange(8000, 20000, 2000))
-    ax.set_yticklabels([f'{int(tick)}' for tick in np.arange(8000, 20000, 2000)], fontsize=14)
+    ax.set_yticklabels([f'{int(tick)}' for tick in np.arange(8000, 20000, 2000)], fontsize=20)
     
     # 添加总成本标签在柱子顶部
     for i, total in enumerate(scenario_totals):
         ax.text(i, total + 200, f'Total: {total:.0f}', 
-               ha='center', va='bottom', fontsize=12, fontweight='bold')
+               ha='center', va='bottom', fontsize=20, fontweight='bold')
     
     # 添加图例 - 放在图中间，分为两行，顺序相反
     handles, labels = ax.get_legend_handles_labels()
@@ -112,7 +112,7 @@ def create_aluminum_cost_bar_chart():
     handles = handles[::-1]
     labels = labels[::-1]
     ax.legend(handles, labels, bbox_to_anchor=(0.5, -0.1), loc='upper center', 
-              ncol=4, fontsize=14, frameon=True, fancybox=True, shadow=True)
+              ncol=4, fontsize=20, frameon=True, fancybox=True, shadow=True)
     
     # 添加网格
     ax.grid(True, alpha=0.3, axis='y')
@@ -122,9 +122,6 @@ def create_aluminum_cost_bar_chart():
     
     # 调整布局
     plt.tight_layout()
-    
-    # 添加总标题
-    # fig.suptitle('Aluminum Cost Composition Comparison (2020 vs 2050 Scenarios)', fontsize=18, fontweight='bold', y=0.95)
     
     # 保存图片
     output_path = 'results/aluminum_cost_composition_2020_2050_stacked_bar.png'
