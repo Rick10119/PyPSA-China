@@ -838,6 +838,28 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                                 bottom_negative += np.array(category_values)
                                 added_to_legend.add(category)
                         
+                        # 计算并显示净值（每个柱子的总高度）
+                        net_values = []
+                        for i, demand in enumerate(demand_names):
+                            demand_data = demand_data_dict.get(demand, {})
+                            total_value = sum(demand_data.values())
+                            net_values.append(total_value)
+                        
+                        # 在堆叠图顶部显示净值
+                        for i, (x, net_value) in enumerate(zip(x_pos, net_values)):
+                            # 计算文本位置：正值堆叠的顶部
+                            text_y = bottom_positive[i] + 5e9  # 在堆叠图顶部稍微上方
+                            
+                            # 格式化净值显示
+
+                            value_text = f'{-net_value/1e9:.0f}'
+
+                            
+                            # 添加净值文本
+                            ax.text(x, text_y, value_text, 
+                                   ha='center', va='bottom' if net_value >= 0 else 'top',
+                                   fontsize=10, fontweight='bold')
+                        
                         # 设置y轴刻度为10为间隔，统一范围
                         y_min, y_max = -20e9, 100e9
                         y_ticks = np.arange(y_min, y_max + 10e9, 10e9)
@@ -852,13 +874,23 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         ax.yaxis.set_major_locator(plt.FixedLocator(y_ticks))
                         ax.yaxis.set_minor_locator(plt.NullLocator())
                         
-                        # 设置x轴标签为L, M, H
+                        # 设置x轴标签为Demand: L, M, H (只有第一个显示Demand)
                         ax.set_xticks(x_pos)
-                        ax.set_xticklabels([f'{demand}' for demand in demand_names], fontsize=14)
+                        x_labels = []
+                        for i, demand in enumerate(demand_names):
+                            if i == 0:
+                                x_labels.append(f'Demand: {demand}')
+                            else:
+                                x_labels.append(f'{demand}')
+                        ax.set_xticklabels(x_labels, fontsize=14)
                         
                         # 禁用所有自动刻度调整
                         ax.tick_params(axis='both', which='both', left=True, right=False, top=False, bottom=True)
                         ax.tick_params(axis='x', which='minor', bottom=False)
+                        ax.tick_params(axis='y', which='minor', left=False)
+                        
+                        # 确保y轴只显示主要刻度，不显示次要刻度
+                        ax.tick_params(axis='y', which='major', left=True)
                         ax.tick_params(axis='y', which='minor', left=False)
                         
                         # 只在最左边的子图显示y轴标签
