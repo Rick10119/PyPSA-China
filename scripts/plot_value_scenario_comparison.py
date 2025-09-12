@@ -694,15 +694,15 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         for j, flex in enumerate(flexibility_levels):
             ax = axes[i, j]
             
-            # 移除内部边框，只保留外部边框
-            if i < 2:  # 不是最后一行
-                ax.spines['bottom'].set_visible(False)
-            if j < 3:  # 不是最后一列
-                ax.spines['right'].set_visible(False)
-            if i > 0:  # 不是第一行
-                ax.spines['top'].set_visible(False)
-            if j > 0:  # 不是第一列
-                ax.spines['left'].set_visible(False)
+            # # 移除内部边框，只保留外部边框
+            # if i < 2:  # 不是最后一行
+            #     ax.spines['bottom'].set_visible(False)
+            # if j < 3:  # 不是最后一列
+            #     ax.spines['right'].set_visible(False)
+            # if i > 0:  # 不是第一行
+            #     ax.spines['top'].set_visible(False)
+            # if j > 0:  # 不是第一列
+            #     ax.spines['left'].set_visible(False)
             
             # 从CSV数据中筛选当前market-flexibility组合的数据
             current_data = all_plot_df[
@@ -885,7 +885,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         ax.set_xticklabels(x_labels, fontsize=14)
                         
                         # 禁用所有自动刻度调整
-                        ax.tick_params(axis='both', which='both', left=True, right=False, top=False, bottom=True)
+                        ax.tick_params(axis='both', which='both', left=False, right=False, top=False, bottom=False)
                         ax.tick_params(axis='x', which='minor', bottom=False)
                         ax.tick_params(axis='y', which='minor', left=False)
                         

@@ -20,6 +20,8 @@ import glob
 import re
 from scipy import stats
 from scipy.stats import norm
+import hashlib
+import json
 
 # Set Chinese font
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
@@ -50,6 +52,196 @@ def load_config(config_path):
     except Exception as e:
         logger.error(f"Error loading configuration file {config_path}: {str(e)}")
         return None
+
+def generate_cache_key(base_version, capacity_ratios, results_dir):
+    """
+    Generate cache key based on parameters
+    
+    Parameters:
+    -----------
+    base_version : str
+        Base version number
+    capacity_ratios : list
+        List of capacity ratios
+    results_dir : str
+        Results directory
+        
+    Returns:
+    --------
+    str
+        Cache key
+    """
+    # Create a string representation of all parameters
+    params_str = f"{base_version}_{'-'.join(capacity_ratios)}_{results_dir}"
+    # Generate hash
+    return hashlib.md5(params_str.encode()).hexdigest()
+
+def save_optimal_points_cache(optimal_points, cache_key, cache_dir='results/optimal_points_analysis'):
+    """
+    Save optimal points data to CSV cache
+    
+    Parameters:
+    -----------
+    optimal_points : list
+        List of optimal points data
+    cache_key : str
+        Cache key
+    cache_dir : str
+        Cache directory
+    """
+    try:
+        cache_path = Path(cache_dir)
+        cache_path.mkdir(parents=True, exist_ok=True)
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(optimal_points)
+        
+        # Save data
+        csv_file = cache_path / f"optimal_points_cache_{cache_key}.csv"
+        df.to_csv(csv_file, index=False)
+        
+        # Save metadata
+        metadata = {
+            'cache_key': cache_key,
+            'timestamp': pd.Timestamp.now().isoformat(),
+            'num_points': len(optimal_points),
+            'years': sorted(list(set([point['year'] for point in optimal_points]))),
+            'markets': sorted(list(set([point['market'] for point in optimal_points]))),
+            'flexibilities': sorted(list(set([point['flexibility'] for point in optimal_points])))
+        }
+        
+        metadata_file = cache_path / f"optimal_points_metadata_{cache_key}.json"
+        with open(metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"Optimal points data cached to: {csv_file}")
+        logger.info(f"Metadata cached to: {metadata_file}")
+        
+    except Exception as e:
+        logger.error(f"Error saving cache: {str(e)}")
+
+def load_optimal_points_cache(cache_key, cache_dir='results/optimal_points_analysis'):
+    """
+    Load optimal points data from CSV cache
+    
+    Parameters:
+    -----------
+    cache_key : str
+        Cache key
+    cache_dir : str
+        Cache directory
+        
+    Returns:
+    --------
+    list or None
+        List of optimal points data if cache exists and is valid, None otherwise
+    """
+    try:
+        cache_path = Path(cache_dir)
+        csv_file = cache_path / f"optimal_points_cache_{cache_key}.csv"
+        metadata_file = cache_path / f"optimal_points_metadata_{cache_key}.json"
+        
+        # Check if both files exist
+        if not csv_file.exists() or not metadata_file.exists():
+            logger.info("Cache files not found")
+            return None
+        
+        # Load metadata
+        with open(metadata_file, 'r', encoding='utf-8') as f:
+            metadata = json.load(f)
+        
+        # Check if cache is recent (within 24 hours)
+        cache_time = pd.Timestamp(metadata['timestamp'])
+        if pd.Timestamp.now() - cache_time > pd.Timedelta(hours=24):
+            logger.info("Cache is outdated (older than 24 hours)")
+            return None
+        
+        # Load data
+        df = pd.read_csv(csv_file)
+        optimal_points = df.to_dict('records')
+        
+        # Convert year back to int
+        for point in optimal_points:
+            point['year'] = int(point['year'])
+        
+        logger.info(f"Loaded optimal points from cache: {len(optimal_points)} points")
+        logger.info(f"Cache contains years: {metadata['years']}")
+        logger.info(f"Cache contains markets: {metadata['markets']}")
+        logger.info(f"Cache contains flexibilities: {metadata['flexibilities']}")
+        
+        return optimal_points
+        
+    except Exception as e:
+        logger.error(f"Error loading cache: {str(e)}")
+        return None
+
+def save_optimal_points_to_csv(optimal_points, plot_type, output_dir='results/optimal_points_analysis'):
+    """
+    Save optimal points data to CSV file for easy migration
+    
+    Parameters:
+    -----------
+    optimal_points : list
+        List of optimal points data
+    plot_type : str
+        Type of plot (for filename)
+    output_dir : str
+        Output directory
+    """
+    try:
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(optimal_points)
+        
+        # Add additional calculated columns
+        demand_by_year = {
+            2030: 2902.417177819193,
+            2040: 1508.1703393209764,
+            2050: 1166.6836345743664,
+        }
+        
+        # Calculate excess ratio for each point
+        excess_ratios = []
+        for point in optimal_points:
+            capacity = point['capacity'] * 100  # Convert to 10,000 tons/year
+            demand = demand_by_year.get(point['year'], 0)
+            excess_ratio = calculate_excess_ratio(capacity, demand)
+            excess_ratios.append(excess_ratio)
+        
+        df['excess_ratio'] = excess_ratios
+        df['demand_10k_tons'] = df['year'].map(demand_by_year)
+        df['capacity_10k_tons'] = df['capacity'] * 100
+        
+        # Reorder columns for better readability
+        column_order = ['year', 'market', 'flexibility', 'capacity', 'capacity_10k_tons', 
+                       'net_value', 'excess_ratio', 'demand_10k_tons']
+        df = df[column_order]
+        
+        # Save to CSV
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        csv_file = output_path / f"{plot_type}_data_{timestamp}.csv"
+        df.to_csv(csv_file, index=False, encoding='utf-8')
+        
+        # Also save a version without timestamp for easy access
+        csv_file_latest = output_path / f"{plot_type}_data_latest.csv"
+        df.to_csv(csv_file_latest, index=False, encoding='utf-8')
+        
+        logger.info(f"Optimal points data saved to: {csv_file}")
+        logger.info(f"Latest data also saved to: {csv_file_latest}")
+        
+        # Print summary statistics
+        logger.info(f"Data summary:")
+        logger.info(f"  Total points: {len(df)}")
+        logger.info(f"  Years: {sorted(df['year'].unique())}")
+        logger.info(f"  Markets: {sorted(df['market'].unique())}")
+        logger.info(f"  Flexibilities: {sorted(df['flexibility'].unique())}")
+        logger.info(f"  Capacity range: {df['capacity'].min():.1f} - {df['capacity'].max():.1f} (10k tons/year)")
+        logger.info(f"  Net value range: {df['net_value'].min():.2f} - {df['net_value'].max():.2f} (Billion CNY)")
+        
+    except Exception as e:
+        logger.error(f"Error saving CSV: {str(e)}")
 
 def find_available_years(results_dir, base_version):
     """
@@ -314,7 +506,7 @@ def calculate_actual_capacity_ratio(year: int, cap_ratio: float, demand_level: s
     
     return actual_ratio
 
-def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
+def find_optimal_points(base_version, capacity_ratios, results_dir='results', use_cache=True):
     """
     Find optimal points for each year-market-flexibility combination
     
@@ -326,12 +518,26 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
         List of capacity ratios
     results_dir : str
         Results directory
+    use_cache : bool
+        Whether to use cache if available
         
     Returns:
     --------
     list
         List containing optimal point information, each element is (year, market, flexibility, capacity, net_value)
     """
+    # Generate cache key
+    cache_key = generate_cache_key(base_version, capacity_ratios, results_dir)
+    
+    # Try to load from cache first
+    if use_cache:
+        cached_data = load_optimal_points_cache(cache_key)
+        if cached_data is not None:
+            logger.info("Using cached optimal points data")
+            return cached_data
+        else:
+            logger.info("Cache not available or outdated, computing optimal points...")
+    
     # Euro to CNY conversion rate
     EUR_TO_CNY = 7.8
     
@@ -474,6 +680,10 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
                     
                     logger.info(f"{year}-{market}-{flexibility} optimal point: capacity={optimal_capacity:.1f} 10,000 tons/year, net_value={optimal_net_value/1e9:.2f}B CNY")
     
+    # Save to cache
+    if optimal_points:
+        save_optimal_points_cache(optimal_points, cache_key)
+    
     return optimal_points
 
 def calculate_excess_ratio(capacity, demand):
@@ -495,7 +705,7 @@ def calculate_excess_ratio(capacity, demand):
     excess_ratio = 1 - (demand / capacity) if capacity > 0 else 0
     return excess_ratio
 
-def plot_optimal_points_distribution():
+def plot_optimal_points_distribution(use_cache=True, save_csv=True):
     """
     Plot optimal points distribution
     Top: Point distribution and density function of optimal excess ratio
@@ -517,11 +727,15 @@ def plot_optimal_points_distribution():
     capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
     
     # Find all optimal points
-    optimal_points = find_optimal_points(base_version, capacity_ratios, 'results')
+    optimal_points = find_optimal_points(base_version, capacity_ratios, 'results', use_cache)
     
     if not optimal_points:
         logger.error("No optimal point data found")
         return
+    
+    # Save data to CSV if requested
+    if save_csv:
+        save_optimal_points_to_csv(optimal_points, 'optimal_points_distribution')
     
     # Group data by year
     years = sorted(list(set([point['year'] for point in optimal_points])))
@@ -641,7 +855,7 @@ def plot_optimal_points_distribution():
     # Show plot
     # plt.show()
 
-def plot_optimal_points_boxplot():
+def plot_optimal_points_boxplot(use_cache=True, save_csv=True):
     """
     Plot box plot of optimal points showing capacity and net value distribution by year
     """
@@ -658,11 +872,15 @@ def plot_optimal_points_boxplot():
     capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
     
     # Find all optimal points
-    optimal_points = find_optimal_points(base_version, capacity_ratios, 'results')
+    optimal_points = find_optimal_points(base_version, capacity_ratios, 'results', use_cache)
     
     if not optimal_points:
         logger.error("No optimal point data found")
         return
+    
+    # Save data to CSV if requested
+    if save_csv:
+        save_optimal_points_to_csv(optimal_points, 'optimal_points_boxplot')
     
     # Create box plot
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
@@ -763,7 +981,7 @@ def plot_optimal_points_boxplot():
     # Show plot
     # plt.show()
 
-def plot_optimal_points_scatter():
+def plot_optimal_points_scatter(use_cache=True, save_csv=True):
     """
     Plot scatter chart of optimal points showing capacity and net value
     """
@@ -780,11 +998,15 @@ def plot_optimal_points_scatter():
     capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
     
     # Find all optimal points
-    optimal_points = find_optimal_points(base_version, capacity_ratios, 'results')
+    optimal_points = find_optimal_points(base_version, capacity_ratios, 'results', use_cache)
     
     if not optimal_points:
         logger.error("No optimal point data found")
         return
+    
+    # Save data to CSV if requested
+    if save_csv:
+        save_optimal_points_to_csv(optimal_points, 'optimal_points_scatter')
     
     # Create scatter plot
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -916,23 +1138,33 @@ def main():
     parser.add_argument('--output', default='results/optimal_points_analysis', help='Output directory')
     parser.add_argument('--plot-type', choices=['distribution', 'scatter', 'boxplot'], default='distribution', 
                        help='Plot type: distribution (default), scatter, or boxplot')
+    parser.add_argument('--no-cache', action='store_true', 
+                       help='Disable cache and force recomputation of optimal points')
+    parser.add_argument('--no-csv', action='store_true', 
+                       help='Disable CSV output (only generate plots)')
     
     args = parser.parse_args()
+    
+    # Determine cache usage
+    use_cache = not args.no_cache
+    save_csv = not args.no_csv
     
     logger.info(f"Starting analysis of optimal points capacity and net value")
     logger.info(f"Results directory: {args.results_dir}")
     logger.info(f"Output directory: {args.output}")
     logger.info(f"Plot type: {args.plot_type}")
+    logger.info(f"Use cache: {use_cache}")
+    logger.info(f"Save CSV: {save_csv}")
     
     if args.plot_type == 'distribution':
         # Plot optimal points distribution
-        plot_optimal_points_distribution()
+        plot_optimal_points_distribution(use_cache, save_csv)
     elif args.plot_type == 'scatter':
         # Plot optimal points scatter
-        plot_optimal_points_scatter()
+        plot_optimal_points_scatter(use_cache, save_csv)
     elif args.plot_type == 'boxplot':
         # Plot optimal points box plot
-        plot_optimal_points_boxplot()
+        plot_optimal_points_boxplot(use_cache, save_csv)
     
     logger.info("Analysis completed!")
 
