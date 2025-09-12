@@ -283,7 +283,74 @@ def calculate_total_emissions_from_costs(costs_data):
     
     return total_emissions
 
-def plot_single_year_market(year, market, base_version, capacity_ratios, results_dir, ax):
+def save_plot_data_to_csv(plot_data, output_dir, year, market):
+    """
+    将画图数据保存为CSV文件
+    
+    Parameters:
+    -----------
+    plot_data : dict
+        包含所有计算结果的字典
+    output_dir : str or Path
+        输出目录路径
+    year : int
+        年份
+    market : str
+        市场机会级别
+    """
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # 创建详细数据表格
+    detailed_data = []
+    for i, ratio in enumerate(plot_data['capacity_ratios']):
+        detailed_data.append({
+            'Capacity_Ratio': ratio,
+            'Capacity_Value_Mt': plot_data['capacity_values'][i],
+            'Power_Cost_Changes_Billion_CNY': plot_data['power_cost_changes'][i] / 1e9,
+            'Aluminum_Cost_Changes_Billion_CNY': plot_data['aluminum_cost_changes'][i] / 1e9,
+            'Net_Cost_Savings_Billion_CNY': plot_data['net_cost_savings'][i] / 1e9,
+            'Emissions_Changes_Million_Tonnes_CO2': plot_data['emissions_changes'][i],
+            'Is_Max_Savings': i == plot_data['max_saving_index']
+        })
+    
+    # 保存详细数据
+    detailed_df = pd.DataFrame(detailed_data)
+    detailed_file = output_path / f"mmm_{year}_{market}_detailed_data.csv"
+    detailed_df.to_csv(detailed_file, index=False, encoding='utf-8')
+    logger.info(f"Detailed data saved to: {detailed_file}")
+    
+    # 创建汇总数据表格
+    summary_data = {
+        'Year': [year],
+        'Market': [market],
+        'Base_Version': [plot_data['base_version']],
+        'Max_Net_Savings_Billion_CNY': [plot_data['max_saving_value'] / 1e9],
+        'Max_Savings_Capacity_Mt': [plot_data['max_saving_capacity']],
+        'Max_Savings_Capacity_Ratio': [plot_data['capacity_ratios'][plot_data['max_saving_index']]],
+        'Total_Power_Cost_Savings_Billion_CNY': [sum(plot_data['power_cost_changes']) / 1e9],
+        'Total_Aluminum_Cost_Changes_Billion_CNY': [sum(plot_data['aluminum_cost_changes']) / 1e9],
+        'Total_Net_Cost_Savings_Billion_CNY': [sum(plot_data['net_cost_savings']) / 1e9],
+        'Total_Emissions_Reduction_Million_Tonnes_CO2': [sum(plot_data['emissions_changes'])]
+    }
+    
+    summary_df = pd.DataFrame(summary_data)
+    summary_file = output_path / f"mmm_{year}_{market}_summary.csv"
+    summary_df.to_csv(summary_file, index=False, encoding='utf-8')
+    logger.info(f"Summary data saved to: {summary_file}")
+    
+    # 创建成本分类数据表格（如果可用）
+    try:
+        # 这里可以添加更详细的成本分类数据保存
+        cost_breakdown_file = output_path / f"mmm_{year}_{market}_cost_breakdown.csv"
+        # 暂时创建一个空的成本分解文件，后续可以扩展
+        pd.DataFrame({'Note': ['Cost breakdown data will be added in future versions']}).to_csv(
+            cost_breakdown_file, index=False, encoding='utf-8')
+        logger.info(f"Cost breakdown placeholder saved to: {cost_breakdown_file}")
+    except Exception as e:
+        logger.warning(f"Could not save cost breakdown data: {str(e)}")
+
+def plot_single_year_market(year, market, base_version, capacity_ratios, results_dir, ax, save_data=True, output_dir=None):
     """
     绘制单个年份-市场组合的图表
     
@@ -301,6 +368,15 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
         结果目录
     ax : matplotlib.axes.Axes
         子图对象
+    save_data : bool
+        是否保存数据到CSV文件
+    output_dir : str or Path
+        输出目录路径
+        
+    Returns:
+    --------
+    dict
+        包含所有计算结果的字典
     """
     # 欧元到人民币转换率
     EUR_TO_CNY = 7.8
@@ -493,6 +569,28 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
     ax2.set_yticklabels(y2_tick_labels, fontsize=12, color='red')
     
     # 不在这里添加图例，只在总图上添加一个统一的图例
+    
+    # 准备返回的数据
+    plot_data = {
+        'capacity_values': capacity_values,
+        'power_cost_changes': power_cost_changes,
+        'aluminum_cost_changes': aluminum_cost_changes,
+        'net_cost_savings': net_cost_savings,
+        'emissions_changes': emissions_changes,
+        'max_saving_index': max_saving_index,
+        'max_saving_value': max_saving_value,
+        'max_saving_capacity': max_saving_capacity,
+        'year': year,
+        'market': market,
+        'base_version': base_version,
+        'capacity_ratios': capacity_ratios
+    }
+    
+    # 保存数据到CSV文件
+    if save_data and output_dir is not None:
+        save_plot_data_to_csv(plot_data, output_dir, year, market)
+    
+    return plot_data
 
 def plot_mmm_2050_analysis():
     """
@@ -515,10 +613,17 @@ def plot_mmm_2050_analysis():
     market = 'M'
     
     # 创建单个图表
-    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    fig, ax = plt.subplots(1, 1, figsize=(10, 8.5))
     
     logger.info(f"Plotting MMM-2050 scenario chart...")
-    plot_single_year_market(year, market, base_version, capacity_ratios, 'results', ax)
+    
+    # 设置输出目录
+    output_dir = Path('results/mmm_2050_analysis')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 调用绘图函数并保存数据
+    plot_data = plot_single_year_market(year, market, base_version, capacity_ratios, 'results', ax, 
+                                       save_data=True, output_dir=output_dir)
     
     # 创建图例
     legend_elements = [
@@ -538,13 +643,16 @@ def plot_mmm_2050_analysis():
     
     plt.tight_layout()
     
-    # 保存图表
-    output_dir = Path('results/mmm_2050_analysis')
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
+    # 保存图表（输出目录已在前面创建）
     plot_file = output_dir / "mmm_2050_analysis.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     logger.info(f"MMM-2050 scenario analysis chart saved to: {plot_file}")
+    
+    # 打印数据保存信息
+    logger.info(f"Data files saved to: {output_dir}")
+    logger.info(f"- Detailed data: mmm_{year}_{market}_detailed_data.csv")
+    logger.info(f"- Summary data: mmm_{year}_{market}_summary.csv")
+    logger.info(f"- Cost breakdown: mmm_{year}_{market}_cost_breakdown.csv")
     
     # plt.show()
 
