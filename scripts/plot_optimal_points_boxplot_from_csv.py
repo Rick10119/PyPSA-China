@@ -334,6 +334,31 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
             ax1.axhline(y=demand, xmin=(i-1)/len(years), xmax=i/len(years), 
                        color=year_colors[year], linestyle='--', linewidth=3, alpha=0.8)
     
+    # 计算每年的平均产能
+    year_capacity_means = {}
+    for i, year in enumerate(years):
+        year_data = df[df['year'] == year]
+        if not year_data.empty:
+            year_capacity_means[year] = year_data['capacity'].mean()
+    
+    # 添加连接需求值的虚线
+    demand_years = [year for year in years if year in demand_by_year]
+    if len(demand_years) > 1:
+        demand_values = [demand_by_year[year] for year in demand_years]
+        # 将年份转换为x轴位置（1, 2, 3...）
+        demand_x_positions = [years.index(year) + 1 for year in demand_years]
+        ax1.plot(demand_x_positions, demand_values, 'k--', linewidth=2, alpha=0.6, 
+                label='Demand Trend')
+    
+    # 添加连接平均产能的虚线
+    if len(year_capacity_means) > 1:
+        capacity_years = sorted(year_capacity_means.keys())
+        capacity_values = [year_capacity_means[year] for year in capacity_years]
+        # 将年份转换为x轴位置（1, 2, 3...）
+        capacity_x_positions = [years.index(year) + 1 for year in capacity_years]
+        ax1.plot(capacity_x_positions, capacity_values, 'b--', linewidth=2, alpha=0.6, 
+                label='Average Capacity Trend')
+    
     # 下图：净价值箱线图
     bp2 = ax2.boxplot(net_value_data, labels=year_labels, patch_artist=True, 
                      boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
@@ -350,8 +375,8 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     
     # 添加图例
     legend_elements = []
-    for year in years:
-        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=year_colors[year], alpha=0.7, label=f'{year}'))
+    # for year in years:
+    #     legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=year_colors[year], alpha=0.7, label=f'{year}'))
     
     # 添加需求线到图例
     for year, demand in demand_by_year.items():
@@ -359,9 +384,18 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
             legend_elements.append(plt.Line2D([0], [0], color=year_colors[year], linestyle='--', linewidth=3, 
                                             label=f'{year} Demand'))
     
+    # 添加趋势线到图例
+    if len(demand_years) > 1:
+        legend_elements.append(plt.Line2D([0], [0], color='k', linestyle='--', linewidth=2, 
+                                        label='Primary Aluminum Demand'))
+    
+    if len(year_capacity_means) > 1:
+        legend_elements.append(plt.Line2D([0], [0], color='b', linestyle='--', linewidth=2, 
+                                        label='Optimal Smelting Capacity'))
+    
     # 只在图形外部添加一个图例
     fig.legend(handles=legend_elements, loc='lower center',
-              ncol=len(legend_elements), fontsize=12)
+              ncol=len(legend_elements), fontsize=10)
     
     # 调整布局，为图例留出空间
     # plt.tight_layout(rect=[0, 0.1, 1, 1])
