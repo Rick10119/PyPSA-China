@@ -269,8 +269,8 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
             
             if storage_values:
                 ax1_twin = ax1.twinx()
-                ax1_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Daily Avg Storage')
-                ax1_twin.set_ylabel('Storage Level (Mt)', color='black')
+                ax1_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Stored aluminum')
+                ax1_twin.set_ylabel('Stored aluminum (Mt)', color='black')
                 ax1_twin.tick_params(axis='y', labelcolor='black')
                 ax1_twin.legend(loc='upper right')
                 ax1_twin.set_xlim(0, len(day_columns))
@@ -302,8 +302,8 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
             
             if storage_values:
                 ax2_twin = ax2.twinx()
-                ax2_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Daily Avg Storage')
-                ax2_twin.set_ylabel('Storage Level (Mt)', color='black')
+                ax2_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Stored aluminum')
+                ax2_twin.set_ylabel('Stored aluminum (Mt)', color='black')
                 ax2_twin.tick_params(axis='y', labelcolor='black')
                 ax2_twin.legend(loc='upper right')
                 ax2_twin.set_xlim(0, len(day_columns))

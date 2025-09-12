@@ -82,33 +82,37 @@ def create_aluminum_cost_bar_chart():
                     ax.text(bar.get_x() + bar.get_width()/2, 
                            bar.get_y() + height/2, 
                            f'{cost:.0f}', ha='center', va='center', 
-                           fontsize=9, fontweight='bold', color='black')
+                           fontsize=12, fontweight='bold', color='black')
         
         # 更新底部位置
         bottom += category_costs
     
     # 设置图表属性
-    ax.set_xlabel('Scenarios', fontsize=14, fontweight='bold')
-    ax.set_ylabel('Levelized cost (CNY/tonne)', fontsize=14, fontweight='bold')
+    ax.set_xlabel('Scenarios', fontsize=16, fontweight='bold')
+    ax.set_ylabel('Levelized cost (CNY/tonne)', fontsize=16, fontweight='bold')
     # ax.set_title('Aluminum Cost Composition Comparison\n(Stacked Bar Chart)', 
     #             fontsize=16, fontweight='bold', pad=20)
     
     # 设置x轴标签
     ax.set_xticks(x)
-    ax.set_xticklabels(scenarios, fontsize=12)
+    ax.set_xticklabels(scenarios, fontsize=14)
+    
+    # 设置y轴标签
+    ax.set_yticks(np.arange(8000, 20000, 2000))
+    ax.set_yticklabels([f'{int(tick)}' for tick in np.arange(8000, 20000, 2000)], fontsize=14)
     
     # 添加总成本标签在柱子顶部
     for i, total in enumerate(scenario_totals):
         ax.text(i, total + 200, f'Total: {total:.0f}', 
-               ha='center', va='bottom', fontsize=11, fontweight='bold')
+               ha='center', va='bottom', fontsize=12, fontweight='bold')
     
     # 添加图例 - 放在图中间，分为两行，顺序相反
     handles, labels = ax.get_legend_handles_labels()
     # 反转顺序
     handles = handles[::-1]
     labels = labels[::-1]
-    ax.legend(handles, labels, bbox_to_anchor=(0.5, -0.05), loc='upper center', 
-              ncol=4, fontsize=12, frameon=True, fancybox=True, shadow=True)
+    ax.legend(handles, labels, bbox_to_anchor=(0.5, -0.1), loc='upper center', 
+              ncol=4, fontsize=14, frameon=True, fancybox=True, shadow=True)
     
     # 添加网格
     ax.grid(True, alpha=0.3, axis='y')
