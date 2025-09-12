@@ -8,22 +8,13 @@ The plots show how different energy resources operate throughout one week, with 
 For storage technologies, a positive value indicates the process of discharging, whereas a negative value signifies the charging process.
 """
 
+from _helpers import configure_logging
 import seaborn as sns
 import pandas as pd
 import pypsa
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime, timedelta
-import os
-import logging
-
-# 用户指定的版本号和年份
-VERSION1 = "0723.8H.4"
-TARGET_YEAR = "2050"
-
-# 设置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 def set_plot_style():
     """
@@ -41,7 +32,7 @@ def set_plot_style():
                     'pdf.fonttype': 42,
                     }])
 
-def plot_weekly_system_operation(n, config=None):
+def plot_weekly_system_operation(n, config):
     """
     Generates weekly system operation plots showing various resource outputs.
     
@@ -49,11 +40,10 @@ def plot_weekly_system_operation(n, config=None):
     -----------
     n : pypsa.Network
         The PyPSA network object containing the simulation results
-    config : dict, optional
+    config : dict
         Configuration dictionary containing plotting parameters
     """
-    # 使用用户指定的版本号和年份
-    planning_horizon = TARGET_YEAR
+    planning_horizon = snakemake.wildcards.planning_horizons
     
     # Define time periods for analysis
     # Heating period typically ends around March 15th in China
@@ -77,7 +67,7 @@ def plot_weekly_system_operation(n, config=None):
             break
     
     if april_start is None or january_start is None:
-        logger.warning("Could not find appropriate dates for weekly analysis")
+        print("Warning: Could not find appropriate dates for weekly analysis")
         return
     
     # Define one week (168 hours)
@@ -96,12 +86,12 @@ def plot_weekly_system_operation(n, config=None):
         week_data = time_index[mask]
         
         if len(week_data) < week_hours:
-            logger.warning(f"Insufficient data for {period_name}")
+            print(f"Warning: Insufficient data for {period_name}")
             continue
         
         # Create subplots for different resource types
         fig, axes = plt.subplots(4, 1, figsize=(15, 12))
-        fig.suptitle(f'System Operation Throughout 1 Week - {period_name} ({planning_horizon}) - {VERSION1}', fontsize=16)
+        fig.suptitle(f'System Operation Throughout 1 Week - {period_name} ({planning_horizon})', fontsize=16)
         
         # 1. Renewable Generation
         ax1 = axes[0]
@@ -197,18 +187,13 @@ def plot_weekly_system_operation(n, config=None):
             ax.set_xticks(week_data[::24])
             ax.set_xticklabels([d.strftime('%m-%d') for d in week_data[::24]], rotation=45)
         
-        # Save the plot with version number in filename
+        # Save the plot
         period_suffix = 'non_heating' if 'April' in period_name else 'heating'
-        output_file = f"results/profiles/weekly_operation_{period_suffix}_{TARGET_YEAR}_{VERSION1}.png"
-        
-        # 确保results目录存在
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        
+        output_file = snakemake.output[f"weekly_operation_{period_suffix}"]
         fig.savefig(output_file, dpi=150, bbox_inches='tight')
         plt.close()
-        logger.info(f"已保存图表: {output_file}")
 
-def plot_heating_comparison(n, config=None):
+def plot_heating_comparison(n, config):
     """
     Generates a comparison plot showing heating demand and supply during heating vs non-heating periods.
     
@@ -216,11 +201,10 @@ def plot_heating_comparison(n, config=None):
     -----------
     n : pypsa.Network
         The PyPSA network object containing the simulation results
-    config : dict, optional
+    config : dict
         Configuration dictionary containing plotting parameters
     """
-    # 使用用户指定的版本号和年份
-    planning_horizon = TARGET_YEAR
+    planning_horizon = snakemake.wildcards.planning_horizons
     
     # Get the full time index
     time_index = n.stores_t.p.index
@@ -238,14 +222,14 @@ def plot_heating_comparison(n, config=None):
             break
     
     if april_start is None or january_start is None:
-        logger.warning("Could not find appropriate dates for heating comparison")
+        print("Warning: Could not find appropriate dates for heating comparison")
         return
     
     # Get one week of data for each period
     week_hours = 168
     
     fig, axes = plt.subplots(2, 1, figsize=(15, 10))
-    fig.suptitle(f'Heating System Comparison - {planning_horizon} - {VERSION1}', fontsize=16)
+    fig.suptitle(f'Heating System Comparison - {planning_horizon}', fontsize=16)
     
     periods = [
         (april_start, 'Non-heating period (April)', axes[0]),
@@ -292,21 +276,12 @@ def plot_heating_comparison(n, config=None):
         ax.set_xticks(week_data[::24])
         ax.set_xticklabels([d.strftime('%m-%d') for d in week_data[::24]], rotation=45)
     
-    # Save the plot with version number in filename
-    output_file = f"results/profiles/heating_comparison_{TARGET_YEAR}_{VERSION1}.png"
-    
-    # 确保results目录存在
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    
+    # Save the plot
+    output_file = snakemake.output["heating_comparison"]
     fig.savefig(output_file, dpi=150, bbox_inches='tight')
     plt.close()
-    logger.info(f"已保存图表: {output_file}")
 
-
-
-
-
-def export_load_data_to_csv(n, config=None):
+def export_load_data_to_csv(n, config):
     """
     导出电力负荷数据到CSV格式，只包含AC bus的load、heat pump和resistive heater数据。
     
@@ -314,18 +289,17 @@ def export_load_data_to_csv(n, config=None):
     -----------
     n : pypsa.Network
         The PyPSA network object containing the simulation results
-    config : dict, optional
+    config : dict
         Configuration dictionary containing plotting parameters
     """
-    # 使用用户指定的版本号和年份
-    planning_horizon = TARGET_YEAR
+    planning_horizon = snakemake.wildcards.planning_horizons
     
     # 获取时间索引
     time_index = n.stores_t.p.index
     
     # 获取AC bus列表
     ac_buses = n.buses[n.buses.carrier == 'AC'].index.tolist()
-    logger.info(f"找到的AC bus: {ac_buses}")
+    print(f"找到的AC bus: {ac_buses}")
     
     # 创建空的DataFrame来存储负荷数据
     load_data = pd.DataFrame(index=time_index)
@@ -403,18 +377,14 @@ def export_load_data_to_csv(n, config=None):
         'total_consumption': total_consumption
     })
     
-    # 6. 保存到CSV文件，包含版本号
-    output_file = f"results/ac_bus_load_data_{planning_horizon}_{VERSION1}.csv"
-    
-    # 确保results目录存在
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    
+    # 6. 保存到CSV文件
+    output_file = snakemake.output.get("load_data_csv", f"results/ac_bus_load_data_{planning_horizon}.csv")
     final_data.to_csv(output_file, index=False)
     
-    logger.info(f"AC bus负荷数据已保存到: {output_file}")
-    logger.info(f"数据包含 {len(final_data)} 个时间点")
-    logger.info(f"AC bus列表: {ac_buses}")
-    logger.info(f"输出列: datetime, total_consumption")
+    print(f"AC bus负荷数据已保存到: {output_file}")
+    print(f"数据包含 {len(final_data)} 个时间点")
+    print(f"AC bus列表: {ac_buses}")
+    print(f"输出列: datetime, total_consumption")
     
     # 7. 生成汇总统计
     summary_stats = {
@@ -423,42 +393,37 @@ def export_load_data_to_csv(n, config=None):
         '总消耗最小值 (MW)': final_data['total_consumption'].min(),
     }
     
-    logger.info("\n汇总统计:")
+    print("\n汇总统计:")
     for key, value in summary_stats.items():
-        logger.info(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")
     
     return final_data
 
-def main():
-    """
-    主函数，用于直接运行脚本
-    """
-    # 设置网络文件路径 - 根据实际文件位置修改
-    network_file = f"results/version-{VERSION1}/postnetworks/positive/postnetwork-ll-current+Neighbor-linear{TARGET_YEAR}-{TARGET_YEAR}.nc"
-    
-    # 检查网络文件是否存在
-    if not os.path.exists(network_file):
-        logger.error(f"网络文件不存在: {network_file}")
-        logger.info("请检查文件路径是否正确，或者修改main()函数中的network_file变量")
-        return
-    
-    # Initialize plotting style
+if __name__ == "__main__":
+    # Set up mock snakemake for testing if not running in snakemake
+    if 'snakemake' not in globals():
+        from _helpers import mock_snakemake
+        snakemake = mock_snakemake('plot_profile',
+                                   opts='ll',
+                                   topology ='current+Neighbor',
+                                   pathway ='exponential175',
+                                   planning_horizons="2020")
+    configure_logging(snakemake)
+
+    # Initialize plotting style and load configuration
     set_plot_style()
-    
-    # Load the network
-    logger.info(f"正在加载网络文件: {network_file}")
-    n = pypsa.Network(network_file)
-    
-    logger.info(f"正在处理版本 {VERSION1} 的 {TARGET_YEAR} 年数据...")
+    config = snakemake.config
+
+    # Get plotting parameters from config
+    map_figsize = config["plotting"]['map']['figsize']
+    map_boundaries = config["plotting"]['map']['boundaries']
+
+    # Load the network and generate plots
+    n = pypsa.Network(snakemake.input.network)
     
     # Generate weekly system operation plots
-    plot_weekly_system_operation(n)
-    plot_heating_comparison(n)
+    plot_weekly_system_operation(n, config)
+    plot_heating_comparison(n, config)
     
-    # # Export load data to CSV format (取消注释以启用)
-    # export_load_data_to_csv(n)
-    
-    logger.info("所有图表生成完成！")
-
-if __name__ == "__main__":
-    main()
+    # # Export load data to CSV format
+    # export_load_data_to_csv(n, config)

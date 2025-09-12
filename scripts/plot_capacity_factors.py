@@ -25,8 +25,8 @@ def set_plot_style():
                    {'axes.grid': False, 'grid.linestyle': '--', 'grid.color': u'0.6',
                     'hatch.color': 'white',
                     'patch.linewidth': 0.5,
-                    'font.size': 12,
-                    'legend.fontsize': 'medium',
+                    'font.size': 20,
+                    'legend.fontsize': 'large',
                     'lines.linewidth': 1.5,
                     'pdf.fonttype': 42,
                     }])
@@ -209,12 +209,14 @@ def calculate_monthly_capacity_factors(n):
         capacity = non_zero_capacity[gen]
         print(f"  {gen} ({carrier}): {capacity:.2f} MW")
     
-    # Define technology groups with more specific matching (removed wind, solar, biomass)
+    # Define technology groups with more specific matching
     tech_groups = {
         'Hydro': ['hydro', 'hydroelectricity'],
         'Nuclear': ['nuclear'],
         'Coal': ['coal cc', 'CHP coal', 'coal power plant'],
         'Gas': ['OCGT gas', 'CHP gas'],
+        'Wind': ['onwind', 'offwind', 'wind'],
+        'Solar': ['solar', 'solar pv', 'pv'],
         'Aluminum': ['aluminum', 'smelter'],
         'Other': []  # Will catch any other technologies
     }
@@ -446,6 +448,70 @@ def calculate_monthly_load_factors(n):
     
     return monthly_load
 
+def save_monthly_data_to_csv(monthly_cf, monthly_load, planning_horizon, target_province=None):
+    """
+    Save monthly capacity factors and load factors to CSV files.
+    
+    Parameters:
+    -----------
+    monthly_cf : dict
+        Dictionary containing monthly capacity factors for different technologies
+    monthly_load : dict
+        Dictionary containing monthly load factors for different load types
+    planning_horizon : str
+        The planning horizon (e.g., '2020')
+    target_province : str, optional
+        The target province name (e.g., 'Shandong')
+    """
+    import os
+    
+    # Create output directory if it doesn't exist
+    output_dir = "results/monthly_capacity_factors"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create filename with province information
+    filename_suffix = f"_{target_province}" if target_province else ""
+    csv_filename = f"{output_dir}/monthly_capacity_factors_{planning_horizon}{filename_suffix}.csv"
+    
+    # Combine all data into a single DataFrame
+    all_data = {}
+    
+    # Add capacity factors
+    for tech, cf_data in monthly_cf.items():
+        if not cf_data.empty:
+            all_data[f"{tech}_Capacity_Factor"] = cf_data
+    
+    # Add load factors
+    for load_type, load_data in monthly_load.items():
+        if not load_data.empty:
+            all_data[f"{load_type}_Load_Factor"] = load_data
+    
+    if all_data:
+        # Create DataFrame
+        df = pd.DataFrame(all_data)
+        df.index.name = 'Month'
+        
+        # Add month names
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        df['Month_Name'] = [month_names[i-1] for i in df.index]
+        
+        # Reorder columns to put Month_Name first
+        cols = ['Month_Name'] + [col for col in df.columns if col != 'Month_Name']
+        df = df[cols]
+        
+        # Save to CSV
+        df.to_csv(csv_filename, index=True)
+        print(f"\n月度容量因子和负荷因子数据已保存到: {csv_filename}")
+        
+        # Print summary of saved data
+        print(f"保存的数据包括:")
+        for col in df.columns:
+            if col != 'Month_Name':
+                print(f"  - {col}")
+    else:
+        print("警告: 没有可保存的数据")
+
 def plot_capacity_factors(n, config, target_province=None):
     """
     Generate capacity factor plots for all energy resources.
@@ -482,6 +548,8 @@ def plot_capacity_factors(n, config, target_province=None):
         'Nuclear': '#800080',    # Purple
         'Coal': '#000000',       # Black
         'Gas': '#FF0000',        # Red
+        'Wind': '#00BFFF',       # Deep sky blue
+        'Solar': '#FFD700',      # Gold
         'Aluminum': '#FF69B4',   # Hot pink
         'Other': '#808080'       # Gray
     }
@@ -494,7 +562,7 @@ def plot_capacity_factors(n, config, target_province=None):
     }
     
     # Plot all capacity factors in one graph
-    all_techs = ['Hydro', 'Nuclear', 'Coal', 'Gas', 'Aluminum', 'Other']
+    all_techs = ['Hydro', 'Nuclear', 'Coal', 'Gas', 'Wind', 'Solar', 'Aluminum', 'Other']
     for tech in all_techs:
         if tech in monthly_cf:
             months = monthly_cf[tech].index
@@ -510,8 +578,8 @@ def plot_capacity_factors(n, config, target_province=None):
             ax.plot(months, values, 's--', color=load_colors.get(load_type, '#000000'), 
                     linewidth=2, markersize=6, label=load_type)
     
-    ax.set_ylabel('Capacity/Load Factor (p.u.)', fontsize=12)
-    ax.set_xlabel('Month', fontsize=12)
+    ax.set_ylabel('Capacity/Load Factor (p.u.)', fontsize=20)
+    ax.set_xlabel('Month', fontsize=20)
     ax.set_title('Monthly Capacity Factors & Load Factors', fontsize=14, fontweight='bold')
     ax.set_xlim(1, 12)
     ax.set_ylim(0, 1.0)
@@ -531,7 +599,7 @@ def plot_capacity_factors(n, config, target_province=None):
                            textcoords="offset points", xytext=(0,10), 
                            ha='center', fontsize=8)
     
-    for load_type in ['Electricity Load', 'Heating Load', 'Aluminum Load']:
+    for load_type in ['Electricity Load', 'Heating Load']:
         if load_type in monthly_load:
             months = monthly_load[load_type].index
             values = monthly_load[load_type].values
@@ -547,11 +615,14 @@ def plot_capacity_factors(n, config, target_province=None):
     if target_province:
         title += f' ({target_province})'
     
-    fig.suptitle(title, fontsize=16, fontweight='bold', y=0.98)
+    # fig.suptitle(title, fontsize=16, fontweight='bold', y=0.98)
     
     # Save the plot
     fig.savefig(snakemake.output["capacity_factors"], dpi=150, bbox_inches='tight')
     plt.close()
+    
+    # Save monthly capacity factors to CSV
+    save_monthly_data_to_csv(monthly_cf, monthly_load, planning_horizon, target_province)
     
     # Print summary statistics
     province_info = f" - {target_province}" if target_province else ""
@@ -594,8 +665,8 @@ if __name__ == "__main__":
     n = pypsa.Network(snakemake.input.network)
     
     # Check if province filtering is requested
-    # target_province = "Yunnan"
-    target_province = None
+    target_province = "Guangxi"
+    # target_province = None
     if hasattr(snakemake.config, 'single_node_province') and snakemake.config.get('using_single_node', False):
         target_province = snakemake.config['single_node_province']
         print(f"检测到单节点模式，将过滤 {target_province} 省份的结果")
