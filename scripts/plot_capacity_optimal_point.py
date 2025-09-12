@@ -478,8 +478,7 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results'):
 
 def calculate_excess_ratio(capacity, demand):
     """
-    Calculate excess ratio: 1 - (demand/retention_ratio)
-    where retention_ratio = capacity/total_capacity, total_capacity fixed at 45 million tons
+    Calculate excess ratio: 1 - (demand/capacity)
     
     Parameters:
     -----------
@@ -493,9 +492,7 @@ def calculate_excess_ratio(capacity, demand):
     float
         Excess ratio
     """
-    total_capacity = 4500  # Total capacity 45 million tons
-    retention_ratio = capacity / total_capacity  # Retention ratio
-    excess_ratio = 1 - (demand / retention_ratio) if retention_ratio > 0 else 0
+    excess_ratio = 1 - (demand / capacity) if capacity > 0 else 0
     return excess_ratio
 
 def plot_optimal_points_distribution():
@@ -583,11 +580,11 @@ def plot_optimal_points_distribution():
             pdf = norm.pdf(x_range, mu, sigma)
             
             # Scale PDF to appropriate range and offset to corresponding year
-            pdf_scaled = pdf * 0.3 + year  # Scale and offset
-            ax1.plot(pdf_scaled, x_range, color=year_colors[year], linewidth=2, alpha=0.8)
+            pdf_scaled = pdf * 1.0 + year  # Scale and offset (increased from 0.3 to 1.0)
+            ax1.plot(pdf_scaled, x_range, color=year_colors[year], linewidth=3, alpha=0.9)
             
             # Add mean and standard deviation information
-            ax1.text(year, max(excess_ratios) + 0.1, f'Mean={mu:.3f}\nStd={sigma:.3f}', 
+            ax1.text(year, max(excess_ratios) + 0.1, f'Mean={mu:.3f}', 
                     ha='center', va='bottom', fontsize=10, 
                     bbox=dict(boxstyle="round,pad=0.3", facecolor=year_colors[year], alpha=0.3))
     
@@ -595,7 +592,7 @@ def plot_optimal_points_distribution():
     ax1.set_ylabel('Excess Ratio', fontsize=14, fontweight='bold')
     ax1.set_xticks(years)
     ax1.grid(True, alpha=0.3)
-    ax1.legend(loc='upper right', fontsize=12)
+    # ax1.legend(loc='upper right', fontsize=12)  # Removed legend
     
     # Bottom plot: Optimal net value distribution
     ax2.set_title('Optimal Net Value Distribution', fontsize=16, fontweight='bold', pad=20)
@@ -617,11 +614,11 @@ def plot_optimal_points_distribution():
             pdf = norm.pdf(x_range, mu, sigma)
             
             # Scale PDF to appropriate range and offset to corresponding year
-            pdf_scaled = pdf * 0.3 + year  # Scale and offset
-            ax2.plot(pdf_scaled, x_range, color=year_colors[year], linewidth=2, alpha=0.8)
+            pdf_scaled = pdf * 1.0 + year  # Scale and offset (increased from 0.3 to 1.0)
+            ax2.plot(pdf_scaled, x_range, color=year_colors[year], linewidth=3, alpha=0.9)
             
             # Add mean and standard deviation information
-            ax2.text(year, max(net_values) + 0.5, f'Mean={mu:.2f}\nStd={sigma:.2f}', 
+            ax2.text(year, max(net_values) + 0.5, f'Mean={mu:.2f}', 
                     ha='center', va='bottom', fontsize=10, 
                     bbox=dict(boxstyle="round,pad=0.3", facecolor=year_colors[year], alpha=0.3))
     
@@ -629,7 +626,7 @@ def plot_optimal_points_distribution():
     ax2.set_ylabel('Net Value (Billion CNY)', fontsize=14, fontweight='bold')
     ax2.set_xticks(years)
     ax2.grid(True, alpha=0.3)
-    ax2.legend(loc='upper right', fontsize=12)
+    # ax2.legend(loc='upper right', fontsize=12)  # Removed legend
     
     plt.tight_layout()
     

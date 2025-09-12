@@ -626,7 +626,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         "Renewable investment": "#f9d002",  # solar color
 
         # Renewable investment
-        "Renewable investment": "#235ebc",  # Renewable investment color
+        "Renewable investment": "#2fb537",  # Renewable investment color
 
         # transmission lines
         "Transmission lines": "#6c9459",
@@ -634,7 +634,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         "Batteries": "#ace37f",  # battery color
         
         # long-duration storages
-        "Long-duration storages": "#2fb537",  # H2 color
+        "Long-duration storages": "#235ebc",
         
         # carbon capture
         "carbon capture": "#f29dae",  # CO2 color
@@ -848,6 +848,10 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         ax.set_yticks(y_ticks)
                         ax.set_yticklabels(y_tick_labels, fontsize=12)
                         
+                        # 完全禁用自动刻度调整，确保只显示指定的刻度
+                        ax.yaxis.set_major_locator(plt.FixedLocator(y_ticks))
+                        ax.yaxis.set_minor_locator(plt.NullLocator())
+                        
                         # 设置x轴标签为L, M, H
                         ax.set_xticks(x_pos)
                         ax.set_xticklabels([f'{demand}' for demand in demand_names], fontsize=14)
@@ -871,9 +875,9 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                             ax.set_title(f'Flexibility: {scenario_descriptions[flex]}', 
                                        fontsize=14, fontweight='bold', pad=10)
                             # 显示Demand标签
-                            ax.text(-0.2, 0.5, f'Demand: {scenario_descriptions[demand]}', 
-                                   fontsize=14, fontweight='bold', rotation=90, 
-                                   ha='center', va='center', transform=ax.transAxes)
+                            # ax.text(-0.2, 0.5, f'Demand: {scenario_descriptions[demand]}', 
+                            #        fontsize=14, fontweight='bold', rotation=90, 
+                            #        ha='center', va='center', transform=ax.transAxes)
                         if j == 0:  # 第一列显示flexibility标签
                             ax.text(-0.2, 0.5, f'Market: {scenario_descriptions[market]}', 
                                    fontsize=14, fontweight='bold', rotation=90, 
@@ -881,7 +885,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                         
                         # 第三列和第四列的y轴标签向左移动
                         if j >= 2:  # 第三列和第四列
-                            ax.tick_params(axis='y', pad=15)  # 增加标签与轴的距离
+                            ax.tick_params(axis='y', pad=12.5)  # 增加标签与轴的距离
                     else:
                         ax.text(0.5, 0.5, 'No valid data', ha='center', va='center', 
                                transform=ax.transAxes, fontsize=10)

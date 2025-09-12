@@ -29,7 +29,7 @@ conda activate pypsa-plot
 git restore .
 git pull
 snakemake --unlock
-sbatch job_scenario_analysis.slurm
+sbatch job_plot_optimal_point.slurm
 
 sbatch job_plot_optimal_point.slurm
 
