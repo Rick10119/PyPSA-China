@@ -113,6 +113,7 @@ def filter_network_by_province(n, target_province=None):
 def calculate_monthly_capacity_factors(n):
     """
     Calculate monthly average capacity factors for all generators and power-producing links in the network.
+    Uses actual maximum power output as denominator instead of installed capacity.
     
     Parameters:
     -----------
@@ -128,21 +129,21 @@ def calculate_monthly_capacity_factors(n):
         print("Warning: No generator time series data found")
         return {}
     
-    # Get generator power output and nominal capacity
+    # Get generator power output and calculate actual maximum power output
     gen_power = n.generators_t.p
-    gen_capacity = n.generators.p_nom_opt
+    gen_max_power = gen_power.max()  # Use actual maximum power output as capacity
     
-    # Get link power output and nominal capacity (for power-producing links)
+    # Get link power output and calculate actual maximum power output
     link_power = pd.DataFrame()
-    link_capacity = pd.Series()
+    link_max_power = pd.Series()
     
     if hasattr(n, 'links_t') and hasattr(n.links_t, 'p0'):
         # Filter links that produce electricity (bus1 is electricity bus)
         elec_links = n.links[n.links.bus1.isin(n.buses[n.buses.carrier == 'AC'].index)]
         if not elec_links.empty:
             link_power = n.links_t.p0[elec_links.index]
-            # Use p_nom_opt if available, otherwise use p_nom for fixed capacity links
-            link_capacity = elec_links.p_nom_opt.fillna(elec_links.p_nom)
+            # Use actual maximum power output as capacity
+            link_max_power = link_power.max()
         
         # Also include aluminum smelters even if they don't connect to AC bus
         aluminum_smelters = n.links[n.links.carrier == 'aluminum']
@@ -152,10 +153,9 @@ def calculate_monthly_capacity_factors(n):
                 if link in n.links_t.p0.columns:
                     if link not in link_power.columns:
                         link_power[link] = n.links_t.p0[link]
-                    if link not in link_capacity.index:
-                        capacity_opt = aluminum_smelters.at[link, 'p_nom_opt']
-                        capacity_nom = aluminum_smelters.at[link, 'p_nom']
-                        link_capacity[link] = capacity_opt if not pd.isna(capacity_opt) else capacity_nom
+                    # Calculate actual maximum power output for aluminum smelters
+                    if link not in link_max_power.index:
+                        link_max_power[link] = n.links_t.p0[link].max()
             
             # Debug: Check aluminum smelter links specifically
             print("\nChecking aluminum smelter links:")
@@ -163,11 +163,8 @@ def calculate_monthly_capacity_factors(n):
             if not aluminum_smelters.empty:
                 print(f"Found {len(aluminum_smelters)} aluminum smelter links:")
                 for link in aluminum_smelters.index:
-                    capacity_opt = aluminum_smelters.at[link, 'p_nom_opt']
-                    capacity_nom = aluminum_smelters.at[link, 'p_nom']
-                    capacity = capacity_opt if not pd.isna(capacity_opt) else capacity_nom
-                    max_power = link_power[link].max() if link in link_power.columns else 0
-                    print(f"  {link}: capacity_opt = {capacity_opt:.2f} MW, capacity_nom = {capacity_nom:.2f} MW, final capacity = {capacity:.2f} MW, max power = {max_power:.2f} MW")
+                    max_power = link_max_power[link] if link in link_max_power.index else 0
+                    print(f"  {link}: max power = {max_power:.2f} MW")
             else:
                 print("No aluminum smelter links found in network")
                 
@@ -177,9 +174,8 @@ def calculate_monthly_capacity_factors(n):
                 print(f"\nFound {len(smelter_links)} links with 'smelter' in name:")
                 for link in smelter_links.index:
                     carrier = smelter_links.at[link, 'carrier']
-                    capacity = smelter_links.at[link, 'p_nom_opt']
-                    max_power = link_power[link].max() if link in link_power.columns else 0
-                    print(f"  {link}: carrier = {carrier}, capacity = {capacity:.2f} MW, max power = {max_power:.2f} MW")
+                    max_power = link_max_power[link] if link in link_max_power.index else 0
+                    print(f"  {link}: carrier = {carrier}, max power = {max_power:.2f} MW")
             else:
                 print("No links with 'smelter' in name found")
     
@@ -201,13 +197,13 @@ def calculate_monthly_capacity_factors(n):
     else:
         print("No aluminum-related generators found")
     
-    # Debug: Print generators with non-zero capacity
-    non_zero_capacity = gen_capacity[gen_capacity > 0]
-    print(f"\nGenerators with non-zero capacity: {len(non_zero_capacity)}")
-    for gen in non_zero_capacity.index:
+    # Debug: Print generators with non-zero maximum power
+    non_zero_max_power = gen_max_power[gen_max_power > 0]
+    print(f"\nGenerators with non-zero maximum power: {len(non_zero_max_power)}")
+    for gen in non_zero_max_power.index:
         carrier = n.generators.at[gen, 'carrier']
-        capacity = non_zero_capacity[gen]
-        print(f"  {gen} ({carrier}): {capacity:.2f} MW")
+        max_power = non_zero_max_power[gen]
+        print(f"  {gen} ({carrier}): {max_power:.2f} MW")
     
     # Define technology groups with more specific matching
     tech_groups = {
@@ -331,19 +327,19 @@ def calculate_monthly_capacity_factors(n):
         
         # Calculate capacity factors for this group (generators + links)
         total_power = pd.Series(0, index=gen_power.index)
-        total_capacity = 0
+        total_max_power = 0
         
         if group_generators:
             total_power += gen_power[group_generators].sum(axis=1)
-            total_capacity += gen_capacity[group_generators].sum()
+            total_max_power += gen_max_power[group_generators].sum()
         
         if group_links:
             total_power += link_power[group_links].sum(axis=1)
-            total_capacity += link_capacity[group_links].sum()
+            total_max_power += link_max_power[group_links].sum()
         
-        if total_capacity > 0:
-            # Calculate capacity factor
-            cf = total_power / total_capacity
+        if total_max_power > 0:
+            # Calculate capacity factor using actual maximum power as denominator
+            cf = total_power / total_max_power
             
             # Add month information
             cf_df = cf.to_frame('cf')
@@ -354,7 +350,7 @@ def calculate_monthly_capacity_factors(n):
             monthly_cf[group_name] = monthly_avg
             
             # Debug print
-            print(f"Debug - {group_name}: {len(group_generators)} generators, {len(group_links)} links, capacity: {total_capacity:.2f} MW, max power: {total_power.max():.2f} MW")
+            print(f"Debug - {group_name}: {len(group_generators)} generators, {len(group_links)} links, max power: {total_max_power:.2f} MW, actual max power: {total_power.max():.2f} MW")
             if group_generators:
                 print(f"  Generators: {group_generators[:3]}...")  # Show first 3 generators
             if group_links:
@@ -363,6 +359,165 @@ def calculate_monthly_capacity_factors(n):
                     print(f"  All aluminum links: {group_links}")
     
     return monthly_cf
+
+def calculate_monthly_max_capacity_factors(n):
+    """
+    Calculate monthly maximum capacity factors for all generators and power-producing links in the network.
+    Monthly max capacity factor = monthly maximum power output / annual maximum power output
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The PyPSA network object containing the simulation results
+    
+    Returns:
+    --------
+    dict
+        Dictionary containing monthly maximum capacity factors for different technology groups
+    """
+    if not hasattr(n, 'generators_t') or not hasattr(n.generators_t, 'p'):
+        print("Warning: No generator time series data found")
+        return {}
+    
+    # Get generator power output and calculate actual maximum power output
+    gen_power = n.generators_t.p
+    gen_max_power = gen_power.max()  # Use actual maximum power output as capacity
+    
+    # Get link power output and calculate actual maximum power output
+    link_power = pd.DataFrame()
+    link_max_power = pd.Series()
+    
+    if hasattr(n, 'links_t') and hasattr(n.links_t, 'p0'):
+        # Filter links that produce electricity (bus1 is electricity bus)
+        elec_links = n.links[n.links.bus1.isin(n.buses[n.buses.carrier == 'AC'].index)]
+        if not elec_links.empty:
+            link_power = n.links_t.p0[elec_links.index]
+            # Use actual maximum power output as capacity
+            link_max_power = link_power.max()
+        
+        # Also include aluminum smelters even if they don't connect to AC bus
+        aluminum_smelters = n.links[n.links.carrier == 'aluminum']
+        if not aluminum_smelters.empty:
+            # Add aluminum smelter power data if available
+            for link in aluminum_smelters.index:
+                if link in n.links_t.p0.columns:
+                    if link not in link_power.columns:
+                        link_power[link] = n.links_t.p0[link]
+                    # Calculate actual maximum power output for aluminum smelters
+                    if link not in link_max_power.index:
+                        link_max_power[link] = n.links_t.p0[link].max()
+    
+    # Define technology groups with more specific matching
+    tech_groups = {
+        'Hydro': ['hydro', 'hydroelectricity'],
+        'Nuclear': ['nuclear'],
+        'Coal': ['coal cc', 'CHP coal', 'coal power plant'],
+        'Gas': ['OCGT gas', 'CHP gas'],
+        'Wind': ['onwind', 'offwind', 'wind'],
+        'Solar': ['solar', 'solar pv', 'pv'],
+        'Aluminum': ['aluminum', 'smelter'],
+        'Other': []  # Will catch any other technologies
+    }
+    
+    monthly_max_cf = {}
+    
+    for group_name, carriers in tech_groups.items():
+        # Find generators and links belonging to this group
+        if carriers:
+            # Filter generators by carrier with flexible matching
+            group_generators = []
+            group_links = []
+            
+            for carrier in carriers:
+                # Try exact matching first for generators
+                exact_matches = n.generators[n.generators.carrier == carrier].index.tolist()
+                # Exclude fuel generators
+                exact_matches = [gen for gen in exact_matches if 'fuel' not in gen.lower()]
+                group_generators.extend(exact_matches)
+                
+                # If no exact matches, try partial matching for generators
+                if not exact_matches:
+                    partial_matches = n.generators[n.generators.carrier.str.contains(carrier, case=False, na=False)].index.tolist()
+                    # Exclude fuel generators
+                    partial_matches = [gen for gen in partial_matches if 'fuel' not in gen.lower()]
+                    group_generators.extend(partial_matches)
+                
+                # Try exact matching for links
+                if not link_power.empty:
+                    exact_link_matches = n.links[n.links.carrier == carrier].index.tolist()
+                    # Only include links that produce electricity
+                    exact_link_matches = [link for link in exact_link_matches if link in link_power.columns]
+                    group_links.extend(exact_link_matches)
+                    
+                    # If no exact matches, try partial matching for links
+                    if not exact_link_matches:
+                        partial_link_matches = n.links[n.links.carrier.str.contains(carrier, case=False, na=False)].index.tolist()
+                        # Only include links that produce electricity
+                        partial_link_matches = [link for link in partial_link_matches if link in link_power.columns]
+                        group_links.extend(partial_link_matches)
+                    
+                    # Special handling for aluminum smelters - also check link names
+                    if carrier == 'aluminum' or carrier == 'smelter':
+                        smelter_links = [link for link in link_power.columns if 'smelter' in link.lower()]
+                        group_links.extend(smelter_links)
+                        # Also check for exact carrier match
+                        if carrier == 'aluminum':
+                            aluminum_links = [link for link in link_power.columns if n.links.at[link, 'carrier'] == 'aluminum']
+                            group_links.extend(aluminum_links)
+        else:
+            # For 'Other' group, include all generators and links not in other groups
+            all_used_generators = set()
+            all_used_links = set()
+            
+            for carriers_list in tech_groups.values():
+                if carriers_list:  # Skip empty list for 'Other'
+                    for carrier in carriers_list:
+                        # Generators
+                        exact_matches = n.generators[n.generators.carrier == carrier].index.tolist()
+                        all_used_generators.update(exact_matches)
+                        if not exact_matches:
+                            partial_matches = n.generators[n.generators.carrier.str.contains(carrier, case=False, na=False)].index.tolist()
+                            all_used_generators.update(partial_matches)
+                        
+                        # Links
+                        if not link_power.empty:
+                            exact_link_matches = n.links[n.links.carrier == carrier].index.tolist()
+                            exact_link_matches = [link for link in exact_link_matches if link in link_power.columns]
+                            all_used_links.update(exact_link_matches)
+                            if not exact_link_matches:
+                                partial_link_matches = n.links[n.links.carrier.str.contains(carrier, case=False, na=False)].index.tolist()
+                                partial_link_matches = [link for link in partial_link_matches if link in link_power.columns]
+                                all_used_links.update(partial_link_matches)
+            
+            # Exclude fuel generators from Other group
+            group_generators = [gen for gen in n.generators.index if gen not in all_used_generators and 'fuel' not in gen.lower()]
+            group_links = [link for link in link_power.columns if link not in all_used_links and 'smelter' not in link.lower()]
+        
+        # Calculate capacity factors for this group (generators + links)
+        total_power = pd.Series(0, index=gen_power.index)
+        total_max_power = 0
+        
+        if group_generators:
+            total_power += gen_power[group_generators].sum(axis=1)
+            total_max_power += gen_max_power[group_generators].sum()
+        
+        if group_links:
+            total_power += link_power[group_links].sum(axis=1)
+            total_max_power += link_max_power[group_links].sum()
+        
+        if total_max_power > 0:
+            # Calculate capacity factor using actual maximum power as denominator
+            cf = total_power / total_max_power
+            
+            # Add month information
+            cf_df = cf.to_frame('cf')
+            cf_df['month'] = cf_df.index.month
+            
+            # Calculate monthly maximum (not average)
+            monthly_max = cf_df.groupby('month')['cf'].max()
+            monthly_max_cf[group_name] = monthly_max
+    
+    return monthly_max_cf
 
 def calculate_monthly_load_factors(n):
     """
@@ -448,14 +603,16 @@ def calculate_monthly_load_factors(n):
     
     return monthly_load
 
-def save_monthly_data_to_csv(monthly_cf, monthly_load, planning_horizon, target_province=None):
+def save_monthly_data_to_csv(monthly_cf, monthly_max_cf, monthly_load, planning_horizon, target_province=None):
     """
-    Save monthly capacity factors and load factors to CSV files.
+    Save monthly capacity factors, monthly maximum capacity factors, and load factors to CSV files.
     
     Parameters:
     -----------
     monthly_cf : dict
-        Dictionary containing monthly capacity factors for different technologies
+        Dictionary containing monthly average capacity factors for different technologies
+    monthly_max_cf : dict
+        Dictionary containing monthly maximum capacity factors for different technologies
     monthly_load : dict
         Dictionary containing monthly load factors for different load types
     planning_horizon : str
@@ -476,10 +633,15 @@ def save_monthly_data_to_csv(monthly_cf, monthly_load, planning_horizon, target_
     # Combine all data into a single DataFrame
     all_data = {}
     
-    # Add capacity factors
+    # Add average capacity factors
     for tech, cf_data in monthly_cf.items():
         if not cf_data.empty:
-            all_data[f"{tech}_Capacity_Factor"] = cf_data
+            all_data[f"{tech}_Capacity_Factor_Avg"] = cf_data
+    
+    # Add maximum capacity factors
+    for tech, max_cf_data in monthly_max_cf.items():
+        if not max_cf_data.empty:
+            all_data[f"{tech}_Capacity_Factor_Max"] = max_cf_data
     
     # Add load factors
     for load_type, load_data in monthly_load.items():
@@ -533,6 +695,7 @@ def plot_capacity_factors(n, config, target_province=None):
     
     # Calculate monthly capacity factors
     monthly_cf = calculate_monthly_capacity_factors(n)
+    monthly_max_cf = calculate_monthly_max_capacity_factors(n)
     monthly_load = calculate_monthly_load_factors(n)
     
     if not monthly_cf and not monthly_load:
@@ -568,7 +731,14 @@ def plot_capacity_factors(n, config, target_province=None):
             months = monthly_cf[tech].index
             values = monthly_cf[tech].values
             ax.plot(months, values, 'o-', color=colors.get(tech, '#000000'), 
-                    linewidth=2, markersize=6, label=tech)
+                    linewidth=2, markersize=6, label=f'{tech} (Avg)')
+        
+        # Plot monthly maximum capacity factors
+        if tech in monthly_max_cf:
+            months = monthly_max_cf[tech].index
+            values = monthly_max_cf[tech].values
+            ax.plot(months, values, 's--', color=colors.get(tech, '#000000'), 
+                    linewidth=2, markersize=6, label=f'{tech} (Max)', alpha=0.7)
     
     # Plot load factors
     for load_type in ['Electricity Load', 'Heating Load', 'Aluminum Load']:
@@ -580,7 +750,7 @@ def plot_capacity_factors(n, config, target_province=None):
     
     ax.set_ylabel('Capacity/Load Factor (p.u.)', fontsize=20)
     ax.set_xlabel('Month', fontsize=20)
-    ax.set_title('Monthly Capacity Factors & Load Factors', fontsize=14, fontweight='bold')
+    ax.set_title('Monthly Capacity Factors (Avg & Max) & Load Factors', fontsize=14, fontweight='bold')
     ax.set_xlim(1, 12)
     ax.set_ylim(0, 1.0)
     ax.set_xticks(range(1, 13))
@@ -598,6 +768,15 @@ def plot_capacity_factors(n, config, target_province=None):
                 ax.annotate(f'{value:.2f}', (month, value), 
                            textcoords="offset points", xytext=(0,10), 
                            ha='center', fontsize=8)
+        
+        # Add value labels for monthly maximum capacity factors
+        if tech in monthly_max_cf:
+            months = monthly_max_cf[tech].index
+            values = monthly_max_cf[tech].values
+            for month, value in zip(months, values):
+                ax.annotate(f'{value:.2f}', (month, value), 
+                           textcoords="offset points", xytext=(0,-15), 
+                           ha='center', fontsize=8, alpha=0.7)
     
     for load_type in ['Electricity Load', 'Heating Load']:
         if load_type in monthly_load:
@@ -622,7 +801,7 @@ def plot_capacity_factors(n, config, target_province=None):
     plt.close()
     
     # Save monthly capacity factors to CSV
-    save_monthly_data_to_csv(monthly_cf, monthly_load, planning_horizon, target_province)
+    save_monthly_data_to_csv(monthly_cf, monthly_max_cf, monthly_load, planning_horizon, target_province)
     
     # Print summary statistics
     province_info = f" - {target_province}" if target_province else ""
@@ -634,6 +813,15 @@ def plot_capacity_factors(n, config, target_province=None):
             max_cf = cf_data.max()
             min_cf = cf_data.min()
             print(f"{tech:15s}: 平均={avg_cf:.3f}, 最大={max_cf:.3f}, 最小={min_cf:.3f}")
+    
+    print(f"\n月度最大容量因子统计 - {planning_horizon}{province_info}")
+    print("=" * 50)
+    for tech, max_cf_data in monthly_max_cf.items():
+        if not max_cf_data.empty:
+            avg_max_cf = max_cf_data.mean()
+            max_max_cf = max_cf_data.max()
+            min_max_cf = max_cf_data.min()
+            print(f"{tech:15s}: 平均={avg_max_cf:.3f}, 最大={max_max_cf:.3f}, 最小={min_max_cf:.3f}")
     
     print(f"\n负荷因子月度统计 - {planning_horizon}{province_info}")
     print("=" * 50)
