@@ -21,7 +21,7 @@ def set_plot_style():
                    {'axes.grid': False, 'grid.linestyle': '--', 'grid.color': u'0.6',
                     'hatch.color': 'white',
                     'patch.linewidth': 0.5,
-                    'font.size': 20,
+                    'font.size': 18,
                     'legend.fontsize': 'large',
                     'lines.linewidth': 1.5,
                     'pdf.fonttype': 42,
@@ -142,34 +142,39 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
                     linewidth=2, markersize=6, label=tech)
     
     # 设置上子图属性
-    ax1.set_ylabel('Load/Capacity Factor (p.u.)', fontsize=20)
+    ax1.set_ylabel('Load/Capacity Factor (p.u.)', fontsize=24)
     ax1.set_title(f'Monthly Load & Smelter Capacity Factors', 
-                 fontsize=20, fontweight='bold')
+                 fontsize=24)
     ax1.set_xlim(1.0, 12.0)  # 扩展x轴范围，避免线条被轴遮住
     ax1.set_ylim(-0.005, 1.005)      # 调整y轴范围为0-0.5
     ax1.set_xticks(range(1, 13))
     ax1.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=24)
+    ax1.tick_params(axis='y', labelsize=24)  # 设置y轴tick大小
     ax1.grid(True, alpha=0.3)
     
     # 设置下子图属性
-    ax2.set_ylabel('Capacity Factor (p.u.)', fontsize=20)
-    ax2.set_xlabel('Month', fontsize=20)
+    ax2.set_ylabel('Capacity Factor (p.u.)', fontsize=24)
+    ax2.set_xlabel('Month', fontsize=24)
     ax2.set_title(f'Monthly Generation Capacity Factors', 
-                 fontsize=20, fontweight='bold')
+                 fontsize=24)
     ax2.set_xlim(1.0, 12.0)  # 扩展x轴范围，避免线条被轴遮住
     ax2.set_ylim(-0.0025, 0.5025)      # 调整y轴范围为0-0.5
     ax2.set_xticks(range(1, 13))
     ax2.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=24)
+    ax2.tick_params(axis='y', labelsize=24)  # 设置y轴tick大小
     ax2.grid(True, alpha=0.3)
     
     # 为每个子图添加各自的图例
-    ax1.legend(loc='upper center', ncol=2, fontsize=20)
-    ax2.legend(loc='best', ncol=2, fontsize=20)
+    ax1.legend(loc='upper center', ncol=2, fontsize=24)
+    ax2.legend(loc='best', ncol=2, fontsize=24)
     
     # 调整子图间距
     plt.tight_layout()
+    
+    # 进一步调整子图间距，为右侧图例留出更多空间
+    plt.subplots_adjust(right=2)
     
     # 保存图表
     if output_file is None:

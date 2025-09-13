@@ -30,8 +30,9 @@ def set_plot_style():
                    {'axes.grid': False, 'grid.linestyle': '--', 'grid.color': u'0.6',
                     'hatch.color': 'white',
                     'patch.linewidth': 0.5,
-                    'font.size': 18,
-                    'legend.fontsize': 'large',
+                    'font.size': 22,
+                    'legend.fontsize': 22,
+                    'ytick.labelsize': 18,
                     'lines.linewidth': 1.5,
                     'pdf.fonttype': 42,
                     }])
@@ -309,7 +310,7 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
                 ax2_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Stored aluminum')
                 ax2_twin.set_ylabel('Stored aluminum (Mt)', color='black')
                 ax2_twin.tick_params(axis='y', labelcolor='black')
-                ax2_twin.legend(loc='lower right', bbox_to_anchor=(0.5, -0.5))
+                ax2_twin.legend(loc='lower right', bbox_to_anchor=(1, -0.7))
                 ax2_twin.set_xlim(0, len(day_columns))
     else:
         ax2.text(0.5, 0.5, f'NMM Scenario\nNo {tech} data', ha='center', va='center', transform=ax2.transAxes)
