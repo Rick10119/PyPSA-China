@@ -3,7 +3,7 @@
 
 industries:
   Aluminum:
-    installed_capacity: 18.8  # MW - 铝冶炼厂装机容量
+    installed_capacity: 18.3  # MW - 铝冶炼厂装机容量
     employment_per_mw: 15.4   # 人/MW - 每MW装机对应的就业人数
     display_name: "Aluminum Smelter"
     unit_system: "MW"
