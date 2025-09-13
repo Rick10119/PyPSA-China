@@ -83,8 +83,8 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     # 设置绘图样式
     set_plot_style()
     
-    # 创建图表
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+    # 创建上下两个子图
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 9))
     
     # 定义颜色
     colors = {
@@ -104,52 +104,71 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
         'Aluminum Load': '#2ca02c'        # Green
     }
     
-    # 绘制容量因子
-    for tech in capacity_factors.columns:
-        months = capacity_factors.index
-        values = capacity_factors[tech].values
-        color = colors.get(tech, '#000000')
-        ax.plot(months, values, 'o-', color=color, 
-                linewidth=2, markersize=6, label=tech)
+    # 定义显示标签映射
+    display_labels = {
+        'Heating Load': 'Heating demand',
+        'Aluminum Load': 'Aluminum smelter',
+        'Electricity Load': 'Electricity load'
+    }
     
-    # 绘制负荷因子
+    # 上子图：电负荷、heating load和aluminum
+    load_types_upper = ['Electricity Load', 'Heating Load']
     for load_type in load_factors.columns:
-        months = load_factors.index
-        values = load_factors[load_type].values
-        color = load_colors.get(load_type, '#000000')
-        ax.plot(months, values, 's--', color=color, 
-                linewidth=2, markersize=6, label=load_type)
+        if load_type in load_types_upper:
+            months = load_factors.index
+            values = load_factors[load_type].values
+            color = load_colors.get(load_type, '#000000')
+            # 使用显示标签
+            display_label = display_labels.get(load_type, load_type)
+            ax1.plot(months, values, 's--', color=color, 
+                    linewidth=2, markersize=6, label=display_label)
     
-    # 设置图表属性
-    ax.set_ylabel('Capacity/Load Factor (p.u.)', fontsize=20)
-    ax.set_xlabel('Month', fontsize=20)
-    ax.set_title(f'Monthly Capacity Factors & Load Factors{title_suffix}', 
-                 fontsize=14, fontweight='bold')
-    ax.set_xlim(1, 12)
-    ax.set_ylim(0, 1.0)
-    ax.set_xticks(range(1, 13))
-    ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+    # 添加aluminum容量因子到上子图
+    if 'Aluminum' in capacity_factors.columns:
+        months = capacity_factors.index
+        values = capacity_factors['Aluminum'].values
+        color = colors.get('Aluminum', '#000000')
+        ax1.plot(months, values, 'o-', color=color, 
+                linewidth=2, markersize=6, label='Aluminum smelter')
+    
+    # 下子图：Coal, Gas, Wind, Solar
+    tech_types_lower = ['Coal', 'Gas', 'Wind', 'Solar']
+    for tech in capacity_factors.columns:
+        if tech in tech_types_lower:
+            months = capacity_factors.index
+            values = capacity_factors[tech].values
+            color = colors.get(tech, '#000000')
+            ax2.plot(months, values, 'o-', color=color, 
+                    linewidth=2, markersize=6, label=tech)
+    
+    # 设置上子图属性
+    ax1.set_ylabel('Load/Capacity Factor (p.u.)', fontsize=20)
+    ax1.set_title(f'Monthly Load & Smelter Capacity Factors', 
+                 fontsize=20, fontweight='bold')
+    ax1.set_xlim(1, 12)
+    ax1.set_ylim(0, 1.0)
+    ax1.set_xticks(range(1, 13))
+    ax1.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc='best', ncol=2)
+    ax1.grid(True, alpha=0.3)
     
-    # 添加数值标签
-    for tech in capacity_factors.columns:
-        months = capacity_factors.index
-        values = capacity_factors[tech].values
-        for month, value in zip(months, values):
-            ax.annotate(f'{value:.2f}', (month, value), 
-                       textcoords="offset points", xytext=(0,10), 
-                       ha='center', fontsize=8)
+    # 设置下子图属性
+    ax2.set_ylabel('Capacity Factor (p.u.)', fontsize=20)
+    ax2.set_xlabel('Month', fontsize=20)
+    ax2.set_title(f'Monthly Generation Capacity Factors', 
+                 fontsize=20, fontweight='bold')
+    ax2.set_xlim(1, 12)
+    ax2.set_ylim(0, 1.0)
+    ax2.set_xticks(range(1, 13))
+    ax2.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+    ax2.grid(True, alpha=0.3)
     
-    for load_type in load_factors.columns:
-        months = load_factors.index
-        values = load_factors[load_type].values
-        for month, value in zip(months, values):
-            ax.annotate(f'{value:.2f}', (month, value), 
-                       textcoords="offset points", xytext=(0,10), 
-                       ha='center', fontsize=8)
+    # 为每个子图添加各自的图例
+    ax1.legend(loc='upper center', ncol=2, fontsize=20)
+    ax2.legend(loc='best', ncol=2, fontsize=20)
     
+    # 调整子图间距
     plt.tight_layout()
     
     # 保存图表
@@ -162,24 +181,38 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     print(f"图表已保存到: {output_file}")
     
     # 打印统计信息
-    print(f"\n容量因子月度统计{title_suffix}")
-    print("=" * 50)
-    for tech in capacity_factors.columns:
-        data = capacity_factors[tech]
+    print(f"\n上子图 - 负荷因子和Aluminum容量因子月度统计{title_suffix}")
+    print("=" * 60)
+    
+    # 显示负荷因子统计
+    if not load_factors.empty:
+        for load_type in load_factors.columns:
+            if load_type in load_types_upper:  # 只显示上子图的负荷类型
+                data = load_factors[load_type]
+                avg_load = data.mean()
+                max_load = data.max()
+                min_load = data.min()
+                # 使用显示标签
+                display_label = display_labels.get(load_type, load_type)
+                print(f"{display_label:15s}: 平均={avg_load:.3f}, 最大={max_load:.3f}, 最小={min_load:.3f}")
+    
+    # 显示Aluminum容量因子统计
+    if 'Aluminum' in capacity_factors.columns:
+        data = capacity_factors['Aluminum']
         avg_cf = data.mean()
         max_cf = data.max()
         min_cf = data.min()
-        print(f"{tech:15s}: 平均={avg_cf:.3f}, 最大={max_cf:.3f}, 最小={min_cf:.3f}")
+        print(f"{'Aluminum':15s}: 平均={avg_cf:.3f}, 最大={max_cf:.3f}, 最小={min_cf:.3f}")
     
-    if not load_factors.empty:
-        print(f"\n负荷因子月度统计{title_suffix}")
-        print("=" * 50)
-        for load_type in load_factors.columns:
-            data = load_factors[load_type]
-            avg_load = data.mean()
-            max_load = data.max()
-            min_load = data.min()
-            print(f"{load_type:15s}: 平均={avg_load:.3f}, 最大={max_load:.3f}, 最小={min_load:.3f}")
+    print(f"\n下子图 - 发电技术容量因子月度统计{title_suffix}")
+    print("=" * 50)
+    for tech in capacity_factors.columns:
+        if tech in tech_types_lower:  # 只显示下子图的技术
+            data = capacity_factors[tech]
+            avg_cf = data.mean()
+            max_cf = data.max()
+            min_cf = data.min()
+            print(f"{tech:15s}: 平均={avg_cf:.3f}, 最大={max_cf:.3f}, 最小={min_cf:.3f}")
 
 def main():
     """

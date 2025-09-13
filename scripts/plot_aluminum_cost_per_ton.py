@@ -47,8 +47,16 @@ def create_aluminum_cost_bar_chart():
     # 创建单个子图用于堆叠柱状图
     fig, ax = plt.subplots(1, 1, figsize=(12, 9))
     
-    # 定义颜色
-    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
+    # 定义颜色 - 与含义相关的颜色组合
+    colors = [
+        '#8B4513',  # 原材料 - 棕色（代表原材料/矿物）
+        '#2E8B57',  # 人工 - 深绿色（代表人力/生命）
+        '#4169E1',  # 固定运维 - 蓝色（代表稳定/技术）
+        '#FF4500',  # 重启 - 橙红色（代表重启/动态）
+        '#696969',  # 折旧 - 灰色（代表折旧/时间）
+        '#9370DB',  # 存储 - 紫色（代表存储/空间）
+        '#FFD700'   # 电力 - 金色（代表电力/能源）
+    ]
     
     # 准备数据 - 每个场景作为一个柱子
     scenarios = ['2024\nCurrent', 
@@ -112,7 +120,7 @@ def create_aluminum_cost_bar_chart():
     handles = handles[::-1]
     labels = labels[::-1]
     ax.legend(handles, labels, bbox_to_anchor=(0.5, -0.1), loc='upper center', 
-              ncol=4, fontsize=20, frameon=True, fancybox=True, shadow=True)
+              ncol=4, fontsize=20, frameon=False)
     
     # 添加网格
     ax.grid(True, alpha=0.3, axis='y')
