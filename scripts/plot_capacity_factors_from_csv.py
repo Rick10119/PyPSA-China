@@ -145,8 +145,8 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     ax1.set_ylabel('Load/Capacity Factor (p.u.)', fontsize=20)
     ax1.set_title(f'Monthly Load & Smelter Capacity Factors', 
                  fontsize=20, fontweight='bold')
-    ax1.set_xlim(1, 12)
-    ax1.set_ylim(0, 1.0)
+    ax1.set_xlim(1.0, 12.0)  # 扩展x轴范围，避免线条被轴遮住
+    ax1.set_ylim(-0.005, 1.005)      # 调整y轴范围为0-0.5
     ax1.set_xticks(range(1, 13))
     ax1.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
@@ -157,8 +157,8 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     ax2.set_xlabel('Month', fontsize=20)
     ax2.set_title(f'Monthly Generation Capacity Factors', 
                  fontsize=20, fontweight='bold')
-    ax2.set_xlim(1, 12)
-    ax2.set_ylim(0, 1.0)
+    ax2.set_xlim(1.0, 12.0)  # 扩展x轴范围，避免线条被轴遮住
+    ax2.set_ylim(-0.0025, 0.5025)      # 调整y轴范围为0-0.5
     ax2.set_xticks(range(1, 13))
     ax2.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
