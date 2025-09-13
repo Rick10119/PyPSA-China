@@ -3,22 +3,22 @@
 
 industries:
   Aluminum:
-    installed_capacity: 18.5  # Mt - 铝冶炼厂装机容量
-    employment_per_mt: 15.4   # k/Mt - 每Mt装机对应的就业人数
-    display_name: "铝冶炼厂"
-    unit_system: "Mt"
+    installed_capacity: 18.8  # MW - 铝冶炼厂装机容量
+    employment_per_mw: 15.4   # 人/MW - 每MW装机对应的就业人数
+    display_name: "Aluminum Smelter"
+    unit_system: "MW"
   
   Coal:
-    installed_capacity: 328.0  # GW - 煤电装机容量
-    employment_per_gw: 0.5     # k/GW - 每GW装机对应的就业人数
-    display_name: "煤电"
-    unit_system: "GW"
+    installed_capacity: 328.0  # MW - 煤电装机容量
+    employment_per_mw: 0.8     # 人/MW - 每MW装机对应的就业人数
+    display_name: "Coal Power"
+    unit_system: "MW"
   
   Gas:
-    installed_capacity: 100.80  # GW - 天然气发电装机容量
-    employment_per_gw: 0.2      # k/GW - 每GW装机对应的就业人数
-    display_name: "天然气发电"
-    unit_system: "GW"
+    installed_capacity: 100.80  # MW - 天然气发电装机容量
+    employment_per_mw: 0.2      # 人/MW - 每MW装机对应的就业人数
+    display_name: "Gas Power"
+    unit_system: "MW"
 
 # 绘图配置
 plot:
@@ -31,9 +31,9 @@ plot:
 
 # 颜色配置
 colors:
-  铝冶炼厂: "#FF69B4"    # Hot pink
-  煤电: "#000000"        # Black
-  天然气发电: "#FF0000"  # Red
+  Aluminum Smelter: "#FF69B4"    # Hot pink
+  Coal Power: "#000000"          # Black
+  Gas Power: "#FF0000"           # Red
 
 # 输出配置
 output:

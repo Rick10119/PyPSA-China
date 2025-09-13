@@ -139,17 +139,17 @@ def get_default_employment_parameters():
         'Aluminum': {
             'installed_capacity': 18.8,  # MW - 铝冶炼厂装机容量
             'employment_per_mw': 15.4,      # 人/MW - 每MW装机对应的就业人数
-            'display_name': '铝冶炼厂'
+            'display_name': 'Aluminum Smelter'
         },
         'Coal': {
             'installed_capacity': 328.0,  # MW - 煤电装机容量
             'employment_per_mw': 0.8,      # 人/MW - 每MW装机对应的就业人数
-            'display_name': '煤电'
+            'display_name': 'Coal Power'
         },
         'Gas': {
             'installed_capacity': 100.80,  # MW - 天然气发电装机容量
             'employment_per_mw': 0.2,      # 人/MW - 每MW装机对应的就业人数
-            'display_name': '天然气发电'
+            'display_name': 'Gas Power'
         }
     }
     
@@ -240,18 +240,29 @@ def plot_employment_trends(employment_data, output_file=None, title_suffix="", c
     else:
         # 默认颜色
         colors = {
-            '铝冶炼厂': '#FF69B4',    # Hot pink
-            '煤电': '#000000',        # Black
-            '天然气发电': '#FF0000'    # Red
+            'Aluminum Smelter': '#FF69B4',    # Hot pink
+            'Coal Power': '#000000',          # Black
+            'Gas Power': '#FF0000'            # Red
         }
     
     # 绘制各行业就业人数趋势（叠加面积图）
+    # 重新排序列，将Aluminum Smelter放在最上面
+    column_order = []
+    if 'Aluminum Smelter' in employment_data.columns:
+        column_order.append('Aluminum Smelter')
+    for col in employment_data.columns:
+        if col != 'Aluminum Smelter':
+            column_order.append(col)
+    
+    # 按新顺序重新排列数据
+    employment_data_ordered = employment_data[column_order]
+    
     # 计算累积值用于叠加面积图
-    cumulative_data = employment_data.cumsum(axis=1)
+    cumulative_data = employment_data_ordered.cumsum(axis=1)
     
     # 绘制叠加面积图
-    for i, industry in enumerate(employment_data.columns):
-        months = employment_data.index
+    for i, industry in enumerate(employment_data_ordered.columns):
+        months = employment_data_ordered.index
         if i == 0:
             # 第一个行业：从0开始绘制
             values = cumulative_data[industry].values
@@ -259,16 +270,16 @@ def plot_employment_trends(employment_data, output_file=None, title_suffix="", c
                            alpha=0.7, label=industry)
         else:
             # 后续行业：从上一个行业的累积值开始绘制
-            prev_industry = employment_data.columns[i-1]
+            prev_industry = employment_data_ordered.columns[i-1]
             prev_values = cumulative_data[prev_industry].values
             values = cumulative_data[industry].values
             ax.fill_between(months, prev_values, values, color=colors.get(industry, '#808080'), 
                            alpha=0.7, label=industry)
     
     # 添加边界线使图形更清晰
-    for industry in employment_data.columns:
-        months = employment_data.index
-        values = employment_data[industry].values
+    for industry in employment_data_ordered.columns:
+        months = employment_data_ordered.index
+        values = employment_data_ordered[industry].values
         color = colors.get(industry, '#808080')
         ax.plot(months, values, color=color, linewidth=1, alpha=0.8)
     

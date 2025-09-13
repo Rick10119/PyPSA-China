@@ -606,6 +606,7 @@ def calculate_monthly_load_factors(n):
 def save_monthly_data_to_csv(monthly_cf, monthly_max_cf, monthly_load, planning_horizon, target_province=None):
     """
     Save monthly capacity factors, monthly maximum capacity factors, and load factors to CSV files.
+    If file already exists, creates a new file with version number instead of overwriting.
     
     Parameters:
     -----------
@@ -621,14 +622,49 @@ def save_monthly_data_to_csv(monthly_cf, monthly_max_cf, monthly_load, planning_
         The target province name (e.g., 'Shandong')
     """
     import os
+    import glob
     
     # Create output directory if it doesn't exist
     output_dir = "results/monthly_capacity_factors"
     os.makedirs(output_dir, exist_ok=True)
     
-    # Create filename with province information
+    # Create base filename with province information
     filename_suffix = f"_{target_province}" if target_province else ""
-    csv_filename = f"{output_dir}/monthly_capacity_factors_{planning_horizon}{filename_suffix}.csv"
+    base_filename = f"monthly_capacity_factors_{planning_horizon}{filename_suffix}"
+    
+    # Check if base file exists and find next available version
+    csv_filename = f"{output_dir}/{base_filename}.csv"
+    version = 1
+    
+    if os.path.exists(csv_filename):
+        # Find existing versioned files to determine next version number
+        pattern = f"{output_dir}/{base_filename}_v*.csv"
+        existing_files = glob.glob(pattern)
+        
+        if existing_files:
+            # Extract version numbers from existing files
+            versions = []
+            for file in existing_files:
+                # Extract version number from filename like "filename_v2.csv"
+                try:
+                    version_part = file.split('_v')[-1].split('.csv')[0]
+                    if version_part.isdigit():
+                        versions.append(int(version_part))
+                except (IndexError, ValueError):
+                    continue
+            
+            if versions:
+                version = max(versions) + 1
+            else:
+                version = 2
+        else:
+            version = 2
+        
+        # Create versioned filename
+        csv_filename = f"{output_dir}/{base_filename}_v{version}.csv"
+        print(f"文件 {base_filename}.csv 已存在，创建新版本: {base_filename}_v{version}.csv")
+    else:
+        print(f"创建新文件: {base_filename}.csv")
     
     # Combine all data into a single DataFrame
     all_data = {}
