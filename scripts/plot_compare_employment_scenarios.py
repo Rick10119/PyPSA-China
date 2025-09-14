@@ -255,22 +255,13 @@ def plot_employment_comparison(employment_data_20p, employment_data_non_flexible
     # 设置绘图样式
     set_plot_style()
     
-    # 从配置获取图表设置
-    if config and 'plot' in config:
-        plot_config = config['plot']
-        figsize = plot_config.get('figure_size', [12, 9])
-        dpi = plot_config.get('dpi', 150)
-        font_size = plot_config.get('font_size', 24)
-        legend_font_size = plot_config.get('legend_font_size', 24)
-        title_font_size = plot_config.get('title_font_size', 24)
-        axis_font_size = plot_config.get('axis_font_size', 24)
-    else:
-        figsize = [12, 9]
-        dpi = 150
-        font_size = 24
-        legend_font_size = 24
-        title_font_size = 24
-        axis_font_size = 24
+    # 直接设置图表参数
+    figsize = [12, 9]
+    dpi = 150
+    font_size = 30
+    legend_font_size = 30
+    title_font_size = 30
+    axis_font_size = 30
     
     # 创建上下两个子图
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[12, 9], sharex=False)
@@ -314,7 +305,7 @@ def plot_employment_comparison(employment_data_20p, employment_data_non_flexible
     # 创建统一的图例（放在外面下方，不带框）
     # 获取第一个子图的图例元素
     handles, labels = ax1.get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(1, -0.05), 
+    fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(1, -0.1), 
               ncol=len(handles), fontsize=legend_font_size, frameon=False)
     
     # 调整布局，为底部图例留出空间
@@ -326,7 +317,7 @@ def plot_employment_comparison(employment_data_20p, employment_data_non_flexible
         output_file = "employment_scenario_comparison.png"
     
     fig.savefig(output_file, dpi=dpi, bbox_inches='tight')
-    plt.show()
+    # plt.show()
     plt.close()
     
     print(f"Employment comparison plot saved to: {output_file}")

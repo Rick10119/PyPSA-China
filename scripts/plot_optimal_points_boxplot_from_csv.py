@@ -321,7 +321,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
     
     # 设置y轴从0开始
-    ax1.set_ylim(bottom=0)
+    # ax1.set_ylim(bottom=0)
     
     # 添加年度需求线 - 使用与箱子相同的颜色
     demand_by_year = {
@@ -376,7 +376,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
             # 获取该年份产能的最大值，用于确定标注位置
             year_data = df[df['year'] == year]
             if not year_data.empty:
-                max_capacity = year_data['capacity'].max()
+                max_capacity = year_data['capacity'].max() - 3
                 # 在箱子上方添加文本标注
                 ax1.text(i, max_capacity, f'{excess_ratio_mean:.1%}', 
                         ha='center', va='bottom', fontsize=18, fontweight='bold',
@@ -421,7 +421,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     
     # 在第一个子图中添加图例，无框
     if legend_elements:
-        ax1.legend(handles=legend_elements, loc='lower left', 
+        ax1.legend(handles=legend_elements, loc='upper right', 
                   frameon=False, fontsize=18)
     
     # 调整布局，为图例留出空间
