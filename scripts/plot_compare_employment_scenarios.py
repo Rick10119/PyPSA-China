@@ -233,7 +233,7 @@ def calculate_monthly_employment(capacity_factors, employment_params):
     return pd.DataFrame(employment_data, index=capacity_factors.index)
 
 def plot_employment_comparison(employment_data_20p, employment_data_non_flexible, 
-                             output_file=None, config=None):
+                             output_file=None, config=None, differences=None):
     """
     绘制两个场景的就业人数对比图（上下布局）
     
@@ -247,6 +247,8 @@ def plot_employment_comparison(employment_data_20p, employment_data_non_flexible
         输出图片文件路径
     config : dict, optional
         配置字典，包含颜色等设置
+    differences : dict, optional
+        包含统计信息的字典，用于在图表上显示总人数的均值和方差
     """
     if employment_data_20p.empty or employment_data_non_flexible.empty:
         print("Warning: No employment data to plot")
@@ -293,6 +295,31 @@ def plot_employment_comparison(employment_data_20p, employment_data_non_flexible
     plot_single_scenario(ax2, employment_data_non_flexible, colors, "Decommissioning All Overcapacity", 
                         font_size, legend_font_size, axis_font_size, show_legend=False,
                         legend_labels=legend_labels)
+    
+    # 在图表上添加总就业人数的均值和方差信息
+    if differences is not None:
+        # 计算总就业人数
+        total_20p = employment_data_20p.sum(axis=1)
+        total_non_flexible = employment_data_non_flexible.sum(axis=1)
+        
+        # 计算总人数的均值和方差
+        mean_total_20p = total_20p.mean()
+        var_total_20p = total_20p.var()
+        std_total_20p = total_20p.std()
+        
+        mean_total_non_flexible = total_non_flexible.mean()
+        var_total_non_flexible = total_non_flexible.var()
+        std_total_non_flexible = total_non_flexible.std()
+        
+        # Add total employment statistics for 20p scenario to upper plot
+        stats_text_20p = f'Mean: {mean_total_20p:.0f}k  Std Dev: {std_total_20p:.0f}k'
+        ax1.text(0.5, 0.98, stats_text_20p, transform=ax1.transAxes,
+                fontsize=title_font_size, verticalalignment='top', horizontalalignment='center')
+
+        # Add total employment statistics for non_flexible scenario to lower plot  
+        stats_text_non_flexible = f'Mean: {mean_total_non_flexible:.0f}k  Std Dev: {std_total_non_flexible:.0f}k'
+        ax2.text(0.5, 0.98, stats_text_non_flexible, transform=ax2.transAxes,
+                fontsize=title_font_size, verticalalignment='top', horizontalalignment='center')
     
     # 设置统一的y轴范围
     ax1.set_ylim(0, 400)
@@ -401,6 +428,94 @@ def plot_single_scenario(ax, employment_data, colors, scenario_name,
     if show_legend:
         ax.legend(loc='best', fontsize=legend_font_size)
 
+def plot_mean_variance_comparison(differences, output_file=None):
+    """
+    绘制均值和方差的对比图表
+    
+    Parameters:
+    -----------
+    differences : dict
+        包含差异统计的字典
+    output_file : str, optional
+        输出图片文件路径
+    """
+    if not differences:
+        print("Warning: No data to plot")
+        return
+    
+    # 设置绘图样式
+    set_plot_style()
+    
+    # 准备数据
+    industries = list(differences.keys())
+    means_20p = [differences[industry]['avg_20p'] for industry in industries]
+    means_non_flexible = [differences[industry]['avg_non_flexible'] for industry in industries]
+    vars_20p = [differences[industry]['var_20p'] for industry in industries]
+    vars_non_flexible = [differences[industry]['var_non_flexible'] for industry in industries]
+    
+    # 创建子图
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    # 绘制均值对比
+    x = np.arange(len(industries))
+    width = 0.35
+    
+    bars1 = ax1.bar(x - width/2, means_20p, width, label='20p场景', alpha=0.8, color='#FF69B4')
+    bars2 = ax1.bar(x + width/2, means_non_flexible, width, label='Non-flexible场景', alpha=0.8, color='#000000')
+    
+    ax1.set_xlabel('Industry', fontsize=14)
+    ax1.set_ylabel('Average Employment (k)', fontsize=14)
+    ax1.set_title('Average Employment by Industry', fontsize=16)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(industries, rotation=45, ha='right')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # 添加数值标签
+    for bar in bars1:
+        height = bar.get_height()
+        ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
+                f'{height:.1f}', ha='center', va='bottom', fontsize=10)
+    
+    for bar in bars2:
+        height = bar.get_height()
+        ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
+                f'{height:.1f}', ha='center', va='bottom', fontsize=10)
+    
+    # 绘制方差对比
+    bars3 = ax2.bar(x - width/2, vars_20p, width, label='20p Scenario', alpha=0.8, color='#FF69B4')
+    bars4 = ax2.bar(x + width/2, vars_non_flexible, width, label='Non-flexible Scenario', alpha=0.8, color='#000000')
+    
+    ax2.set_xlabel('Industry', fontsize=14)
+    ax2.set_ylabel('Variance', fontsize=14)
+    ax2.set_title('Employment Variance by Industry', fontsize=16)
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(industries, rotation=45, ha='right')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    
+    # 添加数值标签
+    for bar in bars3:
+        height = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
+                f'{height:.2f}', ha='center', va='bottom', fontsize=10)
+    
+    for bar in bars4:
+        height = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
+                f'{height:.2f}', ha='center', va='bottom', fontsize=10)
+    
+    plt.tight_layout()
+    
+    # 保存图表
+    if output_file is None:
+        output_file = "mean_variance_comparison.png"
+    
+    fig.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    print(f"均值和方差对比图已保存到: {output_file}")
+
 def calculate_scenario_differences(employment_data_20p, employment_data_non_flexible):
     """
     计算两个场景的差异统计
@@ -430,20 +545,66 @@ def calculate_scenario_differences(employment_data_20p, employment_data_non_flex
         diff = data_20p - data_non_flexible
         diff_percent = (diff / data_non_flexible) * 100
         
+        # 计算均值和方差
+        mean_20p = data_20p.mean()
+        mean_non_flexible = data_non_flexible.mean()
+        var_20p = data_20p.var()
+        var_non_flexible = data_non_flexible.var()
+        std_20p = data_20p.std()
+        std_non_flexible = data_non_flexible.std()
+        
+        # 计算差异的均值和方差
+        mean_diff = diff.mean()
+        var_diff = diff.var()
+        std_diff = diff.std()
+        
         differences[industry] = {
             'absolute_diff': diff,
             'percent_diff': diff_percent,
-            'avg_20p': data_20p.mean(),
-            'avg_non_flexible': data_non_flexible.mean(),
+            'avg_20p': mean_20p,
+            'avg_non_flexible': mean_non_flexible,
+            'var_20p': var_20p,
+            'var_non_flexible': var_non_flexible,
+            'std_20p': std_20p,
+            'std_non_flexible': std_non_flexible,
             'total_20p': data_20p.sum(),
             'total_non_flexible': data_non_flexible.sum(),
             'max_diff': diff.max(),
             'min_diff': diff.min(),
-            'avg_diff': diff.mean(),
+            'avg_diff': mean_diff,
+            'var_diff': var_diff,
+            'std_diff': std_diff,
             'avg_percent_diff': diff_percent.mean()
         }
     
     return differences
+
+def print_mean_variance_summary(differences):
+    """
+    打印均值和方差摘要统计
+    
+    Parameters:
+    -----------
+    differences : dict
+        包含差异统计的字典
+    """
+    print(f"\n均值和方差统计摘要")
+    print("=" * 60)
+    
+    for industry, stats in differences.items():
+        print(f"\n{industry}:")
+        print(f"  20p场景:")
+        print(f"    均值: {stats['avg_20p']:.1f}k")
+        print(f"    方差: {stats['var_20p']:.2f}")
+        print(f"    标准差: {stats['std_20p']:.1f}k")
+        print(f"  Non-flexible场景:")
+        print(f"    均值: {stats['avg_non_flexible']:.1f}k")
+        print(f"    方差: {stats['var_non_flexible']:.2f}")
+        print(f"    标准差: {stats['std_non_flexible']:.1f}k")
+        print(f"  差异统计:")
+        print(f"    均值差异: {stats['avg_diff']:.1f}k ({stats['avg_percent_diff']:.1f}%)")
+        print(f"    差异方差: {stats['var_diff']:.2f}")
+        print(f"    差异标准差: {stats['std_diff']:.1f}k")
 
 def print_comparison_statistics(differences, employment_params_20p, employment_params_non_flexible):
     """
@@ -471,12 +632,21 @@ def print_comparison_statistics(differences, employment_params_20p, employment_p
     for tech, params in employment_params_non_flexible.items():
         print(f"  {params['display_name']}: {params['installed_capacity']} MW")
     
-    print(f"\nEmployment Statistics:")
+    # 打印均值和方差摘要
+    print_mean_variance_summary(differences)
+    
+    print(f"\n详细统计信息:")
     for industry, stats in differences.items():
         print(f"\n{industry}:")
         print(f"  Average Employment - 20p: {stats['avg_20p']:.1f}k")
         print(f"  Average Employment - Non-flexible: {stats['avg_non_flexible']:.1f}k")
+        print(f"  Variance - 20p: {stats['var_20p']:.2f}")
+        print(f"  Variance - Non-flexible: {stats['var_non_flexible']:.2f}")
+        print(f"  Standard Deviation - 20p: {stats['std_20p']:.1f}k")
+        print(f"  Standard Deviation - Non-flexible: {stats['std_non_flexible']:.1f}k")
         print(f"  Average Difference: {stats['avg_diff']:.1f}k ({stats['avg_percent_diff']:.1f}%)")
+        print(f"  Variance of Difference: {stats['var_diff']:.2f}")
+        print(f"  Standard Deviation of Difference: {stats['std_diff']:.1f}k")
         print(f"  Total Annual - 20p: {stats['total_20p']:.1f}k")
         print(f"  Total Annual - Non-flexible: {stats['total_non_flexible']:.1f}k")
         print(f"  Max Monthly Difference: {stats['max_diff']:.1f}k")
@@ -626,6 +796,7 @@ def compare_employment_scenarios(file_20p=None, file_non_flexible=None,
     
     # 生成输出文件名
     plot_file = os.path.join(output_dir, "employment_scenario_comparison.png")
+    mean_var_plot_file = os.path.join(output_dir, "mean_variance_comparison.png")
     csv_file = os.path.join(output_dir, "employment_scenario_comparison.csv")
     
     # 计算差异统计
@@ -635,7 +806,11 @@ def compare_employment_scenarios(file_20p=None, file_non_flexible=None,
     # 绘制对比图表
     print("Creating comparison plot...")
     plot_employment_comparison(employment_data_20p, employment_data_non_flexible, 
-                             plot_file, config)
+                             plot_file, config, differences)
+    
+    # 绘制均值和方差对比图表
+    print("Creating mean and variance comparison plot...")
+    plot_mean_variance_comparison(differences, mean_var_plot_file)
     
     # 保存对比数据
     save_comparison_data(employment_data_20p, employment_data_non_flexible, 
