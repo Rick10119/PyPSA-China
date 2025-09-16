@@ -24,7 +24,7 @@ import hashlib
 import json
 
 # Set Chinese font
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'sans-serif']
 plt.rcParams['axes.unicode_minus'] = False
 
 # Set logging

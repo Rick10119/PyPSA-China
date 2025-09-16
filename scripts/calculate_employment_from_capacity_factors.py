@@ -16,7 +16,7 @@ def set_plot_style():
     设置绘图样式
     """
     # 设置英文字体
-    plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'sans-serif']
+    plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'sans-serif']
     plt.rcParams['axes.unicode_minus'] = False
     
     plt.style.use(['classic', 'seaborn-v0_8-whitegrid',

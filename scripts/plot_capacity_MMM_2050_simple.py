@@ -16,7 +16,7 @@ from pathlib import Path
 import logging
 
 # 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'sans-serif']
 plt.rcParams['axes.unicode_minus'] = False
 
 # 设置日志

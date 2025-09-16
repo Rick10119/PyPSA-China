@@ -13,8 +13,8 @@ def set_plot_style():
     """
     设置绘图样式
     """
-    # 设置中文字体
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'Arial']
+    # 设置字体为Helvetica
+    plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'DejaVu Sans']
     plt.rcParams['axes.unicode_minus'] = False
     
     plt.style.use(['classic', 'seaborn-v0_8-whitegrid',
@@ -121,7 +121,7 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
             # 使用显示标签
             display_label = display_labels.get(load_type, load_type)
             ax1.plot(months, values, 's--', color=color, 
-                    linewidth=2, markersize=6, label=display_label)
+                    linewidth=4, markersize=6, label=display_label)
     
     # 添加aluminum容量因子到上子图
     if 'Aluminum' in capacity_factors.columns:
@@ -129,7 +129,7 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
         values = capacity_factors['Aluminum'].values
         color = colors.get('Aluminum', '#000000')
         ax1.plot(months, values, 'o-', color=color, 
-                linewidth=2, markersize=6, label='Aluminum smelter')
+                linewidth=4, markersize=6, label='Aluminum smelter')
     
     # 下子图：Hydro, Coal, Gas, Wind, Solar
     tech_types_lower = ['Hydro', 'Coal', 'Gas', 'Wind', 'Solar']
@@ -139,7 +139,7 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
             values = capacity_factors[tech].values
             color = colors.get(tech, '#000000')
             ax2.plot(months, values, 'o-', color=color, 
-                    linewidth=2, markersize=6, label=tech)
+                    linewidth=4, markersize=6, label=tech)
     
     # 设置上子图属性
     ax1.set_ylabel('Capacity Factor', fontsize=30)

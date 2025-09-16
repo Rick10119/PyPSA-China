@@ -10,8 +10,8 @@ import pandas as pd
 from matplotlib import font_manager
 import os
 
-# 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+# 设置字体为Helvetica
+plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 def create_aluminum_cost_bar_chart():

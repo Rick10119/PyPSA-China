@@ -26,6 +26,10 @@ def set_plot_style():
     """
     设置绘图样式
     """
+    # 设置字体为Helvetica
+    plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'DejaVu Sans']
+    plt.rcParams['axes.unicode_minus'] = False
+    
     plt.style.use(['classic', 'seaborn-v0_8-whitegrid',
                    {'axes.grid': False, 'grid.linestyle': '--', 'grid.color': u'0.6',
                     'hatch.color': 'white',
