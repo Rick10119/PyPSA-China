@@ -88,11 +88,11 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     
     # 定义颜色
     colors = {
-        'Hydro': '#000080',      # Navy
+        'Hydro': '#0000FF',      # Blue
         'Nuclear': '#800080',    # Purple
         'Coal': '#000000',       # Black
         'Gas': '#FF0000',        # Red
-        'Wind': '#00BFFF',       # Deep sky blue
+        'Wind': '#00FF00',       # Green
         'Solar': '#FFD700',      # Gold
         'Aluminum': '#FF69B4',   # Hot pink
         'Other': '#808080'       # Gray
@@ -131,8 +131,8 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
         ax1.plot(months, values, 'o-', color=color, 
                 linewidth=2, markersize=6, label='Aluminum smelter')
     
-    # 下子图：Coal, Gas, Wind, Solar
-    tech_types_lower = ['Coal', 'Gas', 'Wind', 'Solar']
+    # 下子图：Hydro, Coal, Gas, Wind, Solar
+    tech_types_lower = ['Hydro', 'Coal', 'Gas', 'Wind', 'Solar']
     for tech in capacity_factors.columns:
         if tech in tech_types_lower:
             months = capacity_factors.index
@@ -159,7 +159,7 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     ax2.set_title(f'Monthly Generation Capacity Factors', 
                  fontsize=30)
     ax2.set_xlim(1.0, 12.0)  # 扩展x轴范围，避免线条被轴遮住
-    ax2.set_ylim(-0.0025, 0.5025)      # 调整y轴范围为0-0.5
+    ax2.set_ylim(-0.0025, 0.8025)      # 调整y轴范围为0-0.5
     ax2.set_xticks(range(1, 13))
     ax2.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=30)
@@ -209,8 +209,8 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
         min_cf = data.min()
         print(f"{'Aluminum':15s}: 平均={avg_cf:.3f}, 最大={max_cf:.3f}, 最小={min_cf:.3f}")
     
-    print(f"\n下子图 - 发电技术容量因子月度统计{title_suffix}")
-    print("=" * 50)
+    print(f"\n下子图 - 发电技术容量因子月度统计 (Hydro, Coal, Gas, Wind, Solar){title_suffix}")
+    print("=" * 70)
     for tech in capacity_factors.columns:
         if tech in tech_types_lower:  # 只显示下子图的技术
             data = capacity_factors[tech]
