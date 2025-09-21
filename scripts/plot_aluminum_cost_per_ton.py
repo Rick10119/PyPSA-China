@@ -60,7 +60,7 @@ def create_aluminum_cost_bar_chart():
     ]
     
     # 准备数据 - 每个场景作为一个柱子
-    scenarios = ['2024\nCurrent', 
+    scenarios = ['2020', 
                 '2050\n5% overcapacity', 
                 '2050\n36% overcapacity', 
                 '2050\nNo-discommissioning']

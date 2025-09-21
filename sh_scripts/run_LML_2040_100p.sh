@@ -1,5 +1,5 @@
 #!/bin/bash
-# 100%容量比例的模拟 (Flexibility: low, Demand: mid, Market: low, Year: 2040)
+# 100p过剩产能保留比例的模拟 (Flexibility: low, Demand: mid, Market: low, Year: 2040)
 
 echo "开始运行 LML_2040_100p 的模拟..."
 echo "配置文件: configs/config_LML_2040_100p.yaml"

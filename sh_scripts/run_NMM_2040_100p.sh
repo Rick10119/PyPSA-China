@@ -1,5 +1,5 @@
 #!/bin/bash
-# 100%容量比例的模拟 (Flexibility: non_constrained, Demand: mid, Market: mid, Year: 2040)
+# 100p过剩产能保留比例的模拟 (Flexibility: non_constrained, Demand: mid, Market: mid, Year: 2040)
 
 echo "开始运行 NMM_2040_100p 的模拟..."
 echo "配置文件: configs/config_NMM_2040_100p.yaml"
