@@ -69,21 +69,10 @@ solving:
       OutputFlag: 1
       LogToConsole: 1
       LogFile: ''
-    gurobi-numeric-focus:
-      NumericFocus: 3
-      method: 2
-      crossover: 0
-      BarHomogeneous: 1
-      BarConvTol: 1.0e-05
-      FeasibilityTol: 0.0001
-      OptimalityTol: 0.0001
-      ObjScale: -0.5
-      threads: 8
-      Seed: 123
     MILP:
       Threads: 192
       Method: -1
-      MIPGap: 0.05
+      MIPGap: 0.01
       Heuristics: 0.5
       Cuts: 0
       Presolve: -1
@@ -402,17 +391,6 @@ plotting:
     offwind-dc: '#74c6f2'
     offshore wind (DC): '#74c6f2'
     offshore wind dc: '#74c6f2'
-  cost_category_colors:
-    variable cost-non-renewable: '#545454'
-    capital-non-renewable: '#ff8c00'
-    heating-electrification: '#2fb537'
-    capital-renewable: '#f9d002'
-    transmission lines: '#6c9459'
-    batteries: '#ace37f'
-    long-duration storages: '#bf13a0'
-    carbon capture: '#f29dae'
-    synthetic fuels: '#9850ad'
-    carbon management: '#f29dae'
     hydro: '#298c81'
     hydro reservoir: '#298c81'
     ror: '#3dbfb0'
@@ -498,6 +476,7 @@ plotting:
     biomass to liquid: '#32CD32'
     BioSNG: '#123456'
     lines: '#6c9459'
+    transmission lines: '#6c9459'
     electricity distribution grid: '#97ad8c'
     low voltage: '#97ad8c'
     electric load: '#110d63'

@@ -69,7 +69,6 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2 # barrier
-      # BarHomogeneous: 1
       BarConvTol: 1.e-5
       FeasibilityTol: 1.e-6
       AggFill: 0
@@ -79,21 +78,10 @@ solving:
       OutputFlag: 1  # 关闭Gurobi输出
       LogToConsole: 1  # 关闭控制台日志
       LogFile: ''  # 关闭日志文件
-    gurobi-numeric-focus:
-      NumericFocus: 3       # Favour numeric stability over speed
-      method: 2             # barrier
-      crossover: 0          # do not use crossover
-      BarHomogeneous: 1     # Use homogeneous barrier if standard does not converge
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-4
-      OptimalityTol: 1.e-4
-      ObjScale: -0.5
-      threads: 8
-      Seed: 123
     MILP:
       Threads: 192
       Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
-      MIPGap: 0.05
+      MIPGap: 0.01
       Heuristics: 0.5 # 增加启发式搜索的强度
       Cuts: 0 # 尝试关闭大部分割平面生成，或设置为1 (温和生成)
       Presolve: -1 # 保持默认，通常是有益的
