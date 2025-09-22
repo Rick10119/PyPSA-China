@@ -3,7 +3,7 @@
 
 echo "开始运行 MMM_2030_non_flexible 的模拟..."
 echo "配置文件: configs/config_MMM_2030_non_flexible.yaml"
-echo "配置类型: non_flexible配置"
+echo "配置类型: non-flexible配置"
 echo "Scenario: Flexibility=mid, Demand=mid, Market=mid, Year=2030 (MMM)"
 echo
 
