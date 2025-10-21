@@ -27,7 +27,7 @@ def set_plot_style():
     设置绘图样式
     """
     # 设置字体为Helvetica
-    plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'DejaVu Sans']
+    plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'sans-serif']
     plt.rcParams['axes.unicode_minus'] = False
     
     plt.style.use(['classic', 'seaborn-v0_8-whitegrid',
@@ -35,7 +35,7 @@ def set_plot_style():
                     'hatch.color': 'white',
                     'patch.linewidth': 0.5,
                     'font.size': 22,
-                    'legend.fontsize': 22,
+                    'legend.fontsize': 25,
                     'ytick.labelsize': 18,
                     'lines.linewidth': 1.5,
                     'pdf.fonttype': 42,
