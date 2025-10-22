@@ -278,7 +278,7 @@ def plot_heatmap(n, config, output_dir, province_filter=None):
                     ax2.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Daily Avg Storage')
                     
                     # Set y-axis properties for storage
-                    ax2.set_ylabel('Storage Level (wton)', color='black')
+                    ax2.set_ylabel('Stored Aluminum (Mt)', color='black')
                     ax2.tick_params(axis='y', labelcolor='black')
                     
                     # Add legend
@@ -408,7 +408,7 @@ def save_to_snakemake_outputs(n, config):
                 
                 for i, day in enumerate(day_columns):
                     if day in daily_storage.index:
-                        storage_values.append(daily_storage[day]/1e4) # Convert to wton
+                        storage_values.append(daily_storage[day]/1e6) # Convert to Mt
                         storage_positions.append(i + 0.5)  # Center of the column
                 
                 if storage_values:
@@ -416,10 +416,10 @@ def save_to_snakemake_outputs(n, config):
                     ax2 = ax.twinx()
                     
                     # Plot storage levels as black line
-                    ax2.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Daily Avg Storage')
+                    ax2.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Stored Aluminum')
                     
                     # Set y-axis properties for storage
-                    ax2.set_ylabel('Storage Level (wton)', color='black')
+                    ax2.set_ylabel('Stored Aluminum (Mt)', color='black')
                     ax2.tick_params(axis='y', labelcolor='black')
                     
                     # Add legend

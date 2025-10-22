@@ -1,5 +1,5 @@
 #!/bin/bash
-# 100%容量比例的模拟 (Flexibility: high, Demand: mid, Market: low, Year: 2030)
+# 100p过剩产能保留比例的模拟 (Flexibility: high, Demand: mid, Market: low, Year: 2030)
 
 echo "开始运行 HML_2030_100p 的模拟..."
 echo "配置文件: configs/config_HML_2030_100p.yaml"
