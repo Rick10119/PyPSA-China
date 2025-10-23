@@ -103,22 +103,14 @@ def load_employment_config(config_file=None):
         employment_params = {}
         for tech, params in config['industries'].items():
             # 处理不同的单位系统
-            if 'employment_per_GW' in params:
-                # 新单位系统：GW和千人/GW
-                employment_params[tech] = {
-                    'installed_capacity': params['installed_capacity'],  # 直接使用GW
-                    'employment_per_gw': params['employment_per_GW'],     # 直接使用千人/GW
-                    'display_name': params['display_name'],
-                    'unit_system': 'GW'
-                }
-            else:
-                # 旧单位系统：MW和人/MW
-                employment_params[tech] = {
-                    'installed_capacity': params['installed_capacity'],
-                    'employment_per_mw': params['employment_per_mw'],
-                    'display_name': params['display_name'],
-                    'unit_system': 'MW'
-                }
+
+            employment_params[tech] = {
+                'installed_capacity': params['installed_capacity'],  # 直接使用GW
+                'employment_per_gw': params['employment_per_GW'],     # 直接使用千人/GW
+                'display_name': params['display_name'],
+                'unit_system': 'GW'
+            }
+
         
         return employment_params, config
     except Exception as e:
@@ -135,21 +127,21 @@ def get_default_employment_parameters():
         包含各行业参数的字典
     """
     # 默认参数值
-    # 单位：装机容量(MW)，单位就业人数(人/MW)
+    # 单位：装机容量(GW)，单位就业人数(人/GW)
     employment_params = {
         'Aluminum': {
-            'installed_capacity': 18.8,  # MW - 铝冶炼厂装机容量
-            'employment_per_mw': 15.4,      # 人/MW - 每MW装机对应的就业人数
+            'installed_capacity': 18.8,  # GW - 铝冶炼厂装机容量
+            'employment_per_GW': 15.4,      # 人/GW - 每GW装机对应的就业人数
             'display_name': 'Aluminum Smelter'
         },
         'Coal': {
-            'installed_capacity': 328.0,  # MW - 煤电装机容量
-            'employment_per_mw': 0.8,      # 人/MW - 每MW装机对应的就业人数
+            'installed_capacity': 328.0,  # GW - 煤电装机容量
+            'employment_per_GW': 0.8,      # 人/GW - 每GW装机对应的就业人数
             'display_name': 'Coal Power'
         },
         'Gas': {
-            'installed_capacity': 100.80,  # MW - 天然气发电装机容量
-            'employment_per_mw': 0.2,      # 人/MW - 每MW装机对应的就业人数
+            'installed_capacity': 100.80,  # GW - 天然气发电装机容量
+            'employment_per_GW': 0.2,      # 人/GW - 每GW装机对应的就业人数
             'display_name': 'Gas Power'
         }
     }
@@ -174,18 +166,18 @@ def get_scenario_specific_parameters(scenario_type):
         # non_flexible场景的特殊参数
         employment_params = {
             'Aluminum': {
-                'installed_capacity': 11.7,  # MW - 铝冶炼厂装机容量
-                'employment_per_mw': 15.4,      # 人/MW - 每MW装机对应的就业人数
+                'installed_capacity': 11.7,  # GW - 铝冶炼厂装机容量
+                'employment_per_GW': 15.4,      # 人/GW - 每GW装机对应的就业人数
                 'display_name': 'Aluminum Smelter'
             },
             'Coal': {
-                'installed_capacity': 343.7,  # MW - 煤电装机容量
-                'employment_per_mw': 0.8,      # 人/MW - 每MW装机对应的就业人数
+                'installed_capacity': 343.7,  # GW - 煤电装机容量
+                'employment_per_GW': 0.8,      # 人/GW - 每GW装机对应的就业人数
                 'display_name': 'Coal Power'
             },
             'Gas': {
-                'installed_capacity': 100.80,  # MW - 天然气发电装机容量
-                'employment_per_mw': 0.2,      # 人/MW - 每MW装机对应的就业人数
+                'installed_capacity': 100.80,  # GW - 天然气发电装机容量
+                'employment_per_GW': 0.2,      # 人/GW - 每GW装机对应的就业人数
                 'display_name': 'Gas Power'
             }
         }
@@ -215,20 +207,12 @@ def calculate_monthly_employment(capacity_factors, employment_params):
     
     for tech, params in employment_params.items():
         if tech in capacity_factors.columns:
-            # 计算就业人数：平均容量因子 × 装机容量 × 单位就业人数
-            if params.get('unit_system') == 'GW':
-                # 使用GW单位系统
-                monthly_employment = (capacity_factors[tech] * 
-                                    params['installed_capacity'] * 
-                                    params['employment_per_gw'])
-            else:
-                # 使用MW单位系统
-                monthly_employment = (capacity_factors[tech] * 
-                                    params['installed_capacity'] * 
-                                    params['employment_per_mw'])
+            # 计算就业人数：平均容量因子 × 装机容量 × 单位就业人数 * 90% + 最大值的10%
+            monthly_employment = (0.10 + 0.90 * capacity_factors[tech]) * (
+                                params['installed_capacity'] * 
+                                params['employment_per_GW'])
             employment_data[params['display_name']] = monthly_employment
-        else:
-            print(f"Warning: No capacity factor data found for {tech}")
+
     
     return pd.DataFrame(employment_data, index=capacity_factors.index)
 
@@ -408,7 +392,7 @@ def plot_single_scenario(ax, employment_data, colors, scenario_name,
                            alpha=0.7, label=label)
     
     # 设置图表属性
-    ax.set_ylabel('Needed workers', fontsize=axis_font_size)
+    ax.set_ylabel('Needed labor force', fontsize=axis_font_size)
     ax.set_xlim(1.0, 12.0)
     ax.set_xticks(range(1, 13))
     ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
@@ -626,11 +610,11 @@ def print_comparison_statistics(differences, employment_params_20p, employment_p
     print(f"\nScenario Parameters:")
     print(f"20p Scenario:")
     for tech, params in employment_params_20p.items():
-        print(f"  {params['display_name']}: {params['installed_capacity']} MW")
+        print(f"  {params['display_name']}: {params['installed_capacity']} GW")
     
     print(f"Non_flexible Scenario:")
     for tech, params in employment_params_non_flexible.items():
-        print(f"  {params['display_name']}: {params['installed_capacity']} MW")
+        print(f"  {params['display_name']}: {params['installed_capacity']} GW")
     
     # 打印均值和方差摘要
     print_mean_variance_summary(differences)
@@ -772,11 +756,11 @@ def compare_employment_scenarios(file_20p=None, file_non_flexible=None,
     print("Calculating employment...")
     print("20p scenario parameters:")
     for tech, params in employment_params_20p.items():
-        print(f"  {params['display_name']}: {params['installed_capacity']} MW")
+        print(f"  {params['display_name']}: {params['installed_capacity']} GW")
     
     print("Non_flexible scenario parameters:")
     for tech, params in employment_params_non_flexible.items():
-        print(f"  {params['display_name']}: {params['installed_capacity']} MW")
+        print(f"  {params['display_name']}: {params['installed_capacity']} GW")
     
     employment_data_20p = calculate_monthly_employment(capacity_factors_20p, employment_params_20p)
     employment_data_non_flexible = calculate_monthly_employment(capacity_factors_non_flexible, employment_params_non_flexible)
