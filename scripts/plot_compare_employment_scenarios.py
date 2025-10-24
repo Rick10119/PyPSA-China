@@ -392,7 +392,7 @@ def plot_single_scenario(ax, employment_data, colors, scenario_name,
                            alpha=0.7, label=label)
     
     # 设置图表属性
-    ax.set_ylabel('Needed labor force', fontsize=axis_font_size)
+    ax.set_ylabel('Needed workforce', fontsize=axis_font_size)
     ax.set_xlim(1.0, 12.0)
     ax.set_xticks(range(1, 13))
     ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 

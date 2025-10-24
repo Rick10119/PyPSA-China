@@ -524,10 +524,10 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
     
     # 用星号标出净值最大处
     ax.plot(max_saving_capacity, max_saving_value, 'r*', markersize=15, 
-            label=f'Highest Net Savings: {max_saving_value/1e9:.1f}B CNY', zorder=30)
+            label=f'Highest Net Savings: {max_saving_value/1e9:.0f}B CNY', zorder=30)
     
     # 为净值最大点添加数值标签
-    ax.annotate(f'{max_saving_value/1e9:.1f}B',
+    ax.annotate(f'{max_saving_value/1e9:.0f}B',
                 xy=(max_saving_capacity, max_saving_value),
                 xytext=(0, 20),
                 textcoords="offset points",
