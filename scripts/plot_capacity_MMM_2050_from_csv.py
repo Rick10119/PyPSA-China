@@ -107,10 +107,10 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     
     # 用星号标出净值最大处
     ax.plot(max_saving_capacity, max_saving_value, 'r*', markersize=15, 
-            label=f'Highest Net Savings: {max_saving_value:.1f}B CNY', zorder=30)
+            label=f'Highest Net Savings: {max_saving_value:.0f}B CNY', zorder=30)
     
     # 为净值最大点添加数值标签
-    ax.annotate(f'{max_saving_value:.1f}B',
+    ax.annotate(f'{max_saving_value:.0f}B',
                 xy=(max_saving_capacity, max_saving_value),
                 xytext=(0, 20),
                 textcoords="offset points",
@@ -123,12 +123,12 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
                      markersize=6, label='Emissions Reduction', color='red')
     
     # 设置标签
-    ax.set_xlabel('Aluminum Smelting Capacity (Mt)', fontsize=20)
-    ax.set_ylabel('Cost Savings (Billion CNY)', fontsize=20, color='blue')
-    ax2.set_ylabel('Emissions Reduction (Million Tonnes CO2)', fontsize=20, color='red')
+    ax.set_xlabel('Aluminum Smelting Capacity (Mt/Year)', fontsize=20)
+    ax.set_ylabel('Cost Savings/Increase (Billion CNY)', fontsize=20, color='blue')
+    ax2.set_ylabel('Carbon Emissions Reduction (Mt CO2)', fontsize=20, color='red')
     
     # 添加零线
-    ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1)
+    # ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1)
     ax2.axhline(y=0, color='red', linestyle='--', alpha=0.5, linewidth=1)
     
     # 添加网格
@@ -152,11 +152,11 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     
     # 创建图例
     legend_elements = [
-        plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='Power System Cost Savings'),
-        plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Increase'),
-        plt.Line2D([0], [0], color='black', linewidth=3, marker='o', markersize=8, label='Net Cost Savings'),
-        plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='Highest Net Savings'),
-        plt.Line2D([0], [0], color='red', linewidth=2, marker='o', markersize=6, label='Carbon Emissions Reduction')
+        plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='Electricity System Cost Savings'),
+        plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='Smelter Operational Cost Increase'),
+        plt.Line2D([0], [0], color='black', linewidth=3, marker='o', markersize=8, label='Net Benefit'),
+        plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='Highest Net Benefit'),
+        plt.Line2D([0], [0], color='red', linewidth=2, marker='o', markersize=6, label='Reduced Carbon Emissions')
     ]
     
     # 添加图例
@@ -169,10 +169,6 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     logger.info(f"MMM-2050情景分析图表已保存到: {plot_file}")
     
-    # 打印关键信息
-    logger.info(f"Highest Net Cost Savings: {max_saving_value:.1f} Billion CNY")
-    logger.info(f"Corresponding Capacity: {max_saving_capacity/100:.0f} Mt")
-    logger.info(f"Corresponding Capacity Ratio: {df.iloc[max_saving_index]['Capacity_Ratio']}")
     
     return fig, ax, ax2
 

@@ -5,6 +5,7 @@ Plot scatter chart of optimal points showing capacity and net value
 X-axis: Aluminum smelting capacity (10,000 tons/year)
 Y-axis: Net value (billion CNY)
 Different years represented by different colors
+Need the config files for the capacity tests
 """
 
 import pandas as pd
@@ -809,7 +810,7 @@ def plot_optimal_points_distribution(use_cache=True, save_csv=True):
     # ax1.legend(loc='upper right', fontsize=12)  # Removed legend
     
     # Bottom plot: Optimal net value distribution
-    ax2.set_title('Optimal Net Value Distribution', fontsize=16, fontweight='bold', pad=20)
+    ax2.set_title('Optimal Net Benefit Distribution', fontsize=16, fontweight='bold', pad=20)
     
     for year in years:
         net_values = year_data[year]['net_values']
@@ -837,7 +838,7 @@ def plot_optimal_points_distribution(use_cache=True, save_csv=True):
                     bbox=dict(boxstyle="round,pad=0.3", facecolor=year_colors[year], alpha=0.3))
     
     ax2.set_xlabel('Year', fontsize=14, fontweight='bold')
-    ax2.set_ylabel('Net Value (Billion CNY)', fontsize=14, fontweight='bold')
+    ax2.set_ylabel('Net Benefit (Billion CNY)', fontsize=14, fontweight='bold')
     ax2.set_xticks(years)
     ax2.grid(True, alpha=0.3)
     # ax2.legend(loc='upper right', fontsize=12)  # Removed legend
@@ -906,7 +907,8 @@ def plot_optimal_points_boxplot(use_cache=True, save_csv=True):
     
     # Left plot: Capacity box plot
     bp1 = ax1.boxplot(capacity_data, labels=year_labels, patch_artist=True, 
-                      boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
+                      boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2),
+                      showfliers=False)
     
     # Color the boxes
     for patch, year in zip(bp1['boxes'], years):
@@ -939,7 +941,8 @@ def plot_optimal_points_boxplot(use_cache=True, save_csv=True):
     
     # Right plot: Net value box plot
     bp2 = ax2.boxplot(net_value_data, labels=year_labels, patch_artist=True, 
-                      boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
+                      boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2),
+                      showfliers=False)
     
     # Color the boxes
     for patch, year in zip(bp2['boxes'], years):
@@ -947,7 +950,7 @@ def plot_optimal_points_boxplot(use_cache=True, save_csv=True):
     
     ax2.set_title('Optimal Net Value Distribution by Year', fontsize=16, fontweight='bold', pad=20)
     ax2.set_xlabel('Year', fontsize=14, fontweight='bold')
-    ax2.set_ylabel('Net System Value (Billion CNY)', fontsize=14, fontweight='bold')
+    ax2.set_ylabel('Net System Benefit (Billion CNY)', fontsize=14, fontweight='bold')
     ax2.grid(True, alpha=0.3)
     ax2.tick_params(axis='both', which='major', labelsize=12)
     
@@ -1042,7 +1045,7 @@ def plot_optimal_points_scatter(use_cache=True, save_csv=True):
     
     # Add labels
     ax.set_xlabel('Aluminum Smelting Capacity (10,000 tons/year)', fontsize=15, fontweight='bold')
-    ax.set_ylabel('Net System Value (Billion CNY)', fontsize=15, fontweight='bold')
+    ax.set_ylabel('Net System Benefit (Billion CNY)', fontsize=15, fontweight='bold')
     # ax.set_title('Optimal Points Analysis: Capacity vs Net Value', fontsize=16, fontweight='bold')
     
     # Set tick parameters for larger font size and integer formatting

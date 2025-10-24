@@ -43,233 +43,6 @@ def load_optimal_points_data(csv_file='results/optimal_points_analysis/optimal_p
         logger.error(f"加载数据失败: {str(e)}")
         return None
 
-def plot_capacity_boxplot(df, output_dir='results/optimal_points_analysis'):
-    """
-    绘制产能箱线图
-    
-    Parameters:
-    -----------
-    df : pd.DataFrame
-        数据框
-    output_dir : str
-        输出目录
-    """
-    # 按年份分组
-    years = sorted(df['year'].unique())
-    
-    # 准备数据
-    capacity_data = []
-    year_labels = []
-    
-    for year in years:
-        year_data = df[df['year'] == year]
-        capacities = year_data['capacity'].values
-        capacity_data.append(capacities)
-        year_labels.append(f'{year}')
-    
-    # 创建图形
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-    
-    # 设置颜色
-    colors = plt.cm.viridis(np.linspace(0, 1, len(years)))
-    year_colors = dict(zip(years, colors))
-    
-    # 绘制箱线图
-    bp = ax.boxplot(capacity_data, labels=year_labels, patch_artist=True, 
-                   boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
-    
-    # 为每个箱子设置颜色
-    for patch, year in zip(bp['boxes'], years):
-        patch.set_facecolor(year_colors[year])
-    
-    # 设置标题和标签
-    ax.set_title('Optimal Aluminum Smelting Capacity Distribution by Year', fontsize=16, fontweight='bold', pad=20)
-    ax.set_xlabel('Year', fontsize=20, fontweight='bold')
-    ax.set_ylabel('Aluminum Smelting Capacity (10,000 tons/year)', fontsize=20, fontweight='bold')
-    ax.grid(True, alpha=0.3)
-    ax.tick_params(axis='both', which='major', labelsize=12)
-    
-    # 格式化y轴显示整数
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
-    
-    # 添加年度需求线
-    demand_by_year = {
-        2030: 29.0241717,
-        2040: 15.0817033,
-        2050: 11.6668363,
-    }
-    
-    demand_colors = {2030: 'red', 2040: 'orange', 2050: 'purple'}
-    
-    for i, year in enumerate(years, 1):
-        if year in demand_by_year:
-            demand = demand_by_year[year]
-            ax.axhline(y=demand, xmin=(i-1)/len(years), xmax=i/len(years), 
-                      color=year_colors[year], linestyle='--', linewidth=3, alpha=0.8)
-    
-    # 添加图例
-    legend_elements = []
-    for year in years:
-        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=year_colors[year], alpha=0.7, label=f'{year}'))
-    
-    # 添加需求线到图例
-    for year, demand in demand_by_year.items():
-        if year in years:
-            legend_elements.append(plt.Line2D([0], [0], color=year_colors[year], linestyle='--', linewidth=3, 
-                                            label=f'{year} Demand: {demand:.0f} Mt/year'))
-    
-    ax.legend(handles=legend_elements, loc='lower center', fontsize=18)
-    
-    plt.tight_layout()
-    
-    # 保存图形
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    
-    plot_file = output_path / "optimal_points_capacity_boxplot.png"
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"产能箱线图已保存到: {plot_file}")
-    
-    return fig
-
-def plot_net_value_boxplot(df, output_dir='results/optimal_points_analysis'):
-    """
-    绘制净价值箱线图
-    
-    Parameters:
-    -----------
-    df : pd.DataFrame
-        数据框
-    output_dir : str
-        输出目录
-    """
-    # 按年份分组
-    years = sorted(df['year'].unique())
-    
-    # 准备数据
-    net_value_data = []
-    year_labels = []
-    
-    for year in years:
-        year_data = df[df['year'] == year]
-        net_values = year_data['net_value'].values
-        net_value_data.append(net_values)
-        year_labels.append(f'{year}')
-    
-    # 创建图形
-    fig, ax = plt.subplots(1, 1, figsize=(10, 4.5))
-    
-    # 设置颜色
-    colors = plt.cm.viridis(np.linspace(0, 1, len(years)))
-    year_colors = dict(zip(years, colors))
-    
-    # 绘制箱线图
-    bp = ax.boxplot(net_value_data, labels=year_labels, patch_artist=True, 
-                   boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
-    
-    # 为每个箱子设置颜色
-    for patch, year in zip(bp['boxes'], years):
-        patch.set_facecolor(year_colors[year])
-    
-    # 设置标题和标签
-    ax.set_title('Optimal Net System Value Distribution by Year', fontsize=16, fontweight='bold', pad=20)
-    ax.set_xlabel('Year', fontsize=20, fontweight='bold')
-    ax.set_ylabel('Net System Value (Billion CNY)', fontsize=20, fontweight='bold')
-    ax.grid(True, alpha=0.3)
-    ax.tick_params(axis='both', which='major', labelsize=12)
-    
-    # 格式化y轴显示整数
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
-    
-    # 添加图例
-    legend_elements = []
-    for year in years:
-        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=year_colors[year], alpha=0.7, label=f'{year}'))
-    
-    ax.legend(handles=legend_elements, loc='lower center', fontsize=18)
-    
-    plt.tight_layout()
-    
-    # 保存图形
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    
-    plot_file = output_path / "optimal_points_net_value_boxplot.png"
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"净价值箱线图已保存到: {plot_file}")
-    
-    # Show plot
-    # plt.show()
-    
-    return fig
-
-def plot_excess_ratio_boxplot(df, output_dir='results/optimal_points_analysis'):
-    """
-    绘制过剩比例箱线图
-    
-    Parameters:
-    -----------
-    df : pd.DataFrame
-        数据框
-    output_dir : str
-        输出目录
-    """
-    # 按年份分组
-    years = sorted(df['year'].unique())
-    
-    # 准备数据
-    excess_ratio_data = []
-    year_labels = []
-    
-    for year in years:
-        year_data = df[df['year'] == year]
-        excess_ratios = year_data['excess_ratio'].values
-        excess_ratio_data.append(excess_ratios)
-        year_labels.append(f'{year}')
-    
-    # 创建图形
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    
-    # 设置颜色
-    colors = plt.cm.viridis(np.linspace(0, 1, len(years)))
-    year_colors = dict(zip(years, colors))
-    
-    # 绘制箱线图
-    bp = ax.boxplot(excess_ratio_data, labels=year_labels, patch_artist=True, 
-                   boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
-    
-    # 为每个箱子设置颜色
-    for patch, year in zip(bp['boxes'], years):
-        patch.set_facecolor(year_colors[year])
-    
-    # 设置标题和标签
-    ax.set_title('Optimal Overcapacity Ratio', fontsize=16, fontweight='bold', pad=20)
-    ax.set_xlabel('Year', fontsize=20, fontweight='bold')
-    ax.set_ylabel('Overcapacity Ratio', fontsize=20, fontweight='bold')
-    ax.grid(True, alpha=0.3)
-    ax.tick_params(axis='both', which='major', labelsize=12)
-    
-    # 格式化y轴显示百分比
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.1%}'))
-    
-    # 添加图例
-    legend_elements = []
-    for year in years:
-        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=year_colors[year], alpha=0.7, label=f'{year}'))
-    
-    ax.legend(handles=legend_elements, loc='lower center', fontsize=18)
-    
-    plt.tight_layout()
-    
-    # 保存图形
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    
-    plot_file = output_path / "optimal_points_excess_ratio_boxplot.png"
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"过剩比例箱线图已保存到: {plot_file}")
-    
-    return fig
 
 def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     """
@@ -308,12 +81,13 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     
     # 上图：产能箱线图
     bp1 = ax1.boxplot(capacity_data, labels=year_labels, patch_artist=True, 
-                     boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
+                     boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2),
+                     showfliers=False)
     
     for patch, year in zip(bp1['boxes'], years):
         patch.set_facecolor(year_colors[year])
     
-    ax1.set_title('Optimal Smelting Capacity', fontsize=18, fontweight='bold', pad=15)
+    ax1.set_title('Distribution of Optimal Smelting Capacity by Years', fontsize=18, fontweight='bold', pad=15)
     # ax1.set_xlabel('Year', fontsize=18, fontweight='bold')
     ax1.set_ylabel('Smelting Capacity (Mt/year)', fontsize=18, fontweight='bold')
     ax1.grid(True, alpha=0.3)
@@ -321,7 +95,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
     
     # 设置y轴从0开始
-    # ax1.set_ylim(bottom=0)
+    ax1.set_ylim(bottom=0)
     
     # 添加年度需求线 - 使用与箱子相同的颜色
     demand_by_year = {
@@ -376,28 +150,58 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
             # 获取该年份产能的最大值，用于确定标注位置
             year_data = df[df['year'] == year]
             if not year_data.empty:
-                max_capacity = year_data['capacity'].max() - 3
-                # 在箱子上方添加文本标注
-                ax1.text(i, max_capacity, f'{excess_ratio_mean:.1%}', 
-                        ha='center', va='bottom', fontsize=18, fontweight='bold',
-                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+                mean_capacity = year_data['capacity'].mean()
+                # 在箱子右侧添加文本标注，位置稍微下移
+                ax1.text(i + 0.2, mean_capacity, f'{excess_ratio_mean:.0%}', 
+                        ha='left', va='center', fontsize=16, fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.8))
     
     # 下图：净价值箱线图
     bp2 = ax2.boxplot(net_value_data, labels=year_labels, patch_artist=True, 
-                     boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2))
+                     boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2),
+                     showfliers=False)
     
     for patch, year in zip(bp2['boxes'], years):
         patch.set_facecolor(year_colors[year])
     
-    ax2.set_title('Optimal Net System Value', fontsize=18, fontweight='bold', pad=15)
+    ax2.set_title('Distribution of Optimal Net Benefit by Year', fontsize=18, fontweight='bold', pad=15)
     ax2.set_xlabel('Year', fontsize=18, fontweight='bold')
-    ax2.set_ylabel('Net Value (Billion CNY)', fontsize=18, fontweight='bold')
+    ax2.set_ylabel('Net Benefit (Billion CNY)', fontsize=18, fontweight='bold')
     ax2.grid(True, alpha=0.3)
     ax2.tick_params(axis='both', which='major', labelsize=18)
     ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
     
     # 设置y轴从0开始
     ax2.set_ylim(bottom=0)
+    
+    # 计算每年的平均净价值
+    year_net_value_means = {}
+    for i, year in enumerate(years):
+        year_data = df[df['year'] == year]
+        if not year_data.empty:
+            year_net_value_means[year] = year_data['net_value'].mean()
+    
+    # 在每个箱子右侧添加净价值平均值标注
+    for i, year in enumerate(years, 1):
+        if year in year_net_value_means:
+            net_value_mean = year_net_value_means[year]
+            # 获取该年份净价值的最大值，用于确定标注位置
+            year_data = df[df['year'] == year]
+            if not year_data.empty:
+                mean_net_value = year_data['net_value'].mean()
+                # 在箱子右侧添加文本标注
+                ax2.text(i + 0.2, mean_net_value, f'{net_value_mean:.0f}B', 
+                        ha='left', va='center', fontsize=16, fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.8))
+    
+    # 在第二个子图中添加图例，只显示均值
+    if year_net_value_means:
+        from matplotlib.patches import Rectangle
+        legend_elements_2 = [Rectangle((0.1, 0.1), 1, 1, facecolor='white', 
+                                      edgecolor='black', alpha=0.8,
+                                      label='Mean Optimal Net Benefit')]
+        ax2.legend(handles=legend_elements_2, loc='upper left', 
+                  frameon=False, fontsize=18)
     
     # 在第一个子图中添加图例
     legend_elements = []
@@ -411,17 +215,17 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         legend_elements.append(plt.Line2D([0], [0], color='b', linestyle='-.', linewidth=2, 
                                         label='Mean Optimal Capacity'))
     
-    # 添加过剩产能率标注到图例
-    if year_excess_ratio_means:
+    # 添加均值标注到图例
+    if year_capacity_means or year_net_value_means:
         # 创建一个带框的图例项来表示文本框标注
         from matplotlib.patches import Rectangle
         legend_elements.append(Rectangle((0, 0), 1, 1, facecolor='white', 
                                        edgecolor='black', alpha=0.8,
-                                       label='Mean Optimal Overcapacity Ratio'))
+                                       label='Mean Overcapacity Ratio'))
     
     # 在第一个子图中添加图例，无框
     if legend_elements:
-        ax1.legend(handles=legend_elements, loc='upper right', 
+        ax1.legend(handles=legend_elements, loc='lower left', 
                   frameon=False, fontsize=18)
     
     # 调整布局，为图例留出空间
