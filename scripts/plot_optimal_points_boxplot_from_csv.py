@@ -87,7 +87,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     for patch, year in zip(bp1['boxes'], years):
         patch.set_facecolor(year_colors[year])
     
-    ax1.set_title('Distribution of Optimal Smelting Capacity by Years', fontsize=18, fontweight='bold', pad=15)
+    ax1.set_title('Distribution of Optimal Smelting Capacity by Year', fontsize=18, fontweight='bold', pad=15)
     # ax1.set_xlabel('Year', fontsize=18, fontweight='bold')
     ax1.set_ylabel('Smelting Capacity (Mt/year)', fontsize=18, fontweight='bold')
     ax1.grid(True, alpha=0.3)
@@ -153,7 +153,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
                 mean_capacity = year_data['capacity'].mean()
                 # 在箱子右侧添加文本标注，位置稍微下移
                 ax1.text(i + 0.2, mean_capacity, f'{excess_ratio_mean:.0%}', 
-                        ha='left', va='center', fontsize=16, fontweight='bold',
+                        ha='left', va='center', fontsize=18, fontweight='bold',
                         bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.8))
     
     # 下图：净价值箱线图
@@ -191,7 +191,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
                 mean_net_value = year_data['net_value'].mean()
                 # 在箱子右侧添加文本标注
                 ax2.text(i + 0.2, mean_net_value, f'{net_value_mean:.0f}B', 
-                        ha='left', va='center', fontsize=16, fontweight='bold',
+                        ha='left', va='center', fontsize=18, fontweight='bold',
                         bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.8))
     
     # 在第二个子图中添加图例，只显示均值

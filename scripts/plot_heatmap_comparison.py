@@ -36,7 +36,7 @@ def set_plot_style():
                     'patch.linewidth': 0.5,
                     'font.size': 22,
                     'legend.fontsize': 25,
-                    'ytick.labelsize': 18,
+                    'ytick.labelsize': 22,
                     'lines.linewidth': 1.5,
                     'pdf.fonttype': 42,
                     }])
@@ -232,7 +232,7 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
         plot_title_suffix = " (National)"
     
     # 创建上下排列的子图，每个图长宽比9:4，整体约1:1
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 9))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12))
     
     # 处理 MMM 场景
     if tech == "aluminum":
@@ -263,6 +263,8 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
         # 隐藏第一个子图的x轴标签（Day）
         ax1.set_xlabel('')
         # ax1.set_xticklabels([])
+        # 设置y轴标签正常站立（不旋转）
+        ax1.set_yticklabels(ax1.get_yticklabels(), rotation=0)
         
         # 为铝冶炼厂添加储能水平叠加（不显示标签）
         if tech == "aluminum" and not daily_storage_mmm.empty:
@@ -277,13 +279,13 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
             
             if storage_values:
                 ax1_twin = ax1.twinx()
-                ax1_twin.plot(storage_positions, storage_values, 'k-', linewidth=2)
+                # 先画白线作为外边框
+                ax1_twin.plot(storage_positions, storage_values, 'w-', linewidth=3.5, zorder=1)
+                # 再画黑线在内部
+                ax1_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, zorder=2)
                 ax1_twin.set_ylabel('Stored aluminum (Mt)', color='black')
                 ax1_twin.tick_params(axis='y', labelcolor='black')
                 ax1_twin.set_xlim(0, len(day_columns))
-    else:
-        ax1.text(0.5, 0.5, f'MMM Scenario\nNo {tech} data', ha='center', va='center', transform=ax1.transAxes)
-        ax1.set_title(f'MMM Scenario - {tech} Heatmap')
     
     # 绘制 NMM 热力图
     if not df_nmm.empty and base_nmm > 0:
@@ -297,6 +299,8 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
         ax2.set_title(f'Non-constrained smelter flexibility')
         # 为第二个子图添加x轴标签
         ax2.set_xlabel('Day')
+        # 设置y轴标签正常站立（不旋转）
+        ax2.set_yticklabels(ax2.get_yticklabels(), rotation=0)
         
         # 为铝冶炼厂添加储能水平叠加
         if tech == "aluminum" and not daily_storage_nmm.empty:
@@ -311,19 +315,21 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
             
             if storage_values:
                 ax2_twin = ax2.twinx()
-                ax2_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Stored aluminum')
+                # 先画白线作为外边框
+                ax2_twin.plot(storage_positions, storage_values, 'w-', linewidth=3.5, zorder=1)
+                # 再画黑线在内部
+                ax2_twin.plot(storage_positions, storage_values, 'k-', linewidth=2, label='Stored aluminum', zorder=2)
                 ax2_twin.set_ylabel('Stored aluminum (Mt)', color='black')
                 ax2_twin.tick_params(axis='y', labelcolor='black')
-                ax2_twin.legend(loc='lower right', bbox_to_anchor=(1, -0.7))
+                ax2_twin.legend(loc='lower right', bbox_to_anchor=(1.1, -0.5))
                 ax2_twin.set_xlim(0, len(day_columns))
-    else:
-        ax2.text(0.5, 0.5, f'NMM Scenario\nNo {tech} data', ha='center', va='center', transform=ax2.transAxes)
-        ax2.set_title(f'NMM Scenario - {tech} Heatmap')
     
     # 调整布局，为图例留出更多空间
     plt.tight_layout()
     # 进一步调整子图间距，为右侧图例留出更多空间
     plt.subplots_adjust(right=2)
+    
+    # plt.show()
     
     # 保存图片
     output_path = os.path.join(province_dir, f"smelter_flexibility_comparison.png")

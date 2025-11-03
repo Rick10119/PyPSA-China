@@ -166,9 +166,15 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     ax2.tick_params(axis='y', labelsize=30)  # 设置y轴tick大小
     ax2.grid(True, alpha=0.3)
     
-    # 为每个子图添加各自的图例
-    ax1.legend(loc='lower center', ncol=2, fontsize=30)
-    ax2.legend(loc='best', ncol=2, fontsize=30)
+    # 将每个子图的图例放到外面
+    ax1.legend(loc='center left', bbox_to_anchor=(1.04, 0.5), ncol=1, fontsize=30, borderaxespad=0.)
+    # Set legend order: hydro, wind, solar, gas, coal
+    legend_order = ['Hydro', 'Wind', 'Solar', 'Gas', 'Coal']
+    handles, labels = ax2.get_legend_handles_labels()
+    label_handle_map = dict(zip(labels, handles))
+    ordered_handles = [label_handle_map[l] for l in legend_order if l in label_handle_map]
+    ordered_labels = [l for l in legend_order if l in label_handle_map]
+    ax2.legend(ordered_handles, ordered_labels, loc='center left', bbox_to_anchor=(1.04, 0.5), ncol=1, fontsize=30, borderaxespad=0.)
     
     # 调整子图间距
     plt.tight_layout()
