@@ -44,6 +44,7 @@ RUN conda install -y \
     matplotlib \
     tqdm \
     proj \
+    proj-data \
     fiona \
     geopy \
     cartopy \
@@ -57,6 +58,9 @@ RUN conda install -y \
     poppler \
     pyogrio \
     && conda clean -ya
+
+# Set PROJ environment variable to ensure PROJ can find its database
+ENV PROJ_LIB=/opt/conda/share/proj
 
 # Install pip packages
 RUN pip install --no-cache-dir \
