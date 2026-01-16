@@ -183,11 +183,8 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
             'stand_by_cost': operational_params['stand_by_cost'] * al_smelter_p_nom,
         })
     else:
-        # 只返回单位成本
-        operational_params.update({
-            'start_up_cost_per_mw': 0.5 * smelter_params['restart_cost'],
-            'shut_down_cost_per_mw': 0.5 * smelter_params['restart_cost'],
-        })
+        # 报错
+        raise ValueError("al_smelter_p_nom is required")
     
     return operational_params
 

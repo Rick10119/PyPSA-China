@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0815.1H.1
+version: 0116.4H.1
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: False
+using_single_node: True
 single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
@@ -17,7 +17,7 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '1h'
+freq: '4h'
 
 add_aluminum: True
 only_other_load: True
@@ -27,12 +27,12 @@ aluminum_max_iterations: 3  # 最大迭代次数
 aluminum_convergence_tolerance: 0.001  # 收敛阈值（0.1%）
 
 # 电解铝厂容量比例设置 (100%, 90%, 80%, 70%, 60%)
-aluminum_capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
+aluminum_capacity_ratio: 0.3  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
 
 scenario:
   line_limits: [ 'opt' ]
   pathway: ['linear2050']
-  topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
+  topology: "current+FCG" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
   planning_horizons:
     - 2050
   co2_reduction:
@@ -152,9 +152,9 @@ aluminum:
         sabatier_cost_factor: 1.5 # Sabatier成本调整系数
   # 当前选择的情景组合 (默认设置为mid-mid-mid)
   current_scenario:
-    smelter_flexibility: "low"
-    primary_demand: "high"
-    market_opportunity: "high"
+    smelter_flexibility: "mid"
+    primary_demand: "mid"
+    market_opportunity: "mid"
   
   # Aluminum storage costs ($/MWh per hour) 3.91479E-05
   al_marginal_cost_storage: 3.79E-05 # euro/MWh

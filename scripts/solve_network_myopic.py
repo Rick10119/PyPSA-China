@@ -351,12 +351,56 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     # 获取电解铝厂运行参数
     from scripts.scenario_utils import get_aluminum_smelter_operational_params
     
-    # 重新设置电解铝冶炼设备的参数
-    for smelter in target_aluminum_smelters:
-        n.links.at[smelter, 'committable'] = config['aluminum_commitment']
-        # 获取运行参数
-        operational_params = get_aluminum_smelter_operational_params(config, al_smelter_p_nom=al_smelter_p_nom[target_province])
-        n.links.at[smelter, 'p_min_pu'] = operational_params['p_min_pu'] if config['aluminum_commitment'] else 0
+    # 以25万吨/年为产线粒度，拆分电解铝产能
+    base_smelter_name = target_aluminum_smelters[0]
+    base_bus0 = n.links.at[base_smelter_name, 'bus0']
+    base_bus1 = n.links.at[base_smelter_name, 'bus1']
+    base_efficiency = n.links.at[base_smelter_name, 'efficiency']
+    original_smelter_name = base_smelter_name
+    
+    capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
+    annual_production_10kt = al_smelter_annual_production[target_province] * capacity_ratio
+    line_unit_10kt = 25.0
+    
+    if annual_production_10kt <= line_unit_10kt:
+        line_caps_10kt = [annual_production_10kt]
+    else:
+        full_lines = int(annual_production_10kt // line_unit_10kt)
+        remainder = annual_production_10kt - full_lines * line_unit_10kt
+        line_caps_10kt = [line_unit_10kt] * full_lines
+        if remainder > 0:
+            line_caps_10kt.append(remainder)
+    
+    # 移除原有的省级电解铝设备
+    n.mremove("Link", target_aluminum_smelters)
+    
+    # 添加产线级电解铝设备
+    target_aluminum_smelters = []
+    for idx, line_cap_10kt in enumerate(line_caps_10kt, start=1):
+        line_cap_mw = line_cap_10kt * 10000 * 13.3 / 8760
+        smelter_name = f"{target_province} aluminum smelter line-{idx}"
+        operational_params = get_aluminum_smelter_operational_params(
+            config,
+            al_smelter_p_nom=line_cap_mw
+        )
+        n.add(
+            "Link",
+            smelter_name,
+            bus0=base_bus0,
+            bus1=base_bus1,
+            carrier="aluminum",
+            p_nom=line_cap_mw,
+            p_nom_extendable=False,
+            efficiency=base_efficiency,
+            capital_cost=operational_params['capital_cost'],
+            stand_by_cost=operational_params['stand_by_cost'],
+            marginal_cost=operational_params['marginal_cost'],
+            start_up_cost=0.5 * operational_params['start_up_cost'],
+            shut_down_cost=0.5 * operational_params['start_up_cost'],
+            committable=True,
+            p_min_pu=operational_params['p_min_pu']
+        )
+        target_aluminum_smelters.append(smelter_name)
     
     # 移除所有非电解铝相关的组件
     for component_type in ["Generator", "StorageUnit", "Store", "Link", "Load"]:
@@ -440,8 +484,9 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     )
     
     # 提取电解铝用能模式
-    aluminum_usage = n.links_t.p0[target_aluminum_smelters].copy()
-    return aluminum_usage
+    aluminum_usage_lines = n.links_t.p0[target_aluminum_smelters].copy()
+    aluminum_usage = aluminum_usage_lines.sum(axis=1).to_frame(name=original_smelter_name)
+    return aluminum_usage, aluminum_usage_lines
 
 def solve_aluminum_optimization_parallel_wrapper(args):
     """
@@ -489,7 +534,7 @@ def solve_aluminum_optimization_parallel_wrapper(args):
     n_province.opts = opts
     
     # 求解单个省份的电解铝优化问题
-    province_aluminum_usage = solve_aluminum_optimization(
+    province_aluminum_usage, province_aluminum_usage_lines = solve_aluminum_optimization(
         n_province, 
         config, 
         solving, 
@@ -500,7 +545,7 @@ def solve_aluminum_optimization_parallel_wrapper(args):
         **kwargs_dict
     )
     
-    return (target_province, province_aluminum_usage)
+    return (target_province, province_aluminum_usage, province_aluminum_usage_lines)
 
 def solve_aluminum_optimization_parallel(target_provinces, original_network_path, original_overrides, 
                                        config, solving, opts, current_nodal_prices, 
@@ -558,7 +603,8 @@ def solve_aluminum_optimization_parallel(target_provinces, original_network_path
         args_list.append(args)
     
     # 使用进程池并行执行
-    all_aluminum_usage = {}
+        all_aluminum_usage = {}
+        all_aluminum_usage_lines = {}
     
     start_time = time.time()
     
@@ -571,10 +617,12 @@ def solve_aluminum_optimization_parallel(target_provinces, original_network_path
         
         # 收集结果
         for future in as_completed(future_to_province):
-            result_province, province_aluminum_usage = future.result()
+            result_province, province_aluminum_usage, province_aluminum_usage_lines = future.result()
             
             if province_aluminum_usage is not None:
                 all_aluminum_usage[result_province] = province_aluminum_usage
+            if province_aluminum_usage_lines is not None:
+                all_aluminum_usage_lines[result_province] = province_aluminum_usage_lines
     
     total_time = time.time() - start_time
     
@@ -641,6 +689,11 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     
     # 初始化电解铝用能模式和目标函数值
     aluminum_usage = None
+    fixed_aluminum_usage = None
+    fixed_line_usage = None
+    fixed_national_smelter_production = None
+    aluminum_removed_from_upper = False
+    aluminum_snapshot = None
     previous_objective = None
     iteration = 0
     final_network = None
@@ -761,38 +814,41 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         original_commitment = config.get("aluminum_commitment", False)
         config["aluminum_commitment"] = False
         
-        # 如果有固定的电解铝用能，需要添加约束
-        if aluminum_usage is not None:
-            # 获取电解铝厂运行参数
-            from scripts.scenario_utils import get_aluminum_smelter_operational_params
+        # 如果有固定的电解铝用能，第二次迭代起只保留电负荷并移除铝相关组件
+        if aluminum_usage is not None and iteration >= 2 and not aluminum_removed_from_upper:
+            aluminum_usage_for_upper = fixed_aluminum_usage if fixed_aluminum_usage is not None else aluminum_usage
             
-            # 根据电解铝用能模式动态设置约束
-            for smelter in aluminum_usage.columns:
-                if smelter in n_current.links.index:
-                    aluminum_power = aluminum_usage[smelter].values
-                    
-                    # 从冶炼设备名称中提取省份信息
-                    # 冶炼设备名称格式: "Province aluminum smelter"
-                    province = smelter.replace(" aluminum smelter", "")
-                    
-                    # 获取该省份的运行参数
-                    if province in al_smelter_p_nom.index:
-                        operational_params = get_aluminum_smelter_operational_params(config, al_smelter_p_nom=al_smelter_p_nom[province])
-                        min_pu = operational_params['p_min_pu']
-                    else:
-                        # 如果找不到省份，使用默认值
-                        min_pu = config['aluminum'].get('al_p_min_pu', 0.7)
-                                     
-                    # 根据用能模式设置约束
-                    for i, power in enumerate(aluminum_power):
-                        if power < 1:# threshold set by me
-                            # 当用能为0时，固定p_max_pu为0，p_min_pu为0
-                            n_current.links_t.p_max_pu.at[n_current.snapshots[i], smelter] = 0
-                            n_current.links_t.p_min_pu.at[n_current.snapshots[i], smelter] = 0
-                        else:
-                            # 当用能不为0时，不固定p_max_pu，但设置p_min_pu为最小出力比例
-                            n_current.links_t.p_max_pu.at[n_current.snapshots[i], smelter] = 1
-                            n_current.links_t.p_min_pu.at[n_current.snapshots[i], smelter] = min_pu
+            if not hasattr(n_current.loads_t, 'p_set'):
+                n_current.loads_t.p_set = get_as_dense(n_current, "Load", "p_set").copy()
+            else:
+                n_current.loads_t.p_set = n_current.loads_t.p_set.copy()
+            
+            for smelter in aluminum_usage_for_upper.columns:
+                if " aluminum smelter" not in smelter:
+                    continue
+                
+                province = smelter.split(" aluminum smelter")[0]
+                load_name = province
+                if load_name in n_current.loads_t.p_set.columns:
+                    n_current.loads_t.p_set[load_name] = (
+                        n_current.loads_t.p_set[load_name] + aluminum_usage_for_upper[smelter]
+                    )
+            
+            aluminum_links = n_current.links[n_current.links.carrier == "aluminum"].index
+            aluminum_transfer_links = n_current.links[n_current.links.carrier == "aluminum transfer"].index
+            aluminum_stores = n_current.stores[n_current.stores.carrier == "aluminum"].index
+            aluminum_buses = n_current.buses[n_current.buses.carrier == "aluminum"].index
+            aluminum_transfer_buses = n_current.buses[n_current.buses.carrier == "aluminum transfer"].index
+            aluminum_loads = n_current.loads[n_current.loads.bus.isin(aluminum_buses)].index
+            
+            n_current.mremove("Link", aluminum_links)
+            n_current.mremove("Link", aluminum_transfer_links)
+            n_current.mremove("Store", aluminum_stores)
+            n_current.mremove("Load", aluminum_loads)
+            n_current.mremove("Bus", aluminum_buses)
+            n_current.mremove("Bus", aluminum_transfer_buses)
+            
+            aluminum_removed_from_upper = True
         
         # 求解网络
         # 只保留PyPSA支持的参数
@@ -836,6 +892,37 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
             if len(electricity_buses) > 0:
                 # 使用所有AC节点的边际电价
                 current_nodal_prices = n_current.buses_t.marginal_price[electricity_buses]
+
+        # 记录第一次迭代的铝组件与结果，用于最终绘图回填
+        if iteration == 1 and aluminum_snapshot is None:
+            aluminum_buses = n_current.buses[n_current.buses.carrier.isin(["aluminum", "aluminum transfer"])].copy()
+            aluminum_links = n_current.links[n_current.links.carrier.isin(["aluminum", "aluminum transfer"])].copy()
+            aluminum_stores = n_current.stores[n_current.stores.carrier == "aluminum"].copy()
+            aluminum_loads = n_current.loads[n_current.loads.bus.isin(aluminum_buses.index)].copy()
+            aluminum_carriers = set(aluminum_buses.carrier.unique()) | set(aluminum_links.carrier.unique())
+            
+            links_t_p0 = None
+            if hasattr(n_current.links_t, "p0") and not aluminum_links.empty:
+                links_t_p0 = n_current.links_t.p0[aluminum_links.index].copy()
+            
+            stores_t_e = None
+            if hasattr(n_current.stores_t, "e") and not aluminum_stores.empty:
+                stores_t_e = n_current.stores_t.e[aluminum_stores.index].copy()
+            
+            loads_t_p_set = None
+            if hasattr(n_current.loads_t, "p_set") and not aluminum_loads.empty:
+                loads_t_p_set = n_current.loads_t.p_set[aluminum_loads.index].copy()
+            
+            aluminum_snapshot = {
+                "buses": aluminum_buses,
+                "links": aluminum_links,
+                "stores": aluminum_stores,
+                "loads": aluminum_loads,
+                "carriers": aluminum_carriers,
+                "links_t_p0": links_t_p0,
+                "stores_t_e": stores_t_e,
+                "loads_t_p_set": loads_t_p_set,
+            }
         
         # 步骤2: 检查收敛性 - 基于步骤一的目标函数变化的相对值
         if previous_objective is not None and current_objective is not None:
@@ -868,35 +955,41 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         al_smelter_p_nom = al_smelter_annual_production * 10000 * 13.3 / 8760  # Convert to MW
         
         # 检查哪些省份在网络中实际存在电解铝组件
-        available_provinces = []
-        for province in al_smelter_p_nom.index:
-            # 检查该省份是否有电解铝冶炼设备
-            aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
-            # 过滤出该省份的电解槽
-            province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
+        if fixed_national_smelter_production is not None:
+            target_provinces = list(fixed_national_smelter_production.keys())
+        else:
+            available_provinces = []
+            for province in al_smelter_p_nom.index:
+                # 检查该省份是否有电解铝冶炼设备
+                aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
+                # 过滤出该省份的电解槽
+                province_smelters = [smelter for smelter in aluminum_smelters if province in smelter]
+                
+                if province_smelters:
+                    available_provinces.append(province)
             
-            if province_smelters:
-                available_provinces.append(province)
-        
-        target_provinces = available_provinces
+            target_provinces = available_provinces
         
         if not target_provinces:
             break
         
         # 获取全国优化结果中各省份的铝冶炼厂产量平均值
-        national_smelter_production = {}
-        # 获取所有铝冶炼厂的产量时间序列
-        all_aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
-        
-        for province in target_provinces:
-            # 找到该省份的电解槽
-            province_smelters = [smelter for smelter in all_aluminum_smelters if province in smelter]
-            if province_smelters:
-                # 获取该省份所有电解槽的产量时间序列
-                province_smelter_production = n_current.links_t.p1[province_smelters]
-                # 计算平均产量（取绝对值，因为产量通常为负值）
-                average_production = province_smelter_production.abs().mean().sum()
-                national_smelter_production[province] = average_production if average_production >= 1 else 0
+        if fixed_national_smelter_production is not None:
+            national_smelter_production = fixed_national_smelter_production
+        else:
+            national_smelter_production = {}
+            # 获取所有铝冶炼厂的产量时间序列
+            all_aluminum_smelters = n_current.links[n_current.links.carrier == "aluminum"].index
+            
+            for province in target_provinces:
+                # 找到该省份的电解槽
+                province_smelters = [smelter for smelter in all_aluminum_smelters if province in smelter]
+                if province_smelters:
+                    # 获取该省份所有电解槽的产量时间序列
+                    province_smelter_production = n_current.links_t.p1[province_smelters]
+                    # 计算平均产量（取绝对值，因为产量通常为负值）
+                    average_production = province_smelter_production.abs().mean().sum()
+                    national_smelter_production[province] = average_production if average_production >= 1 else 0
         
         # 求解多个省份的电解铝优化问题（支持并行和串行）
         # 获取并行计算参数
@@ -925,6 +1018,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         else:
             # 使用原来的串行方法
             all_aluminum_usage = {}
+            all_aluminum_usage_lines = {}
             
             for province in target_provinces:
                 # 为每个省份创建网络副本
@@ -952,7 +1046,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                 n_province.opts = opts
                 
                 # 求解单个省份的电解铝优化问题
-                province_aluminum_usage = solve_aluminum_optimization(
+                province_aluminum_usage, province_aluminum_usage_lines = solve_aluminum_optimization(
                     n_province, 
                     config, 
                     solving, 
@@ -965,11 +1059,13 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                 
                 if province_aluminum_usage is not None:
                     all_aluminum_usage[province] = province_aluminum_usage
+                if province_aluminum_usage_lines is not None:
+                    all_aluminum_usage_lines[province] = province_aluminum_usage_lines
         
         if not all_aluminum_usage:
             break
         
-        # 合并所有省份的电解铝用能结果
+        # 合并所有省份的电解铝用能结果（省级聚合）
         # 获取所有冶炼设备名称
         all_smelters = []
         for province_usage in all_aluminum_usage.values():
@@ -985,8 +1081,28 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                 if smelter in merged_aluminum_usage.columns:
                     merged_aluminum_usage[smelter] = province_usage[smelter]
         
+        # 合并产线级用能结果（用于回填与绘图）
+        all_line_smelters = []
+        for province_usage in all_aluminum_usage_lines.values():
+            all_line_smelters.extend(province_usage.columns.tolist())
+        
+        merged_aluminum_usage_lines = pd.DataFrame(index=current_nodal_prices.index, columns=all_line_smelters)
+        merged_aluminum_usage_lines = merged_aluminum_usage_lines.fillna(0).infer_objects(copy=False)
+        
+        for province, province_usage in all_aluminum_usage_lines.items():
+            for smelter in province_usage.columns:
+                if smelter in merged_aluminum_usage_lines.columns:
+                    merged_aluminum_usage_lines[smelter] = province_usage[smelter]
+        
         # 更新电解铝用能和目标函数值
         aluminum_usage = merged_aluminum_usage
+        line_aluminum_usage = merged_aluminum_usage_lines
+        if fixed_aluminum_usage is None:
+            fixed_aluminum_usage = aluminum_usage.copy()
+        if fixed_line_usage is None:
+            fixed_line_usage = line_aluminum_usage.copy()
+        if fixed_national_smelter_production is None:
+            fixed_national_smelter_production = national_smelter_production.copy()
         previous_objective = current_objective
         final_network = n_current
         
@@ -998,6 +1114,133 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     config["aluminum_commitment"] = original_commitment
     
 
+    
+    # 如果上层移除了铝组件，将第一次迭代的铝组件与结果回填用于绘图
+    if final_network is not None and aluminum_removed_from_upper and aluminum_snapshot is not None:
+        # 确保carrier存在
+        for carrier in aluminum_snapshot["carriers"]:
+            if carrier not in final_network.carriers.index:
+                final_network.add("Carrier", carrier)
+        
+        # 添加铝相关bus
+        bus_attrs = final_network.component_attrs["Bus"].index
+        for name, row in aluminum_snapshot["buses"].iterrows():
+            if name in final_network.buses.index:
+                continue
+            attrs = row.reindex(bus_attrs).dropna().to_dict()
+            final_network.add("Bus", name, **attrs)
+        
+        # 添加省级铝相关link
+        link_attrs = final_network.component_attrs["Link"].index
+        for name, row in aluminum_snapshot["links"].iterrows():
+            if name in final_network.links.index:
+                continue
+            attrs = row.reindex(link_attrs).dropna().to_dict()
+            final_network.add("Link", name, **attrs)
+
+        # 添加产线级铝相关link（用于绘图）
+        if fixed_line_usage is not None:
+            # 构建省份->产线容量映射
+            province_line_caps = {}
+            capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
+            for prov in al_smelter_annual_production.index:
+                annual_10kt = al_smelter_annual_production[prov] * capacity_ratio
+                if annual_10kt <= 25.0:
+                    line_caps_10kt = [annual_10kt]
+                else:
+                    full_lines = int(annual_10kt // 25.0)
+                    remainder = annual_10kt - full_lines * 25.0
+                    line_caps_10kt = [25.0] * full_lines
+                    if remainder > 0:
+                        line_caps_10kt.append(remainder)
+                province_line_caps[prov] = line_caps_10kt
+            
+            for line_name in fixed_line_usage.columns:
+                if " aluminum smelter line-" not in line_name:
+                    continue
+                province = line_name.split(" aluminum smelter line-")[0]
+                base_name = f"{province} aluminum smelter"
+                if base_name not in aluminum_snapshot["links"].index:
+                    continue
+                
+                if line_name in final_network.links.index:
+                    continue
+                
+                base_row = aluminum_snapshot["links"].loc[base_name]
+                attrs = base_row.reindex(link_attrs).dropna().to_dict()
+                
+                try:
+                    line_idx = int(line_name.split("line-")[1])
+                except (IndexError, ValueError):
+                    line_idx = None
+                
+                if line_idx is not None and province in province_line_caps:
+                    caps_10kt = province_line_caps[province]
+                    if 1 <= line_idx <= len(caps_10kt):
+                        line_cap_mw = caps_10kt[line_idx - 1] * 10000 * 13.3 / 8760
+                        attrs["p_nom"] = line_cap_mw
+                        attrs["p_nom_extendable"] = False
+                
+                final_network.add("Link", line_name, **attrs)
+        
+        # 添加铝相关store
+        store_attrs = final_network.component_attrs["Store"].index
+        for name, row in aluminum_snapshot["stores"].iterrows():
+            if name in final_network.stores.index:
+                continue
+            attrs = row.reindex(store_attrs).dropna().to_dict()
+            final_network.add("Store", name, **attrs)
+        
+        # 添加铝相关load（用于完整性）
+        load_attrs = final_network.component_attrs["Load"].index
+        for name, row in aluminum_snapshot["loads"].iterrows():
+            if name in final_network.loads.index:
+                continue
+            attrs = row.reindex(load_attrs).dropna().to_dict()
+            final_network.add("Load", name, **attrs)
+        
+        # 回填铝负荷时间序列
+        if aluminum_snapshot.get("loads_t_p_set") is not None:
+            if not hasattr(final_network.loads_t, "p_set"):
+                final_network.loads_t.p_set = pd.DataFrame(index=final_network.snapshots)
+            for load in aluminum_snapshot["loads_t_p_set"].columns:
+                final_network.loads_t.p_set[load] = aluminum_snapshot["loads_t_p_set"][load].reindex(final_network.snapshots)
+        
+        # 回填时间序列（用于绘图）
+        if not hasattr(final_network.links_t, "p0"):
+            final_network.links_t.p0 = pd.DataFrame(index=final_network.snapshots)
+
+        if fixed_line_usage is not None:
+            for link in fixed_line_usage.columns:
+                final_network.links_t.p0[link] = fixed_line_usage[link].reindex(final_network.snapshots)
+        
+        # 重新计算铝存储量（用产线用能对应产量 - 小时需求）
+        if not hasattr(final_network.stores_t, "e"):
+            final_network.stores_t.e = pd.DataFrame(index=final_network.snapshots)
+        
+        if fixed_line_usage is not None:
+            for store_name in aluminum_snapshot["stores"].index:
+                if not store_name.endswith(" aluminum storage"):
+                    continue
+                province = store_name.replace(" aluminum storage", "")
+                demand_load = f"{province} aluminum"
+                if not hasattr(final_network.loads_t, "p_set") or demand_load not in final_network.loads_t.p_set.columns:
+                    continue
+                
+                demand = final_network.loads_t.p_set[demand_load].reindex(final_network.snapshots)
+                production = pd.Series(0.0, index=final_network.snapshots)
+                
+                for link in fixed_line_usage.columns:
+                    if link.startswith(f"{province} aluminum smelter line-") and link in final_network.links.index:
+                        efficiency = final_network.links.at[link, "efficiency"]
+                        production = production + fixed_line_usage[link].reindex(final_network.snapshots) * efficiency
+                
+                storage = (production - demand).cumsum()
+                storage = storage - storage.min()
+                final_network.stores_t.e[store_name] = storage
+        elif aluminum_snapshot["stores_t_e"] is not None:
+            for store in aluminum_snapshot["stores_t_e"].columns:
+                final_network.stores_t.e[store] = aluminum_snapshot["stores_t_e"][store].reindex(final_network.snapshots)
     
     # 返回最终的网络结果
     return final_network

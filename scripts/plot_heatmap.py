@@ -105,6 +105,9 @@ def creat_aluminum_df(n, province_filter=None):
     """
     # Get aluminum smelter links (input power from electricity bus)
     aluminum_links = n.links_t.p0.filter(like='aluminum smelter')
+    line_level_links = aluminum_links.filter(like='aluminum smelter line-')
+    if not line_level_links.empty:
+        aluminum_links = line_level_links
     
     if aluminum_links.empty:
         # If no aluminum smelters found, return empty DataFrame
