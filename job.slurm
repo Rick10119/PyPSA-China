@@ -15,5 +15,5 @@
 module purge
 module load anaconda3/2024.10
 conda activate pypsa-china
-module load gurobi/13.0.0
+module load gurobi/12.0.0
 snakemake --cores 40
