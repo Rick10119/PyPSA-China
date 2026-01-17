@@ -168,13 +168,13 @@ class SlurmJobGenerator:
             "ntasks": 1,
             "cpus_per_task": 40,
             "mem_per_cpu": "25G",
-            "time_limit": "48:00:00",
+            "time_limit": "24:00:00",
             "mail_user": "rl8728@princeton.edu",
             "modules": [
                 "module purge",
                 "module load anaconda3/2024.10",
                 "conda activate pypsa-plot",
-                "module load gurobi/12.0.0"
+                "module load gurobi/13.0.0"
             ]
         }
         

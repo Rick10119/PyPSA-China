@@ -150,11 +150,19 @@ aluminum:
         battery_cost_factor: 1.5  # 电池成本调整系数
         h2_cost_factor: 1.5       # H2/water tank成本调整系数
         sabatier_cost_factor: 1.5 # Sabatier成本调整系数
+    
+    # 3. 就业转移情景 (Employment transfer scenarios)
+    employment_transfer:
+      unfavorable:
+        stand_by_cost_factor: 0.0  # 不利情景，保持standby cost不变
+      favorable:
+        stand_by_cost_factor: 1.0  # 有利情景，standby cost降低
   # 当前选择的情景组合 (默认设置为mid-mid-mid)
   current_scenario:
     smelter_flexibility: "mid"
     primary_demand: "mid"
     market_opportunity: "mid"
+    employment_transfer: "unfavorable"
   
   # Aluminum storage costs ($/MWh per hour) 3.91479E-05
   al_marginal_cost_storage: 3.79E-05 # euro/MWh

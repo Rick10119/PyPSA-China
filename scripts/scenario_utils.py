@@ -22,10 +22,25 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
         return yaml.safe_load(f)
 
 
+def _get_market_key(config: Dict[str, Any]) -> str:
+    scenario_dims = config.get('aluminum', {}).get('scenario_dimensions', {})
+    if 'market_opportunity' in scenario_dims:
+        return 'market_opportunity'
+    return 'grid_interaction'
+
+
+def _get_current_market_key(config: Dict[str, Any]) -> str:
+    current = config.get('aluminum', {}).get('current_scenario', {})
+    if 'market_opportunity' in current:
+        return 'market_opportunity'
+    return 'grid_interaction'
+
+
 def get_scenario_params(config: Dict[str, Any], 
                        smelter_flexibility: str = None,
                        primary_demand: str = None, 
-                       grid_interaction: str = None) -> Dict[str, Any]:
+                       grid_interaction: str = None,
+                       employment_transfer: str = None) -> Dict[str, Any]:
     """
     获取指定情景的参数
     
@@ -40,24 +55,30 @@ def get_scenario_params(config: Dict[str, Any],
     """
     # 如果没有指定，使用当前配置中的默认值
     current_scenario = config['aluminum']['current_scenario']
+    market_key = _get_current_market_key(config)
     
     if smelter_flexibility is None:
         smelter_flexibility = current_scenario['smelter_flexibility']
     if primary_demand is None:
         primary_demand = current_scenario['primary_demand']
     if grid_interaction is None:
-        grid_interaction = current_scenario['grid_interaction']
+        grid_interaction = current_scenario[market_key]
+    if employment_transfer is None:
+        employment_transfer = current_scenario.get('employment_transfer')
     
     scenario_dims = config['aluminum']['scenario_dimensions']
+    market_dim_key = _get_market_key(config)
     
     return {
         'smelter_flexibility': scenario_dims['smelter_flexibility'][smelter_flexibility],
         'primary_demand': scenario_dims['primary_demand'][primary_demand],
-        'grid_interaction': scenario_dims['grid_interaction'][grid_interaction],
+        'grid_interaction': scenario_dims[market_dim_key][grid_interaction],
+        'employment_transfer': scenario_dims.get('employment_transfer', {}).get(employment_transfer, {}),
         'scenario_names': {
             'smelter_flexibility': smelter_flexibility,
             'primary_demand': primary_demand,
-            'grid_interaction': grid_interaction
+            'grid_interaction': grid_interaction,
+            'employment_transfer': employment_transfer
         }
     }
 
@@ -108,9 +129,28 @@ def get_grid_interaction_params(config: Dict[str, Any], scenario: str = None) ->
         电网交互参数字典
     """
     if scenario is None:
-        scenario = config['aluminum']['current_scenario']['grid_interaction']
+        market_key = _get_current_market_key(config)
+        scenario = config['aluminum']['current_scenario'][market_key]
     
-    return config['aluminum']['scenario_dimensions']['grid_interaction'][scenario]
+    market_dim_key = _get_market_key(config)
+    return config['aluminum']['scenario_dimensions'][market_dim_key][scenario]
+
+
+def get_employment_transfer_params(config: Dict[str, Any], scenario: str = None) -> Dict[str, Any]:
+    """
+    获取就业转移参数
+    
+    Args:
+        config: 配置字典
+        scenario: 情景 ('unfavorable', 'favorable')
+        
+    Returns:
+        就业转移参数字典
+    """
+    if scenario is None:
+        scenario = config['aluminum']['current_scenario'].get('employment_transfer')
+    
+    return config['aluminum']['scenario_dimensions'].get('employment_transfer', {}).get(scenario, {})
 
 
 def list_all_scenarios() -> Dict[str, list]:
@@ -123,7 +163,8 @@ def list_all_scenarios() -> Dict[str, list]:
     return {
         'smelter_flexibility': ['low', 'mid', 'high'],
         'primary_demand': ['low', 'mid', 'high'],
-        'grid_interaction': ['low', 'mid', 'high']
+        'grid_interaction': ['low', 'mid', 'high'],
+        'employment_transfer': ['unfavorable', 'favorable']
     }
 
 
@@ -140,12 +181,14 @@ def generate_scenario_combinations() -> list:
     for sf in scenarios['smelter_flexibility']:
         for pd in scenarios['primary_demand']:
             for gi in scenarios['grid_interaction']:
-                combinations.append({
-                    'smelter_flexibility': sf,
-                    'primary_demand': pd,
-                    'grid_interaction': gi,
-                    'name': f"{sf}-{pd}-{gi}"
-                })
+                for et in scenarios['employment_transfer']:
+                    combinations.append({
+                        'smelter_flexibility': sf,
+                        'primary_demand': pd,
+                        'grid_interaction': gi,
+                        'employment_transfer': et,
+                        'name': f"{sf}-{pd}-{gi}-{et}"
+                    })
     
     return combinations
 
@@ -167,6 +210,9 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
     # 获取电解铝厂灵活性参数
     smelter_params = get_smelter_params(config, smelter_flexibility)
     
+    # 就业转移参数（影响stand_by_cost）
+    employment_params = get_employment_transfer_params(config)
+
     # 基础参数
     operational_params = {
         'p_min_pu': smelter_params['p_min_pu'],
@@ -174,6 +220,14 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
         'stand_by_cost': smelter_params.get('stand_by_cost', 1.5),  # $/MW/h
         'marginal_cost': 1,
     }
+
+    if employment_params:
+        if 'stand_by_cost' in employment_params:
+            operational_params['stand_by_cost'] = employment_params['stand_by_cost']
+        elif 'stand_by_cost_factor' in employment_params:
+            operational_params['stand_by_cost'] = (
+                operational_params['stand_by_cost'] * employment_params['stand_by_cost_factor']
+            )
     
     # 如果提供了容量，计算成本参数
     if al_smelter_p_nom is not None:
@@ -282,13 +336,18 @@ def get_current_scenario_name(config: Dict[str, Any]) -> str:
         情景组合名称 (如 'mid-mid-mid')
     """
     current = config['aluminum']['current_scenario']
-    return f"{current['smelter_flexibility']}-{current['primary_demand']}-{current['grid_interaction']}"
+    market_key = _get_current_market_key(config)
+    employment = current.get('employment_transfer')
+    if employment:
+        return f"{current['smelter_flexibility']}-{current['primary_demand']}-{current[market_key]}-{employment}"
+    return f"{current['smelter_flexibility']}-{current['primary_demand']}-{current[market_key]}"
 
 
 def validate_scenario_params(config: Dict[str, Any], 
                            smelter_flexibility: str = None,
                            primary_demand: str = None,
-                           grid_interaction: str = None) -> bool:
+                           grid_interaction: str = None,
+                           employment_transfer: str = None) -> bool:
     """
     验证情景参数是否有效
     
@@ -301,13 +360,18 @@ def validate_scenario_params(config: Dict[str, Any],
     Returns:
         参数是否有效
     """
-    valid_scenarios = ['low', 'mid', 'high']
+    valid_flex = ['low', 'mid', 'high', 'non_constrained']
+    valid_demand = ['low', 'mid', 'high']
+    valid_market = ['low', 'mid', 'high']
+    valid_employment = ['unfavorable', 'favorable']
     
-    if smelter_flexibility and smelter_flexibility not in valid_scenarios:
+    if smelter_flexibility and smelter_flexibility not in valid_flex:
         return False
-    if primary_demand and primary_demand not in valid_scenarios:
+    if primary_demand and primary_demand not in valid_demand:
         return False
-    if grid_interaction and grid_interaction not in valid_scenarios:
+    if grid_interaction and grid_interaction not in valid_market:
+        return False
+    if employment_transfer and employment_transfer not in valid_employment:
         return False
     
     return True

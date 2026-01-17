@@ -6,24 +6,6 @@
 
 ## 自动生成SLURM作业文件
 
-### 方法1：使用基础生成器
-
-```bash
-# 在项目根目录下运行
-python scripts/generate_slurm_jobs.py
-```
-
-这将生成以下SLURM作业文件：
-- `job_no_aluminum.slurm` - 不包含电解铝厂的基准场景
-- `job_100p.slurm` - 100%容量比例
-- `job_90p.slurm` - 90%容量比例
-- `job_80p.slurm` - 80%容量比例
-- `job_70p.slurm` - 70%容量比例
-- `job_60p.slurm` - 60%容量比例
-- `job_55p.slurm` - 55%容量比例
-
-### 方法2：使用高级生成器
-
 ```bash
 # 在项目根目录下运行
 python scripts/generate_slurm_jobs_advanced.py
