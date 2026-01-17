@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0116.4H.1
+version: 0116.4H.2
 logging_level: INFO
 foresight: "myopic"
 
@@ -162,7 +162,7 @@ aluminum:
     smelter_flexibility: "mid"
     primary_demand: "mid"
     market_opportunity: "mid"
-    employment_transfer: "unfavorable"
+    employment_transfer: "favorable"
   
   # Aluminum storage costs ($/MWh per hour) 3.91479E-05
   al_marginal_cost_storage: 3.79E-05 # euro/MWh

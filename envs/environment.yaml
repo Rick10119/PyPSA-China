@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-name: pypsa-plot
+name: pypsa-china
 channels:
   - conda-forge
   - bioconda
@@ -68,7 +68,7 @@ dependencies:
     - powerplantmatching>=0.4.8
 
 # Installation guide for Linux:
-# 1. Create environment using this file: conda env create -f envs/environment_linux.yaml
+# 1. Create environment using this file: conda env create -f envs/environment.yaml
 # 2. Activate environment: conda activate pypsa-china
 # 3. Check if Dict import in _helpers.py needs modification (if related errors occur)
 
@@ -77,3 +77,5 @@ dependencies:
 # sudo apt-get install -y libpoppler-cpp-dev
 # sudo apt-get install -y libgdal-dev
 # sudo apt-get install -y libspatialindex-dev 
+
+# To delete the environment: conda remove -n pypsa-china --all

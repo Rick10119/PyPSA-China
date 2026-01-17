@@ -24,7 +24,7 @@ echo
 echo "正在加载模块..."
 module purge
 module load anaconda3/2024.10
-conda activate pypsa-plot
+conda activate pypsa-china
 module load gurobi/13.0.0
 
 echo "模块加载完成"
