@@ -385,15 +385,17 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
     version_names = []
     config_versions = {}
     
+    employment_letter = 'U'
+
     for ratio in capacity_ratios:
         # 版本号格式: base_version-MM{market}-{year}-{ratio}
-        version = f"{base_version}-MM{market}-{year}-{ratio}"
+        version = f"{base_version}-MM{market}{employment_letter}-{year}-{ratio}"
         version_names.append(version)
         config_versions[ratio] = version
     
     # 基准版本
-    aluminum_baseline_version = f"{base_version}-MM{market}-{year}-5p"
-    power_baseline_version = f"{base_version}-MM{market}-{year}-non_flexible"
+    aluminum_baseline_version = f"{base_version}-MM{market}{employment_letter}-{year}-5p"
+    power_baseline_version = f"{base_version}-MM{market}{employment_letter}-{year}-non_flexible"
     
     # 收集数据
     costs_data = {}

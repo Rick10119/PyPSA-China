@@ -93,6 +93,7 @@ def find_scenario_results(results_dir, base_version):
     flexibility_levels = ['L', 'M', 'H', 'N']  # Low, Mid, High, Non-constrained
     demand_levels = ['L', 'M', 'H']  # Low, Mid, High
     market_levels = ['L', 'M', 'H']  # Low, Mid, High
+    employment_letter = 'U'  # 固定就业情景用于对比
     year = '2030'
     
     scenarios = {}
@@ -101,7 +102,7 @@ def find_scenario_results(results_dir, base_version):
     for flexibility in flexibility_levels:
         for demand in demand_levels:
             for market in market_levels:
-                scenario_code = f"{flexibility}{demand}{market}"
+                scenario_code = f"{flexibility}{demand}{market}{employment_letter}"
                 scenarios[scenario_code] = {}
                 
                 # 创建100p版本信息
@@ -132,7 +133,7 @@ def find_scenario_results(results_dir, base_version):
                     baseline_demand = 'M'  # 使用中等需求
                     baseline_market = mar  # 保持相同的market
                     
-                    baseline_scenario_code = f"{baseline_flexibility}{baseline_demand}{baseline_market}"
+                    baseline_scenario_code = f"{baseline_flexibility}{baseline_demand}{baseline_market}{employment_letter}"
                     
                     # 创建non-flexible版本信息
                     version_name_non_flex = f"{base_version}-{baseline_scenario_code}-{year}-non_flexible"
@@ -500,6 +501,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     demand_levels = ['L', 'M', 'H']
     market_levels = ['L', 'M', 'H']
     flexibility_levels = ['L', 'M', 'H', 'N']
+    employment_letter = 'U'
     
     # logger.info("正在收集绘图数据...")
     # logger.info("注意：对于non-flexible情景，所有flex-demand组合都使用相同的基准配置")
@@ -509,7 +511,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     for demand in demand_levels:
         for market in market_levels:
             for flex in flexibility_levels:
-                scenario_code = f"{flex}{demand}{market}"
+                scenario_code = f"{flex}{demand}{market}{employment_letter}"
                 logger.info(f"处理场景 {scenario_code} (F:{flex}, D:{demand}, M:{market})")
                 if scenario_code in scenarios:
                     scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
@@ -975,7 +977,7 @@ def validate_scenario_matching(scenarios, file_type='costs'):
     invalid_scenarios = 0
     
     for scenario_code, scenario_info in scenarios.items():
-        if len(scenario_code) == 3:
+        if len(scenario_code) == 4:
             # 检查目录是否存在
             dir_100p = scenario_info['100p']['version_dir']
             dir_non_flex = scenario_info['non_flexible']['version_dir']
@@ -1013,7 +1015,7 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
     table_data = []
     
     for scenario_code, scenario_info in scenarios.items():
-        if len(scenario_code) == 3:  # 确保是有效的3位数场景代码
+        if len(scenario_code) == 4:  # 确保是有效的4位数场景代码
             flexibility, demand, market = scenario_code[0], scenario_code[1], scenario_code[2]
             
             # 加载场景数据
@@ -1109,7 +1111,7 @@ def generate_raw_cost_comparison_table(scenarios, output_dir, file_type='costs')
     table_data = []
     
     for scenario_code, scenario_info in scenarios.items():
-        if len(scenario_code) == 3:  # 确保是有效的3位数场景代码
+        if len(scenario_code) == 4:  # 确保是有效的4位数场景代码
             flexibility, demand, market = scenario_code[0], scenario_code[1], scenario_code[2]
             
             # 加载场景数据

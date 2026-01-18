@@ -1,7 +1,7 @@
-version: 0116.4H.1-LMLU-2050-5p
+version: 0118.1H.1-LMLU-2050-5p
 logging_level: INFO
 foresight: myopic
-using_single_node: true
+using_single_node: false
 single_node_province: Shandong
 results_dir: results/
 summary_dir: summary/
@@ -9,7 +9,7 @@ threads: 40
 mem_per_thread: 15000
 tmin: -01-01 00:00
 tmax: -12-31 23:00
-freq: 4h
+freq: 1h
 add_aluminum: true
 only_other_load: true
 iterative_optimization: true
@@ -70,9 +70,10 @@ solving:
       LogToConsole: 1
       LogFile: ''
     MILP:
-      Threads: 192
+      Threads: 10
       Method: -1
       MIPGap: 0.01
+      TimeLimit: 7200
       Heuristics: 0.5
       Cuts: 0
       Presolve: -1
@@ -101,17 +102,17 @@ aluminum:
   scenario_dimensions:
     smelter_flexibility:
       low:
-        p_min_pu: 0.9
-        restart_cost: 110000
-        stand_by_cost: 1.5
+        p_min_pu: 0.99
+        restart_cost: 96593.79766
+        stand_by_cost: 1.2
       mid:
-        p_min_pu: 0.7
-        restart_cost: 16000
-        stand_by_cost: 1.5
+        p_min_pu: 0.9
+        restart_cost: 13980.68124
+        stand_by_cost: 1.2
       high:
-        p_min_pu: 0.5
-        restart_cost: 3200
-        stand_by_cost: 1.5
+        p_min_pu: 0.7
+        restart_cost: 2796.136248
+        stand_by_cost: 1.2
       non_constrained:
         p_min_pu: 0.0
         restart_cost: 0

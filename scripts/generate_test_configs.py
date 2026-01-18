@@ -175,55 +175,60 @@ def run_capacity_tests(years: Iterable[int], clean: bool = True) -> None:
 
     config_count = 0
 
-    for flex in flexibility_levels:
-        for market in market_levels:
-            for employment in employment_levels:
-                for year in years:
-                    scenario_suffix = f"{flex_map[flex]}{demand_map[demand_level]}{market_map[market]}"
-                    scenario_suffix = f"{scenario_suffix}{employment[:1].upper()}"
+    def _base_copy(flex: str, market: str, employment: str, year: int) -> dict:
+        cfg = base_config.copy()
+        cfg.setdefault("aluminum", {})
+        cfg["aluminum"].setdefault("current_scenario", {})
+        cfg["aluminum"]["current_scenario"].update(
+            {
+                "smelter_flexibility": flex,
+                "primary_demand": demand_level,
+                "market_opportunity": market,
+                "employment_transfer": employment,
+            }
+        )
+        cfg["costs"]["year"] = year
+        if "scenario" in cfg:
+            cfg["scenario"]["planning_horizons"] = [year]
+        return cfg
 
-                    def _base_copy() -> dict:
-                        cfg = base_config.copy()
-                        cfg.setdefault("aluminum", {})
-                        cfg["aluminum"].setdefault("current_scenario", {})
-                        cfg["aluminum"]["current_scenario"].update(
-                            {
-                                "smelter_flexibility": flex,
-                                "primary_demand": demand_level,
-                                "market_opportunity": market,
-                                "employment_transfer": employment,
-                            }
-                        )
-                        cfg["costs"]["year"] = year
-                        if "scenario" in cfg:
-                            cfg["scenario"]["planning_horizons"] = [year]
-                        return cfg
+    fixed_flex = "mid"
+    fixed_employment = "unfavorable"
 
-                    # non-flexible
-                    cfg_non_flex = _base_copy()
-                    cfg_non_flex["version"] = f"{base_version}-{scenario_suffix}-{year}-non_flexible"
-                    cfg_non_flex["add_aluminum"] = False
-                    cfg_non_flex["only_other_load"] = False
-                    cfg_non_flex["aluminum"]["capacity_ratio"] = 0.0
-                    path_non_flex = configs_dir / f"config_{scenario_suffix}_{year}_non_flexible.yaml"
-                    _write_config(path_non_flex, cfg_non_flex)
-                    config_count += 1
+    for market in market_levels:
+        for year in years:
+            fixed_suffix = f"{flex_map[fixed_flex]}{demand_map[demand_level]}{market_map[market]}{fixed_employment[:1].upper()}"
 
-                    # no aluminum
-                    cfg_no_al = _base_copy()
-                    cfg_no_al["version"] = f"{base_version}-{scenario_suffix}-{year}-no_aluminum"
-                    cfg_no_al["add_aluminum"] = False
-                    cfg_no_al["only_other_load"] = True
-                    cfg_no_al["aluminum"]["capacity_ratio"] = 0.0
-                    path_no_al = configs_dir / f"config_{scenario_suffix}_{year}_no_aluminum.yaml"
-                    _write_config(path_no_al, cfg_no_al)
-                    config_count += 1
+            # non-flexible (single flex/employment)
+            cfg_non_flex = _base_copy(fixed_flex, market, fixed_employment, year)
+            cfg_non_flex["version"] = f"{base_version}-{fixed_suffix}-{year}-non_flexible"
+            cfg_non_flex["add_aluminum"] = False
+            cfg_non_flex["only_other_load"] = False
+            cfg_non_flex["aluminum"]["capacity_ratio"] = 0.0
+            path_non_flex = configs_dir / f"config_{fixed_suffix}_{year}_non_flexible.yaml"
+            _write_config(path_non_flex, cfg_non_flex)
+            config_count += 1
 
-                    # capacity ratios
+            # no aluminum (single flex/employment)
+            cfg_no_al = _base_copy(fixed_flex, market, fixed_employment, year)
+            cfg_no_al["version"] = f"{base_version}-{fixed_suffix}-{year}-no_aluminum"
+            cfg_no_al["add_aluminum"] = False
+            cfg_no_al["only_other_load"] = True
+            cfg_no_al["aluminum"]["capacity_ratio"] = 0.0
+            path_no_al = configs_dir / f"config_{fixed_suffix}_{year}_no_aluminum.yaml"
+            _write_config(path_no_al, cfg_no_al)
+            config_count += 1
+
+            # capacity ratios (full flex/employment)
+            for flex in flexibility_levels:
+                for employment in employment_levels:
+                    scenario_suffix = (
+                        f"{flex_map[flex]}{demand_map[demand_level]}{market_map[market]}{employment[:1].upper()}"
+                    )
                     for cap_ratio in cap_ratios:
                         actual_capacity_ratio = _calculate_actual_capacity_ratio(year, cap_ratio, demand_level)
                         cap_percentage = int(cap_ratio * 100)
-                        cfg = _base_copy()
+                        cfg = _base_copy(flex, market, employment, year)
                         cfg["version"] = f"{base_version}-{scenario_suffix}-{year}-{cap_percentage}p"
                         cfg["add_aluminum"] = True
                         cfg["only_other_load"] = True
@@ -261,6 +266,30 @@ def main() -> None:
         run_value_tests(years=years, clean=args.clean)
     if args.mode in ("capacity", "all"):
         run_capacity_tests(years=years, clean=args.clean)
+
+    print("=== 生成SLURM作业文件 ===")
+    try:
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "scripts/generate_slurm_jobs_advanced.py"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            print("✓ 成功生成SLURM作业文件")
+            if "共生成" in result.stdout:
+                for line in result.stdout.split("\n"):
+                    if "共生成" in line and "个SLURM作业文件" in line:
+                        print(line.strip())
+                        break
+        else:
+            print(f"✗ 生成SLURM作业文件时出错: {result.stderr}")
+            print("请手动运行: python scripts/generate_slurm_jobs_advanced.py")
+    except Exception as e:
+        print(f"✗ 生成SLURM作业文件时出错: {e}")
+        print("请手动运行: python scripts/generate_slurm_jobs_advanced.py")
 
 
 if __name__ == "__main__":

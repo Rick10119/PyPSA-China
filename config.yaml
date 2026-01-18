@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0116.4H.6
+version: 0118.1H.1
 logging_level: INFO
 foresight: "myopic"
 
 # 单节点设置 - 如果为true，将只保留指定省份的节点
-using_single_node: True
+using_single_node: False
 single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
 
 results_dir: 'results/'
@@ -17,10 +17,10 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '4h'
+freq: '1h'
 
 add_aluminum: True
-only_other_load: True
+only_other_load: False
 iterative_optimization: True
 aluminum_commitment: False # keep False for iterative optimization
 aluminum_max_iterations: 3  # 最大迭代次数
@@ -79,9 +79,10 @@ solving:
       LogToConsole: 1  # 关闭控制台日志
       LogFile: ''  # 关闭日志文件
     MILP:
-      Threads: 192
+      Threads: 10
       Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
-      MIPGap: 1.e-5
+      MIPGap: 1.e-2
+      TimeLimit: 7200
       Heuristics: 0.5 # 增加启发式搜索的强度
       Cuts: 0 # 尝试关闭大部分割平面生成，或设置为1 (温和生成)
       Presolve: -1 # 保持默认，通常是有益的
@@ -118,16 +119,16 @@ aluminum:
     smelter_flexibility:
       low:
         p_min_pu: 0.99  # p.u.
-        restart_cost: 110000  # $/MW
-        stand_by_cost: 1.5  # $/MW/h
+        restart_cost: 96593.79766  # $/MW
+        stand_by_cost: 1.2  # $/MW/h
       mid:
         p_min_pu: 0.9  # p.u.
-        restart_cost: 16000  # $/MW
-        stand_by_cost: 1.5  # $/MW/h
+        restart_cost: 13980.68124  # $/MW
+        stand_by_cost: 1.2  # $/MW/h
       high:
         p_min_pu: 0.7  # p.u.
-        restart_cost: 3200  # $/MW
-        stand_by_cost: 1.5  # $/MW/h
+        restart_cost: 2796.136248  # $/MW
+        stand_by_cost: 1.2  # $/MW/h
       non_constrained:
         p_min_pu: 0.0  # p.u.
         restart_cost: 0  # $/MW
@@ -162,9 +163,9 @@ aluminum:
     smelter_flexibility: "mid"
     primary_demand: "mid"
     market_opportunity: "mid"
-    employment_transfer: "favorable"
+    employment_transfer: "unfavorable"
   
-  # Aluminum storage costs ($/MWh per hour) 3.91479E-05
+  # Aluminum storage costs
   al_marginal_cost_storage: 3.79E-05 # euro/MWh
   al_storage_limit: 8760  # hours (24 * 365)
 

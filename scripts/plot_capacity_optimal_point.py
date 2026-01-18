@@ -571,16 +571,18 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results', us
                 version_names = []
                 config_versions = {}
                 
+                employment_letter = 'U'
+
                 for ratio in capacity_ratios:
                     # Version format: scenario_base_version-{flexibility}{demand}{market}-{year}-{ratio}
                     # Demand is fixed as 'M' (mid)
-                    version = f"{scenario_base_version}-{flexibility}M{market}-{year}-{ratio}"
+                    version = f"{scenario_base_version}-{flexibility}M{market}{employment_letter}-{year}-{ratio}"
                     version_names.append(version)
                     config_versions[ratio] = version
                 
                 # Baseline versions
-                aluminum_baseline_version = f"{scenario_base_version}-{flexibility}M{market}-{year}-5p"
-                power_baseline_version = f"{scenario_base_version}-{flexibility}M{market}-{year}-non_flexible"
+                aluminum_baseline_version = f"{scenario_base_version}-{flexibility}M{market}{employment_letter}-{year}-5p"
+                power_baseline_version = f"{scenario_base_version}-{flexibility}M{market}{employment_letter}-{year}-non_flexible"
                 
                 # Collect data
                 costs_data = {}
