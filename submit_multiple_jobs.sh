@@ -6,6 +6,15 @@ echo "开始时间: $(date)"
 echo "注意: 使用 --rerun-incomplete --ignore-incomplete --rerun-triggers mtime 参数忽略配置文件和参数变化"
 echo
 
+# 读取基准版本号（来自config.yaml）
+BASE_VERSION=$(grep -m 1 '^version:' config.yaml | sed 's/^version: //')
+if [ -n "$BASE_VERSION" ]; then
+    echo "基准版本号: $BASE_VERSION"
+else
+    echo "⚠️  未能从config.yaml读取基准版本号，将跳过版本一致性校验"
+fi
+echo
+
 # 检查jobs文件夹是否存在
 if [ ! -d "jobs" ]; then
     echo "✗ jobs文件夹不存在，请先运行 generate_slurm_jobs_advanced.py 生成SLURM作业文件"
@@ -61,6 +70,12 @@ get_config_version() {
     
     echo ""
     return 1
+}
+
+# 函数：从完整version中提取基准版本号（第一个'-'前）
+get_base_version_from_full() {
+    local full_version="$1"
+    echo "${full_version%%-*}"
 }
 
 # 函数：基于snakemake dry-run检查结果文件是否存在
@@ -123,6 +138,16 @@ for job_file in "${JOBS[@]}"; do
         version=$(get_config_version "$scenario" "$year" "$capacity_ratio")
         
         if [ -n "$version" ]; then
+            # 校验版本号是否与基准版本一致
+            if [ -n "$BASE_VERSION" ]; then
+                version_base=$(get_base_version_from_full "$version")
+                if [ "$version_base" != "$BASE_VERSION" ]; then
+                    PENDING_JOBS+=("$job_file")
+                    echo "  ⚠️  $(basename "$job_file") -> 版本: $version (与基准版本 $BASE_VERSION 不一致，标记为待处理)"
+                    continue
+                fi
+            fi
+
             echo "  📋 $(basename "$job_file") -> 版本: $version"
             
             if [ "$CHECK_RESULTS" = true ] && check_results_by_snakemake "$scenario" "$year" "$capacity_ratio"; then
