@@ -31,7 +31,7 @@ parse_job_filename() {
     
     # 解析配置名称，格式如: HMH_2030_100p, LMH_2040_50p, NMM_2050_100p 等
     # 格式: {scenario}_{year}_{capacity_ratio}
-    if [[ "$config_name" =~ ^([A-Z]{3})_([0-9]{4})_(.+)$ ]]; then
+    if [[ "$config_name" =~ ^([A-Z]{3,4})_([0-9]{4})_(.+)$ ]]; then
         local scenario="${BASH_REMATCH[1]}"
         local year="${BASH_REMATCH[2]}"
         local capacity_ratio="${BASH_REMATCH[3]}"
