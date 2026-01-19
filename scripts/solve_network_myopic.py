@@ -20,7 +20,7 @@ from _helpers import (
 
 # 添加并行计算相关的导入
 import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import functools
 
 # 允许传递给PyPSA optimize的参数
@@ -585,14 +585,20 @@ def solve_aluminum_optimization_parallel(target_provinces, original_network_path
     
     Returns:
     --------
-    dict : {province: aluminum_usage} 或 None
+    tuple : (all_aluminum_usage, all_aluminum_usage_lines)
     """
     if not target_provinces:
-        return {}
+        return {}, {}
     
     # 设置最大并行进程数
     if max_workers is None:
         max_workers = min(len(target_provinces), mp.cpu_count())
+    
+    logger.info(
+        "Aluminum parallel start: provinces=%s, max_workers=%s, mode=thread",
+        len(target_provinces),
+        max_workers,
+    )
     
     # 准备参数
     args_list = []
@@ -602,13 +608,13 @@ def solve_aluminum_optimization_parallel(target_provinces, original_network_path
                 single_node_province, overrides_path, national_smelter_production, kwargs)
         args_list.append(args)
     
-    # 使用进程池并行执行
-        all_aluminum_usage = {}
-        all_aluminum_usage_lines = {}
+    # 使用线程池并行执行，避免多进程序列化问题
+    all_aluminum_usage = {}
+    all_aluminum_usage_lines = {}
     
     start_time = time.time()
     
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # 提交所有任务
         future_to_province = {
             executor.submit(solve_aluminum_optimization_parallel_wrapper, args): args[6]  # args[6] 是 target_province
@@ -625,8 +631,14 @@ def solve_aluminum_optimization_parallel(target_provinces, original_network_path
                 all_aluminum_usage_lines[result_province] = province_aluminum_usage_lines
     
     total_time = time.time() - start_time
+    logger.info(
+        "Aluminum parallel done: provinces=%s, max_workers=%s, elapsed=%.2fs",
+        len(target_provinces),
+        max_workers,
+        total_time,
+    )
     
-    return all_aluminum_usage
+    return all_aluminum_usage, all_aluminum_usage_lines
 
 def solve_network_iterative(n, config, solving, opts="", max_iterations=10, convergence_tolerance=0.01, **kwargs):
     """
@@ -991,76 +1003,28 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                     average_production = province_smelter_production.abs().mean().sum()
                     national_smelter_production[province] = average_production if average_production >= 1 else 0
         
-        # 求解多个省份的电解铝优化问题（支持并行和串行）
-        # 获取并行计算参数
-        max_workers = kwargs.get("max_workers", 30)  # 可以从kwargs中获取最大进程数
+        # 求解多个省份的电解铝优化问题（默认并行）
+        max_workers = kwargs.get("max_workers", 30)
         overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
-        use_parallel = kwargs.get("max_workers") is not None  # 如果指定了max_workers，则使用并行
-        
-        if use_parallel:
-            # 使用并行函数求解
-            all_aluminum_usage = solve_aluminum_optimization_parallel(
-                target_provinces=target_provinces,
-                original_network_path=original_network_path,
-                original_overrides=original_overrides,
-                config=config,
-                solving=solving,
-                opts=opts,
-                current_nodal_prices=current_nodal_prices,
-                solve_opts=kwargs.get("solve_opts", {}),
-                using_single_node=using_single_node,
-                single_node_province=single_node_province,
-                overrides_path=overrides_path,
-                max_workers=max_workers,
-                national_smelter_production=national_smelter_production,
-                **kwargs
-            )
-        else:
-            # 使用原来的串行方法
-            all_aluminum_usage = {}
-            all_aluminum_usage_lines = {}
-            
-            for province in target_provinces:
-                # 为每个省份创建网络副本
-                if original_network_path:
-                    if original_overrides:
-                        n_province = pypsa.Network(original_network_path, override_component_attrs=original_overrides)
-                    else:
-                        n_province = pypsa.Network(original_network_path)
-                    
-                    # 设置网络文件路径
-                    n_province._network_path = original_network_path
-                    if original_overrides:
-                        n_province._overrides_path = overrides_path
-                
-                # 重新应用网络准备
-                n_province = prepare_network(
-                    n_province,
-                    kwargs.get("solve_opts", {}),
-                    using_single_node=using_single_node,
-                    single_node_province=single_node_province
-                )
-                
-                # 设置配置
-                n_province.config = config
-                n_province.opts = opts
-                
-                # 求解单个省份的电解铝优化问题
-                province_aluminum_usage, province_aluminum_usage_lines = solve_aluminum_optimization(
-                    n_province, 
-                    config, 
-                    solving, 
-                    opts, 
-                    nodal_prices=current_nodal_prices, 
-                    target_province=province,
-                    national_smelter_production=national_smelter_production,
-                    **kwargs
-                )
-                
-                if province_aluminum_usage is not None:
-                    all_aluminum_usage[province] = province_aluminum_usage
-                if province_aluminum_usage_lines is not None:
-                    all_aluminum_usage_lines[province] = province_aluminum_usage_lines
+        aluminum_optimize_kwargs = {
+            k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS
+        }
+        all_aluminum_usage, all_aluminum_usage_lines = solve_aluminum_optimization_parallel(
+            target_provinces=target_provinces,
+            original_network_path=original_network_path,
+            original_overrides=original_overrides,
+            config=config,
+            solving=solving,
+            opts=opts,
+            current_nodal_prices=current_nodal_prices,
+            solve_opts=kwargs.get("solve_opts", {}),
+            using_single_node=using_single_node,
+            single_node_province=single_node_province,
+            overrides_path=overrides_path,
+            max_workers=max_workers,
+            national_smelter_production=national_smelter_production,
+            **aluminum_optimize_kwargs
+        )
         
         if not all_aluminum_usage:
             break
@@ -1369,7 +1333,7 @@ if __name__ == '__main__':
         
         # 添加并行计算配置
         if snakemake.config.get("aluminum_parallel", True):  # 默认启用并行计算
-            max_workers = snakemake.config.get("aluminum_max_workers", None)  # 默认使用CPU核心数
+            max_workers = snakemake.config.get("aluminum_max_workers", 30)
             iteration_kwargs["max_workers"] = max_workers
         
         # 使用迭代优化算法
