@@ -16,8 +16,6 @@ iterative_optimization: false
 aluminum_commitment: false
 aluminum_max_iterations: 3
 aluminum_convergence_tolerance: 0.001
-aluminum_parallel: true
-aluminum_max_workers: 25
 aluminum_capacity_ratio: 0.5555578179432489
 scenario:
   line_limits:
