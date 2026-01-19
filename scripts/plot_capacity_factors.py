@@ -135,13 +135,13 @@ def calculate_monthly_capacity_factors(n):
     
     # Get link power output and calculate actual maximum power output
     link_power = pd.DataFrame()
-    link_max_power = pd.Series()
+    link_max_power = pd.Series(dtype=float)
     
     if hasattr(n, 'links_t') and hasattr(n.links_t, 'p0'):
         # Filter links that produce electricity (bus1 is electricity bus)
         elec_links = n.links[n.links.bus1.isin(n.buses[n.buses.carrier == 'AC'].index)]
         if not elec_links.empty:
-            link_power = n.links_t.p0[elec_links.index]
+            link_power = n.links_t.p0[elec_links.index].copy()
             # Use actual maximum power output as capacity
             link_max_power = link_power.max()
         

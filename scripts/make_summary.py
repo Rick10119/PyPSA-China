@@ -1137,15 +1137,15 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
             province_shutdown_events[province] += shutdown_events
     
     # 打印各省份的启停次数统计
-    logger.info(f"=== 电解铝启停次数统计 ({label}) ===")
-    logger.info(f"总启动次数: {total_startup_events}")
-    logger.info(f"总关闭次数: {total_shutdown_events}")
-    logger.info("各省份启停次数详情:")
+    logger.debug(f"=== 电解铝启停次数统计 ({label}) ===")
+    logger.debug(f"总启动次数: {total_startup_events}")
+    logger.debug(f"总关闭次数: {total_shutdown_events}")
+    logger.debug("各省份启停次数详情:")
     
     for province in sorted(province_startup_events.keys()):
         startup_count = province_startup_events[province]
         shutdown_count = province_shutdown_events[province]
-        logger.info(f"  {province}: 启动 {startup_count} 次, 关闭 {shutdown_count} 次")
+        logger.debug(f"  {province}: 启动 {startup_count} 次, 关闭 {shutdown_count} 次")
     
     # Calculate aluminum capacity (from links)
     aluminum_capacity = n.links.loc[aluminum_smelters, "p_nom_opt"].sum()
@@ -1305,9 +1305,9 @@ def calculate_emissions(n, label, emissions):
             emissions.at[month_key, label] = month_value
     
     # 记录摘要信息
-    logger.info(f"Emissions calculation for {label}:")
-    logger.info(f"  Total coal emissions: {total_coal_emissions/1e6:.2f} million tonnes CO2")
-    logger.info(f"  Total gas emissions: {total_gas_emissions/1e6:.2f} million tonnes CO2")
+    logger.debug(f"Emissions calculation for {label}:")
+    logger.debug(f"  Total coal emissions: {total_coal_emissions/1e6:.2f} million tonnes CO2")
+    logger.debug(f"  Total gas emissions: {total_gas_emissions/1e6:.2f} million tonnes CO2")
     
     return emissions
 
@@ -1346,7 +1346,7 @@ def make_summaries(networks_dict, config=None):
         df[output] = pd.DataFrame(columns=columns, dtype=float)
 
     for label, filename in networks_dict.items():
-        logger.info(f"Make summary for scenario {label}, using {filename}")
+        logger.debug(f"Make summary for scenario {label}, using {filename}")
 
         n = pypsa.Network(filename)
 

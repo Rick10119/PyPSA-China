@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0118.24H.3
+version: 0118.1H.1
 logging_level: INFO
 foresight: "myopic"
 
@@ -17,7 +17,7 @@ mem_per_thread: 15000
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
-freq: '24h'
+freq: '1h'
 
 add_aluminum: Ture
 only_other_load: False
