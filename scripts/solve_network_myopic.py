@@ -993,7 +993,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
         
         # 求解多个省份的电解铝优化问题（支持并行和串行）
         # 获取并行计算参数
-        max_workers = kwargs.get("max_workers", None)  # 可以从kwargs中获取最大进程数
+        max_workers = kwargs.get("max_workers", 30)  # 可以从kwargs中获取最大进程数
         overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
         use_parallel = kwargs.get("max_workers") is not None  # 如果指定了max_workers，则使用并行
         
