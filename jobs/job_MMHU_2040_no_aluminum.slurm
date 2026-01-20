@@ -12,12 +12,12 @@
 LOG_FILE="logs/job_MMHU_2040_no_aluminum_$(date +%Y%m%d_%H%M%S).log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
-echo "=== PyPSA-China 30%容量比例作业开始 ==="
+echo "=== PyPSA-China 100%容量比例作业开始 ==="
 echo "开始时间: $(date)"
 echo "作业ID: $SLURM_JOB_ID"
 echo "节点: $SLURM_NODELIST"
 echo "日志文件: $LOG_FILE"
-echo "版本: 0118.1H.1-MMHU-2040-no_aluminum"
+echo "版本: 0120.1H.1-MMHU-2040-no_aluminum"
 echo
 
 # 加载必要的模块
@@ -31,7 +31,7 @@ echo "模块加载完成"
 echo
 
 # 运行模拟
-echo "开始运行30%容量比例模拟..."
+echo "开始运行100%容量比例模拟..."
 echo "配置文件: configs/config_MMHU_2040_no_aluminum.yaml"
 echo "开始时间: $(date)"
 echo
@@ -41,14 +41,14 @@ START_TIME=$(date +%s)
 if snakemake --configfile configs/config_MMHU_2040_no_aluminum.yaml --cores 40; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
-    echo "✓ 30%容量比例模拟运行成功！"
+    echo "✓ 100%容量比例模拟运行成功！"
     echo "运行时间: $((DURATION / 3600))小时 $((DURATION % 3600 / 60))分钟 $((DURATION % 60))秒"
 else
-    echo "✗ 30%容量比例模拟运行失败！"
+    echo "✗ 100%容量比例模拟运行失败！"
     exit 1
 fi
 
 echo
-echo "=== PyPSA-China 30%容量比例作业完成 ==="
+echo "=== PyPSA-China 100%容量比例作业完成 ==="
 echo "完成时间: $(date)"
 echo "日志文件: $LOG_FILE"

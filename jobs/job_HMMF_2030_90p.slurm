@@ -17,7 +17,7 @@ echo "开始时间: $(date)"
 echo "作业ID: $SLURM_JOB_ID"
 echo "节点: $SLURM_NODELIST"
 echo "日志文件: $LOG_FILE"
-echo "版本: 0118.1H.1-HMMF-2030-90p"
+echo "版本: 0120.1H.1-HMMF-2030-90p"
 echo
 
 # 加载必要的模块

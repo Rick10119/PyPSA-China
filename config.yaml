@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0118.1H.1
+version: 0120.1H.1
 logging_level: INFO
 foresight: "myopic"
 
@@ -19,7 +19,7 @@ tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
 freq: '1h'
 
-add_aluminum: Ture
+add_aluminum: True
 only_other_load: False
 iterative_optimization: True
 aluminum_commitment: False # keep False for iterative optimization
@@ -27,7 +27,7 @@ aluminum_max_iterations: 3  # 最大迭代次数
 aluminum_convergence_tolerance: 0.001  # 收敛阈值（0.1%）
 
 # 电解铝厂容量比例设置 (100%, 90%, 80%, 70%, 60%)
-aluminum_capacity_ratio: 0.3  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
+aluminum_capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
 
 scenario:
   line_limits: [ 'opt' ]

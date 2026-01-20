@@ -1,4 +1,4 @@
-version: 0118.1H.1-NLHU-2040-100p
+version: 0120.1H.1-NLHU-2040-100p
 logging_level: INFO
 foresight: myopic
 using_single_node: false
