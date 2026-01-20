@@ -234,7 +234,9 @@ for job_file in "${JOBS_SORTED[@]}"; do
     echo "提交作业: $(basename "$job_file")"
     
     # 提交作业并获取作业ID
-    JOB_ID=$(sbatch "$job_file" | awk '{print $4}')
+    # 只提交待处理作业；既然需要运行，就强制从头跑
+    FORCE_RESTART_FLAG=1
+    JOB_ID=$(sbatch --export=ALL,FORCE_RESTART="$FORCE_RESTART_FLAG" "$job_file" | awk '{print $4}')
     
     if [ $? -eq 0 ] && [ -n "$JOB_ID" ]; then
         echo "  ✓ 提交成功，作业ID: $JOB_ID"

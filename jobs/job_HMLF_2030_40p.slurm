@@ -38,7 +38,15 @@ echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile configs/config_HMLF_2030_40p.yaml --cores 40; then
+# When FORCE_RESTART=1, re-run the full workflow to avoid stale outputs.
+FORCE_RESTART="${FORCE_RESTART:-0}"
+SNAKEMAKE_EXTRA_ARGS=""
+if [ "$FORCE_RESTART" = "1" ]; then
+    echo "FORCE_RESTART=1: 使用 --forceall --rerun-incomplete 从头开始运行"
+    SNAKEMAKE_EXTRA_ARGS="--forceall --rerun-incomplete"
+fi
+
+if snakemake --configfile configs/config_HMLF_2030_40p.yaml --cores 40 $SNAKEMAKE_EXTRA_ARGS; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo "✓ 78%容量比例模拟运行成功！"

@@ -242,7 +242,15 @@ echo
 
 START_TIME=$(date +%s)
 
-if snakemake --configfile {scenario['config_file']} --cores {params['cpus_per_task']}; then
+# When FORCE_RESTART=1, re-run the full workflow to avoid stale outputs.
+FORCE_RESTART="${{FORCE_RESTART:-0}}"
+SNAKEMAKE_EXTRA_ARGS=""
+if [ "$FORCE_RESTART" = "1" ]; then
+    echo "FORCE_RESTART=1: 使用 --forceall --rerun-incomplete 从头开始运行"
+    SNAKEMAKE_EXTRA_ARGS="--forceall --rerun-incomplete"
+fi
+
+if snakemake --configfile {scenario['config_file']} --cores {params['cpus_per_task']} $SNAKEMAKE_EXTRA_ARGS; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo "✓ {scenario['description']}模拟运行成功！"
