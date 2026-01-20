@@ -473,16 +473,82 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
                     first_smelter_p == last_smelter_p, 
                     name=f"aluminum-first-last-equal-{smelter}"
                 )    
+    def build_flat_aluminum_usage():
+        snapshots = n.snapshots
+        hours = len(snapshots)
+        flat_al_tph = 0.0
+
+        if annual_production_10kt > 0:
+            # 年产量(10kt/年) -> 吨/小时
+            flat_al_tph = annual_production_10kt * 10000 / 8760
+        elif (
+            target_aluminum_load
+            and hasattr(n.loads_t, "p_set")
+            and target_aluminum_load in n.loads_t.p_set.columns
+            and hours > 0
+        ):
+            total_tons = n.loads_t.p_set[target_aluminum_load].sum()
+            flat_al_tph = total_tons / hours
+        elif (
+            target_aluminum_load
+            and "p_set" in n.loads.columns
+            and pd.notna(n.loads.at[target_aluminum_load, "p_set"])
+        ):
+            flat_al_tph = float(n.loads.at[target_aluminum_load, "p_set"])
+        elif national_smelter_production and target_province in national_smelter_production:
+            flat_al_tph = float(national_smelter_production[target_province])
+
+        # 吨/小时 -> MW
+        flat_power = flat_al_tph * 13.3
+        per_line = flat_power / max(len(target_aluminum_smelters), 1)
+        aluminum_usage_lines = pd.DataFrame(
+            per_line,
+            index=snapshots,
+            columns=target_aluminum_smelters,
+        )
+        aluminum_usage = aluminum_usage_lines.sum(axis=1).to_frame(name=original_smelter_name)
+        return aluminum_usage, aluminum_usage_lines
+
     # 求解电解铝优化问题
     # 只保留PyPSA支持的参数
     optimize_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS}
-    status, condition = n.optimize(
-        solver_name=solver_name,
-        extra_functionality=aluminum_extra_functionality,
-        **milp_solver_options,  # 使用MILP专用参数
-        **optimize_kwargs,
+    try:
+        status, condition = n.optimize(
+            solver_name=solver_name,
+            extra_functionality=aluminum_extra_functionality,
+            **milp_solver_options,  # 使用MILP专用参数
+            **optimize_kwargs,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Aluminum optimization exception for %s: %s",
+            target_province,
+            exc,
+        )
+        return build_flat_aluminum_usage()
+
+    feasible_solution = (
+        hasattr(n.links_t, "p0")
+        and all(smelter in n.links_t.p0.columns for smelter in target_aluminum_smelters)
+        and not n.links_t.p0[target_aluminum_smelters].isna().all().all()
     )
-    
+
+    no_feasible_conditions = {"infeasible", "no_solution", "infeasible_or_unbounded"}
+    time_limit_conditions = {"time_limit", "time_limit_reached"}
+
+    if (
+        condition in no_feasible_conditions
+        or (condition in time_limit_conditions and not feasible_solution)
+        or not feasible_solution
+    ):
+        logger.warning(
+            "Aluminum optimization fallback for %s: status=%s, condition=%s",
+            target_province,
+            status,
+            condition,
+        )
+        return build_flat_aluminum_usage()
+
     # 提取电解铝用能模式
     aluminum_usage_lines = n.links_t.p0[target_aluminum_smelters].copy()
     aluminum_usage = aluminum_usage_lines.sum(axis=1).to_frame(name=original_smelter_name)
@@ -1004,7 +1070,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                     national_smelter_production[province] = average_production if average_production >= 1 else 0
         
         # 求解多个省份的电解铝优化问题（默认并行）
-        max_workers = kwargs.get("max_workers", 13)
+        max_workers = kwargs.get("max_workers", 7)
         overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
         aluminum_optimize_kwargs = {
             k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS
@@ -1333,7 +1399,7 @@ if __name__ == '__main__':
         
         # 添加并行计算配置
         if snakemake.config.get("aluminum_parallel", True):  # 默认启用并行计算
-            max_workers = snakemake.config.get("aluminum_max_workers", 13)
+            max_workers = snakemake.config.get("aluminum_max_workers", 7)
             iteration_kwargs["max_workers"] = max_workers
         
         # 使用迭代优化算法

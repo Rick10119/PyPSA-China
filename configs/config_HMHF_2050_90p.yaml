@@ -73,7 +73,7 @@ solving:
       Threads: 192
       Method: -1
       MIPGap: 0.01
-      TimeLimit: 7200
+      TimeLimit: 14400
       Heuristics: 0.5
       Cuts: 0
       Presolve: -1
