@@ -13,7 +13,7 @@ single_node_province: "Shandong"  # 当single_node为true时，指定要保留�
 results_dir: 'results/'
 summary_dir: 'summary/'
 threads: 192
-mem_per_thread: 4000
+mem_per_thread: 2500
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
