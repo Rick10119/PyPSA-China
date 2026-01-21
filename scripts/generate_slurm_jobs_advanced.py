@@ -167,7 +167,7 @@ class SlurmJobGenerator:
             "nodes": 1,
             "ntasks": 1,
             "cpus_per_task": 32,
-            "mem_per_cpu": "15G",
+            "mem_per_cpu": "20G",
             "time_limit": "16:00:00",
             "mail_user": "rl8728@princeton.edu",
             "modules": [
