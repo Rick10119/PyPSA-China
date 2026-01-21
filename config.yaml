@@ -79,10 +79,10 @@ solving:
       LogToConsole: 1  # 关闭控制台日志
       LogFile: ''  # 关闭日志文件
     MILP:
-      Threads: 27
+      Threads: 90
       Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
       MIPGap: 1.e-2
-      TimeLimit: 14400
+      TimeLimit: 7200
       Heuristics: 0.5 # 增加启发式搜索的强度
       Cuts: 0 # 尝试关闭大部分割平面生成，或设置为1 (温和生成)
       Presolve: -1 # 保持默认，通常是有益的

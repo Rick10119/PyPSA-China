@@ -60,7 +60,7 @@ solving:
       Threads: 192
       Crossover: 0
       Method: 2
-      BarConvTol: 1.0e-05
+      BarConvTol: 1.0e-02
       FeasibilityTol: 1.0e-06
       AggFill: 0
       PreDual: 0
@@ -70,10 +70,10 @@ solving:
       LogToConsole: 1
       LogFile: ''
     MILP:
-      Threads: 27
+      Threads: 60
       Method: -1
       MIPGap: 0.01
-      TimeLimit: 14400
+      TimeLimit: 3600
       Heuristics: 0.5
       Cuts: 0
       Presolve: -1

@@ -1070,7 +1070,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                     national_smelter_production[province] = average_production if average_production >= 1 else 0
         
         # 求解多个省份的电解铝优化问题（默认并行）
-        max_workers = kwargs.get("max_workers", 7)
+        max_workers = kwargs.get("max_workers", 3)
         overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
         aluminum_optimize_kwargs = {
             k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS
@@ -1399,7 +1399,7 @@ if __name__ == '__main__':
         
         # 添加并行计算配置
         if snakemake.config.get("aluminum_parallel", True):  # 默认启用并行计算
-            max_workers = snakemake.config.get("aluminum_max_workers", 7)
+            max_workers = snakemake.config.get("aluminum_max_workers", 3)
             iteration_kwargs["max_workers"] = max_workers
         
         # 使用迭代优化算法
