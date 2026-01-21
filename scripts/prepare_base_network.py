@@ -218,11 +218,6 @@ def prepare_network(config):
         # 应用容量比例
         al_smelter_p_nom = base_capacity * capacity_ratio
         
-        # 打印容量调整信息
-        print(f"电解铝厂容量比例: {capacity_ratio*100:.0f}%")
-        print(f"原始年产量: {base_capacity.sum():.2f} 吨")
-        print(f"调整后年产量: {al_smelter_p_nom.sum():.2f} 吨")
-        
         # 获取铝负荷数据
         load_data = get_aluminum_load_for_network(
             config,
