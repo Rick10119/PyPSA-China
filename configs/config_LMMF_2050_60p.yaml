@@ -5,8 +5,8 @@ using_single_node: false
 single_node_province: Shandong
 results_dir: results/
 summary_dir: summary/
-threads: 32
-mem_per_thread: 15000
+threads: 192
+mem_per_thread: 2500
 tmin: -01-01 00:00
 tmax: -12-31 23:00
 freq: 1h
@@ -57,7 +57,7 @@ solving:
     options: default
   solver_options:
     default:
-      Threads: 32
+      Threads: 192
       Crossover: 0
       Method: 2
       BarConvTol: 1.0e-05
@@ -70,10 +70,10 @@ solving:
       LogToConsole: 1
       LogFile: ''
     MILP:
-      Threads: 15
+      Threads: 192
       Method: -1
       MIPGap: 0.01
-      TimeLimit: 7200
+      TimeLimit: 3600
       Heuristics: 0.5
       Cuts: 0
       Presolve: -1

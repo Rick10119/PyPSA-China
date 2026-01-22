@@ -12,8 +12,8 @@ single_node_province: "Shandong"  # 当single_node为true时，指定要保留�
 
 results_dir: 'results/'
 summary_dir: 'summary/'
-threads: 32
-mem_per_thread: 15000
+threads: 192
+mem_per_thread: 2500
 
 tmin: '-01-01 00:00'
 tmax: '-12-31 23:00'
@@ -66,7 +66,7 @@ solving:
     options: default
   solver_options:
     default:
-      Threads: 32
+      Threads: 192
       Crossover: 0
       Method: 2 # barrier
       BarConvTol: 1.e-5
@@ -79,10 +79,10 @@ solving:
       LogToConsole: 1  # 关闭控制台日志
       LogFile: ''  # 关闭日志文件
     MILP:
-      Threads: 15
+      Threads: 192
       Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
       MIPGap: 1.e-2
-      TimeLimit: 7200
+      TimeLimit: 3600
       Heuristics: 0.5 # 增加启发式搜索的强度
       Cuts: 0 # 尝试关闭大部分割平面生成，或设置为1 (温和生成)
       Presolve: -1 # 保持默认，通常是有益的
