@@ -14,7 +14,7 @@ add_aluminum: false
 only_other_load: false
 iterative_optimization: true
 aluminum_commitment: false
-aluminum_max_iterations: 3
+aluminum_max_iterations: 2
 aluminum_convergence_tolerance: 0.001
 aluminum_capacity_ratio: 1.0
 scenario:
@@ -70,10 +70,10 @@ solving:
       LogToConsole: 1
       LogFile: ''
     MILP:
-      Threads: 192
+      Threads: 90
       Method: -1
       MIPGap: 0.01
-      TimeLimit: 3600
+      TimeLimit: 7200
       Heuristics: 0.5
       Cuts: 0
       Presolve: -1

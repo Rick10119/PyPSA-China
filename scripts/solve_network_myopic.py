@@ -351,7 +351,7 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     # 获取电解铝厂运行参数
     from scripts.scenario_utils import get_aluminum_smelter_operational_params
     
-    # 以25万吨/年为产线粒度，拆分电解铝产能
+    # 以25万吨/年为基准产线，用单条产线代表全省并按比例缩放
     base_smelter_name = target_aluminum_smelters[0]
     base_bus0 = n.links.at[base_smelter_name, 'bus0']
     base_bus1 = n.links.at[base_smelter_name, 'bus1']
@@ -361,46 +361,42 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
     annual_production_10kt = al_smelter_annual_production[target_province] * capacity_ratio
     line_unit_10kt = 25.0
-    
     if annual_production_10kt <= line_unit_10kt:
-        line_caps_10kt = [annual_production_10kt]
+        scale_factor = 1.0
+        line_cap_10kt = annual_production_10kt
     else:
-        full_lines = int(annual_production_10kt // line_unit_10kt)
-        remainder = annual_production_10kt - full_lines * line_unit_10kt
-        line_caps_10kt = [line_unit_10kt] * full_lines
-        if remainder > 0:
-            line_caps_10kt.append(remainder)
+        scale_factor = annual_production_10kt / line_unit_10kt
+        line_cap_10kt = line_unit_10kt
     
     # 移除原有的省级电解铝设备
     n.mremove("Link", target_aluminum_smelters)
     
-    # 添加产线级电解铝设备
+    # 添加代表性电解铝产线
     target_aluminum_smelters = []
-    for idx, line_cap_10kt in enumerate(line_caps_10kt, start=1):
-        line_cap_mw = line_cap_10kt * 10000 * 13.3 / 8760
-        smelter_name = f"{target_province} aluminum smelter line-{idx}"
-        operational_params = get_aluminum_smelter_operational_params(
-            config,
-            al_smelter_p_nom=line_cap_mw
-        )
-        n.add(
-            "Link",
-            smelter_name,
-            bus0=base_bus0,
-            bus1=base_bus1,
-            carrier="aluminum",
-            p_nom=line_cap_mw,
-            p_nom_extendable=False,
-            efficiency=base_efficiency,
-            capital_cost=operational_params['capital_cost'],
-            stand_by_cost=operational_params['stand_by_cost'],
-            marginal_cost=operational_params['marginal_cost'],
-            start_up_cost=0.5 * operational_params['start_up_cost'],
-            shut_down_cost=0.5 * operational_params['start_up_cost'],
-            committable=True,
-            p_min_pu=operational_params['p_min_pu']
-        )
-        target_aluminum_smelters.append(smelter_name)
+    line_cap_mw = line_cap_10kt * 10000 * 13.3 / 8760
+    smelter_name = f"{target_province} aluminum smelter line-1"
+    operational_params = get_aluminum_smelter_operational_params(
+        config,
+        al_smelter_p_nom=line_cap_mw
+    )
+    n.add(
+        "Link",
+        smelter_name,
+        bus0=base_bus0,
+        bus1=base_bus1,
+        carrier="aluminum",
+        p_nom=line_cap_mw,
+        p_nom_extendable=False,
+        efficiency=base_efficiency,
+        capital_cost=operational_params['capital_cost'],
+        stand_by_cost=operational_params['stand_by_cost'],
+        marginal_cost=operational_params['marginal_cost'],
+        start_up_cost=0.5 * operational_params['start_up_cost'],
+        shut_down_cost=0.5 * operational_params['start_up_cost'],
+        committable=True,
+        p_min_pu=operational_params['p_min_pu']
+    )
+    target_aluminum_smelters.append(smelter_name)
     
     # 移除所有非电解铝相关的组件
     for component_type in ["Generator", "StorageUnit", "Store", "Link", "Load"]:
@@ -450,8 +446,14 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     target_aluminum_load = target_aluminum_loads[0] if target_aluminum_loads else None
     
     if target_aluminum_load and national_smelter_production and target_province in national_smelter_production:
-        # 更新负荷值为平均产量
-        n.loads.at[target_aluminum_load, 'p_set'] = national_smelter_production[target_province]
+        # 更新负荷值为平均产量（按代表产线缩放）
+        n.loads.at[target_aluminum_load, 'p_set'] = (
+            national_smelter_production[target_province] / scale_factor
+        )
+    if target_aluminum_load and hasattr(n.loads_t, "p_set") and target_aluminum_load in n.loads_t.p_set.columns:
+        n.loads_t.p_set[target_aluminum_load] = n.loads_t.p_set[target_aluminum_load] / scale_factor
+    if target_aluminum_load and "p_set" in n.loads.columns and pd.notna(n.loads.at[target_aluminum_load, "p_set"]):
+        n.loads.at[target_aluminum_load, "p_set"] = n.loads.at[target_aluminum_load, "p_set"] / scale_factor
     
     # 定义铝优化专用的extra_functionality函数
     def aluminum_extra_functionality(n_al, snapshots_al):
@@ -507,7 +509,7 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
             columns=target_aluminum_smelters,
         )
         aluminum_usage = aluminum_usage_lines.sum(axis=1).to_frame(name=original_smelter_name)
-        return aluminum_usage, aluminum_usage_lines
+        return aluminum_usage * scale_factor, aluminum_usage_lines * scale_factor
 
     # 求解电解铝优化问题
     # 只保留PyPSA支持的参数
@@ -552,7 +554,7 @@ def solve_aluminum_optimization(n, config, solving, opts="", nodal_prices=None, 
     # 提取电解铝用能模式
     aluminum_usage_lines = n.links_t.p0[target_aluminum_smelters].copy()
     aluminum_usage = aluminum_usage_lines.sum(axis=1).to_frame(name=original_smelter_name)
-    return aluminum_usage, aluminum_usage_lines
+    return aluminum_usage * scale_factor, aluminum_usage_lines * scale_factor
 
 def solve_aluminum_optimization_parallel_wrapper(args):
     """
@@ -1070,7 +1072,7 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
                     national_smelter_production[province] = average_production if average_production >= 1 else 0
         
         # 求解多个省份的电解铝优化问题（默认并行）
-        max_workers = kwargs.get("max_workers", 1)
+        max_workers = kwargs.get("max_workers", 2)
         overrides_path = kwargs.get("overrides_path", "data/override_component_attrs")
         aluminum_optimize_kwargs = {
             k: v for k, v in kwargs.items() if k in ALLOWED_OPTIMIZE_KWARGS
@@ -1399,7 +1401,7 @@ if __name__ == '__main__':
         
         # 添加并行计算配置
         if snakemake.config.get("aluminum_parallel", True):  # 默认启用并行计算
-            max_workers = snakemake.config.get("aluminum_max_workers", 1)
+            max_workers = snakemake.config.get("aluminum_max_workers", 2)
             iteration_kwargs["max_workers"] = max_workers
         
         # 使用迭代优化算法
