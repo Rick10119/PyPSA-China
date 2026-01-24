@@ -6,6 +6,10 @@ echo "开始时间: $(date)"
 echo "注意: 使用 --rerun-incomplete --ignore-incomplete --rerun-triggers mtime 参数忽略配置文件和参数变化"
 echo
 
+# 规避snakemake iocache文件缺失导致的启动失败
+mkdir -p .snakemake/iocache
+touch .snakemake/iocache/latest.pkl
+
 # 读取基准版本号（来自config.yaml）
 BASE_VERSION=$(grep -m 1 '^version:' config.yaml | sed 's/^version: //')
 if [ -n "$BASE_VERSION" ]; then
@@ -107,8 +111,8 @@ check_results_by_snakemake() {
 
 # 仅提交指定的核心场景
 ALLOWED_JOBS=(
-    "job_MMMF_2050_30p.slurm"
-    "job_MMMU_2050_30p.slurm"
+    "job_MMMF_2050_10p.slurm"
+    "job_MMMU_2050_10p.slurm"
 )
 
 # 自动发现所有可用的SLURM作业文件

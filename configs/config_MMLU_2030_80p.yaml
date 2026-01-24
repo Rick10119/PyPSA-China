@@ -70,10 +70,10 @@ solving:
       LogToConsole: 1
       LogFile: ''
     MILP:
-      Threads: 90
+      Threads: 192
       Method: -1
       MIPGap: 0.01
-      TimeLimit: 7200
+      TimeLimit: 3600
       Heuristics: 0.5
       Cuts: 0
       Presolve: -1
