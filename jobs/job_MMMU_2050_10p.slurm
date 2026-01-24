@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=32       # 每个任务的CPU核心数
 #SBATCH --mem-per-cpu=20G        # 每个CPU核心的内存
 #SBATCH --time=16:00:00          # 总运行时间限制
-#SBATCH --qos=high               # 高优先级队列
+#SBATCH --qos=urgent             # urgent priority queue (if available)
 #SBATCH --mail-type=fail         # 作业失败时发送邮件
 #SBATCH --mail-user=rl8728@princeton.edu
 
