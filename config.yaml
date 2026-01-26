@@ -163,7 +163,7 @@ aluminum:
     smelter_flexibility: "mid"
     primary_demand: "mid"
     market_opportunity: "mid"
-    employment_transfer: "unfavorable"
+    employment_transfer: "favorable"
   
   # Aluminum storage costs
   al_marginal_cost_storage: 3.79E-05 # euro/MWh
