@@ -70,7 +70,7 @@ solving:
       LogToConsole: 1
       LogFile: ''
     MILP:
-      Threads: 192
+      Threads: 90
       Method: -1
       MIPGap: 0.01
       TimeLimit: 3600
