@@ -16,8 +16,6 @@ iterative_optimization: true
 aluminum_commitment: false
 aluminum_max_iterations: 2
 aluminum_convergence_tolerance: 0.001
-aluminum_isolate_solver_process: true
-aluminum_isolate_solver_max_retries: 3
 aluminum_capacity_ratio: 0.33333672691487326
 scenario:
   line_limits:

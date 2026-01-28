@@ -615,72 +615,6 @@ def solve_aluminum_optimization_parallel_wrapper(args):
     
     return (target_province, province_aluminum_usage, province_aluminum_usage_lines)
 
-def _aluminum_subprocess_worker(result_queue, args):
-    """
-    在子进程中运行电解铝优化，避免主进程因SIGSEGV退出
-    """
-    try:
-        result_queue.put(("ok", solve_aluminum_optimization_parallel_wrapper(args)))
-    except Exception as exc:
-        result_queue.put(("error", f"{type(exc).__name__}: {exc}"))
-
-def _run_aluminum_optimization_in_subprocess(args, timeout=None, max_retries=0):
-    """
-    将单省份优化放入子进程执行，若子进程崩溃则返回空结果
-    """
-    target_province = args[6]
-    ctx = mp.get_context("spawn")
-    attempt = 0
-    while True:
-        result_queue = ctx.Queue()
-        proc = ctx.Process(target=_aluminum_subprocess_worker, args=(result_queue, args))
-        proc.start()
-        proc.join(timeout)
-        if proc.is_alive():
-            proc.terminate()
-            proc.join()
-            logger.warning("Aluminum optimization timeout for %s", target_province)
-            status = "retry"
-            payload = "timeout"
-        elif proc.exitcode != 0:
-            logger.warning(
-                "Aluminum optimization crashed for %s (exitcode=%s)",
-                target_province,
-                proc.exitcode,
-            )
-            status = "retry"
-            payload = f"exitcode={proc.exitcode}"
-        else:
-            try:
-                status, payload = result_queue.get_nowait()
-            except Exception:
-                logger.warning("Aluminum optimization returned no result for %s", target_province)
-                status = "retry"
-                payload = "empty-result"
-
-        if status == "ok":
-            return payload
-        if status == "error":
-            logger.warning("Aluminum optimization exception for %s: %s", target_province, payload)
-            return target_province, None, None
-
-        if attempt >= max_retries:
-            logger.warning(
-                "Aluminum optimization giving up for %s after %s retries (%s)",
-                target_province,
-                max_retries,
-                payload,
-            )
-            return target_province, None, None
-        attempt += 1
-        logger.info(
-            "Aluminum optimization retry %s/%s for %s (%s)",
-            attempt,
-            max_retries,
-            target_province,
-            payload,
-        )
-
 def solve_aluminum_optimization_parallel(target_provinces, original_network_path, original_overrides, 
                                        config, solving, opts, current_nodal_prices, 
                                        solve_opts, using_single_node, single_node_province, 
@@ -728,13 +662,10 @@ def solve_aluminum_optimization_parallel(target_provinces, original_network_path
     if max_workers is None:
         max_workers = min(len(target_provinces), mp.cpu_count())
     
-    isolate_solver_process = kwargs.get("isolate_solver_process", False)
-    isolate_max_retries = kwargs.get("isolate_solver_max_retries", 0)
     logger.info(
-        "Aluminum parallel start: provinces=%s, max_workers=%s, mode=%s",
+        "Aluminum parallel start: provinces=%s, max_workers=%s, mode=thread",
         len(target_provinces),
         max_workers,
-        "isolated-process" if isolate_solver_process else "thread",
     )
     
     # 准备参数
@@ -753,34 +684,14 @@ def solve_aluminum_optimization_parallel(target_provinces, original_network_path
     
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # 提交所有任务
-        if isolate_solver_process:
-            future_to_province = {
-                executor.submit(
-                    _run_aluminum_optimization_in_subprocess,
-                    args,
-                    None,
-                    isolate_max_retries,
-                ): args[6]
-                for args in args_list
-            }
-        else:
-            future_to_province = {
-                executor.submit(solve_aluminum_optimization_parallel_wrapper, args): args[6]
-                for args in args_list
-            }
+        future_to_province = {
+            executor.submit(solve_aluminum_optimization_parallel_wrapper, args): args[6]  # args[6] 是 target_province
+            for args in args_list
+        }
         
         # 收集结果
         for future in as_completed(future_to_province):
-            result_province = future_to_province[future]
-            try:
-                result_province, province_aluminum_usage, province_aluminum_usage_lines = future.result()
-            except Exception as exc:
-                logger.warning(
-                    "Aluminum optimization exception for %s: %s",
-                    result_province,
-                    exc,
-                )
-                continue
+            result_province, province_aluminum_usage, province_aluminum_usage_lines = future.result()
             
             if province_aluminum_usage is not None:
                 all_aluminum_usage[result_province] = province_aluminum_usage
@@ -1492,12 +1403,6 @@ if __name__ == '__main__':
         if snakemake.config.get("aluminum_parallel", True):  # 默认启用并行计算
             max_workers = snakemake.config.get("aluminum_max_workers", 2)
             iteration_kwargs["max_workers"] = max_workers
-            if snakemake.config.get("aluminum_isolate_solver_process", True):
-                iteration_kwargs["isolate_solver_process"] = True
-                iteration_kwargs["isolate_solver_max_retries"] = snakemake.config.get(
-                    "aluminum_isolate_solver_max_retries",
-                    3,
-                )
         
         # 使用迭代优化算法
         n = solve_network_iterative(
