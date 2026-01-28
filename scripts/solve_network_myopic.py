@@ -821,16 +821,6 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     skip_iterations = cf_solving.get("skip_iterations", False)
     if not n.lines.s_nom_extendable.any():
         skip_iterations = True
-
-    logger.info(
-        "Aluminum iterative setup: max_iterations=%s, convergence_tolerance=%s, "
-        "transmission_min=%s, transmission_max=%s, skip_transmission=%s",
-        max_iterations,
-        convergence_tolerance,
-        min_iterations,
-        max_transmission_iterations,
-        skip_iterations,
-    )
     
 
     
@@ -907,7 +897,6 @@ def solve_network_iterative(n, config, solving, opts="", max_iterations=10, conv
     while iteration < max_iterations:
         iteration += 1
         iteration_start_time = time.time()  # 记录每次迭代开始时间
-        logger.info("Aluminum outer iteration %s/%s", iteration, max_iterations)
         
 
         
@@ -1386,8 +1375,8 @@ def solve_network_standard(n, config, solving, opts="", **kwargs):
     solver_name = solving["solver"]["name"]
     cf_solving = solving["options"]
     track_iterations = cf_solving.get("track_iterations", False)
-    min_iterations = cf_solving.get("min_iterations", 2)
-    max_iterations = cf_solving.get("max_iterations", 2)
+    min_iterations = cf_solving.get("min_iterations", 4)
+    max_iterations = cf_solving.get("max_iterations", 6)
 
     # add to network for extra_functionality
     n.config = config
