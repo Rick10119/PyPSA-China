@@ -26,7 +26,7 @@ aluminum_commitment: False # keep False for iterative optimization
 aluminum_max_iterations: 2  # 最大迭代次数
 aluminum_convergence_tolerance: 0.001  # 收敛阈值（0.1%）
 aluminum_isolate_solver_process: True # 是否隔离电解铝求解过程
-aluminum_isolate_solver_max_retries: 3 # 电解铝求解过程最大重试次数
+aluminum_isolate_solver_max_retries: 2 # 电解铝求解过程最大重试次数
 
 # 电解铝厂容量比例设置 (100%, 90%, 80%, 70%, 60%)
 aluminum_capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
@@ -89,9 +89,9 @@ solving:
       Cuts: 0 # 尝试关闭大部分割平面生成，或设置为1 (温和生成)
       Presolve: -1 # 保持默认，通常是有益的
   options:
-    track_iterations: false
-    min_iterations: 4
-    max_iterations: 6
+    track_iterations: true
+    min_iterations: 2
+    max_iterations: 2
     skip_iterations: false
     formulation: kirchhoff
     load_shedding: false

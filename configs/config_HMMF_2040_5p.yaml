@@ -17,7 +17,7 @@ aluminum_commitment: false
 aluminum_max_iterations: 2
 aluminum_convergence_tolerance: 0.001
 aluminum_isolate_solver_process: true
-aluminum_isolate_solver_max_retries: 3
+aluminum_isolate_solver_max_retries: 2
 aluminum_capacity_ratio: 0.36839151607887277
 scenario:
   line_limits:
@@ -80,9 +80,9 @@ solving:
       Cuts: 0
       Presolve: -1
   options:
-    track_iterations: false
-    min_iterations: 4
-    max_iterations: 6
+    track_iterations: true
+    min_iterations: 2
+    max_iterations: 2
     skip_iterations: false
     formulation: kirchhoff
     load_shedding: false
