@@ -81,7 +81,7 @@ solving:
       LogToConsole: 1  # 关闭控制台日志
       LogFile: ''  # 关闭日志文件
     MILP:
-      Threads: 60
+      Threads: 90
       Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
       MIPGap: 1.e-2
       TimeLimit: 3600
