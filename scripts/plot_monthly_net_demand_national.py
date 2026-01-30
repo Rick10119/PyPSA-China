@@ -372,7 +372,7 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
     """
     Plot the monthly net load curve.
     """
-    fig, ax = plt.subplots(figsize=(14, 8))
+    fig, ax = plt.subplots(figsize=(14, 14))
     
     colors = {
         "Other Electricity Load": "#1f77b4",
@@ -418,23 +418,25 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
         linewidth=4,
     )
     
-    ax.set_xlabel('Month', fontsize=24)
-    ax.set_ylabel('Energy [TWh]', fontsize=24)
+    ax.set_xlabel('Month', fontsize=40)
+    ax.set_ylabel('Electricity Demand [TWh]', fontsize=40)
     title_province = target_province or "National"
     ax.set_title(
         f'Monthly Net Load & Components - {planning_horizon} ({title_province})',
-        fontsize=26
+        fontsize=40
     )
     
+    ax.set_xlim(1.0, 12.0)
     ax.set_xticks(range(1, 13))
     ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=20)
-    ax.tick_params(axis='y', labelsize=20)
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=40)
+    ax.tick_params(axis='y', labelsize=30)
     ax.grid(True, alpha=0.3)
     
-    ax.legend(fontsize=20, loc='upper left', bbox_to_anchor=(1, 1))
+    ax.legend(fontsize=40, loc='upper left', bbox_to_anchor=(1, 1))
     
     plt.tight_layout()
+    plt.subplots_adjust(right=2)
     
     output_dir = "results/plots/monthly_net_demand"
     os.makedirs(output_dir, exist_ok=True)
