@@ -241,6 +241,29 @@ def run_capacity_tests(years: Iterable[int], clean: bool = True) -> None:
                         _write_config(path, cfg)
                         config_count += 1
 
+    # extra scenarios: mid flex/demand/market, favorable employment, no heat coupling (2050 only)
+    extra_flex = "mid"
+    extra_market = "mid"
+    extra_employment = "favorable"
+    extra_year = 2050
+    if extra_year in years:
+        extra_suffix = (
+            f"{flex_map[extra_flex]}{demand_map[demand_level]}{market_map[extra_market]}{extra_employment[:1].upper()}"
+        )
+        for cap_ratio in cap_ratios:
+            actual_capacity_ratio = _calculate_actual_capacity_ratio(extra_year, cap_ratio, demand_level)
+            cap_percentage = int(cap_ratio * 100)
+            cfg = _base_copy(extra_flex, extra_market, extra_employment, extra_year)
+            cfg["version"] = f"{base_version}-{extra_suffix}-{extra_year}-{cap_percentage}p-no_heat"
+            cfg["add_aluminum"] = True
+            cfg["only_other_load"] = True
+            cfg["aluminum_capacity_ratio"] = actual_capacity_ratio
+            cfg["aluminum"]["capacity_ratio"] = actual_capacity_ratio
+            cfg["heat_coupling"] = False
+            path = configs_dir / f"config_{extra_suffix}_{extra_year}_{cap_percentage}p_no_heat.yaml"
+            _write_config(path, cfg)
+            config_count += 1
+
     print(f"总共生成了 {config_count} 个配置文件")
 
 
