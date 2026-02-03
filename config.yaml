@@ -24,7 +24,7 @@ only_other_load: False
 iterative_optimization: True
 aluminum_commitment: False # keep False for iterative optimization
 aluminum_max_iterations: 2  # 最大迭代次数
-aluminum_convergence_tolerance: 0.001  # 收敛阈值（0.1%）
+aluminum_convergence_tolerance: 0.01  # 收敛阈值（0.1%）
 
 # 电解铝厂容量比例设置 (100%, 90%, 80%, 70%, 60%)
 aluminum_capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%

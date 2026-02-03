@@ -15,7 +15,7 @@ only_other_load: true
 iterative_optimization: true
 aluminum_commitment: false
 aluminum_max_iterations: 2
-aluminum_convergence_tolerance: 0.001
+aluminum_convergence_tolerance: 0.01
 aluminum_capacity_ratio: 0.6627325153173852
 scenario:
   line_limits:
