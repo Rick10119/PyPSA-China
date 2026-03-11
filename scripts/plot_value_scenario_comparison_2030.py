@@ -183,10 +183,14 @@ def load_scenario_data(scenario_info, file_type='costs'):
         
         if summary_dir.exists():
             # 查找对应年份的目录
-            year_pattern = f"postnetwork-ll-current+Neighbor-linear2030-{year}"
-            year_dir = summary_dir / year_pattern
+            year_dir = None
+            for tag in ("FCG", "Neighbor"):
+                candidate = summary_dir / f"postnetwork-ll-current+{tag}-linear2030-{year}"
+                if candidate.exists():
+                    year_dir = candidate
+                    break
             
-            if year_dir.exists():
+            if year_dir is not None and year_dir.exists():
                 file_path = year_dir / f"{file_type}.csv"
                 if file_path.exists():
                     try:

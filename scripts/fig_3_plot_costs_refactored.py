@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
 重构的成本分析图表生成脚本
-从CSV文件读取数据并生成清晰的场景对比图表
+
+数据来源说明（重要）：
+- 本脚本**只负责画图**，默认读取的汇总 CSV 为：
+  `results/scenario_analysis/scenario_plots/all_plot_data_costs.csv`
+- 该 CSV 由 `scripts/plot_value_scenario_comparison.py` 生成：
+  运行 `plot_value_scenario_comparison.py --file-type costs` 时会在输出目录下写入
+  `scenario_plots/all_plot_data_costs.csv`，随后本脚本读取并绘制 Fig.3。
 """
 
 import pandas as pd

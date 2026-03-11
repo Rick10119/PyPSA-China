@@ -358,7 +358,17 @@ if __name__ == "__main__":
     # Hardcoded scenario as requested by the user
     scenario = "version-0120.1H.1-MMMU-2050-10p"
     planning_horizon = "2050"
-    network_path = f"results/{scenario}/postnetworks/positive/postnetwork-ll-current+FCG-linear2050-2050.nc"
+    def _pick_network_path(base_dir: str, scenario_dir: str) -> str:
+        candidates = [
+            f"{base_dir}/{scenario_dir}/postnetworks/positive/postnetwork-ll-current+FCG-linear2050-2050.nc",
+            f"{base_dir}/{scenario_dir}/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-2050.nc",
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                return p
+        return candidates[0]
+
+    network_path = _pick_network_path("results", scenario)
     
     if 'snakemake' not in globals():
         from types import SimpleNamespace

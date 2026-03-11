@@ -1,16 +1,16 @@
 """
-比较 MMM 和 NMM 场景的热力图可视化脚本
+比较 MMMU 和 NMMU 场景的热力图可视化脚本
 
 该脚本基于 plot_heatmap.py 重写，用于比较两个不同配置场景的储能技术和铝冶炼厂运行模式。
 主要功能：
-1. 从 MMM 和 NMM 配置文件中读取参数
+1. 从 MMMU 和 NMMU 配置文件中读取参数
 2. 加载对应的网络数据
 3. 生成并排比较的热力图
 4. 支持 H2、电池、水储能和铝冶炼厂的可视化
 
 主要差异：
-- MMM: iterative_optimization: true, smelter_flexibility: mid
-- NMM: iterative_optimization: false, smelter_flexibility: non_constrained
+- MMMU: iterative_optimization: true, smelter_flexibility: mid, employment_transfer: unfavorable (U)
+- NMMU: iterative_optimization: false, smelter_flexibility: non_constrained, employment_transfer: unfavorable (U)
 """
 
 import yaml
@@ -202,14 +202,14 @@ def get_aluminum_storage_daily_average(n, province_filter=None):
 
 def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_filter=None):
     """
-    生成 MMM 和 NMM 场景的比较热力图
+    生成 MMMU 和 NMMU 场景的比较热力图
     
     Parameters:
     -----------
     n_mmm : pypsa.Network
-        MMM 场景的网络对象
+        MMMU 场景的网络对象
     n_nmm : pypsa.Network
-        NMM 场景的网络对象
+        NMMU 场景的网络对象
     config : dict
         包含绘图参数的配置字典
     output_dir : str
@@ -234,7 +234,7 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
     # 创建上下排列的子图，每个图长宽比9:4，整体约1:1
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12))
     
-    # 处理 MMM 场景
+    # 处理 MMMU 场景
     if tech == "aluminum":
         df_mmm, base_mmm = create_aluminum_df(n_mmm, province_filter)
         daily_storage_mmm, min_storage_mmm = get_aluminum_storage_daily_average(n_mmm, province_filter)
@@ -242,7 +242,7 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
         df_mmm, base_mmm = create_df(n_mmm, tech, province_filter)
         daily_storage_mmm, min_storage_mmm = None, None
     
-    # 处理 NMM 场景
+    # 处理 NMMU 场景
     if tech == "aluminum":
         df_nmm, base_nmm = create_aluminum_df(n_nmm, province_filter)
         daily_storage_nmm, min_storage_nmm = get_aluminum_storage_daily_average(n_nmm, province_filter)
@@ -250,7 +250,7 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
         df_nmm, base_nmm = create_df(n_nmm, tech, province_filter)
         daily_storage_nmm, min_storage_nmm = None, None
     
-    # 绘制 MMM 热力图
+    # 绘制 MMMU 热力图
     if not df_mmm.empty and base_mmm > 0:
         base_mmm_display = str(int(base_mmm / 1e3))  # 转换为 GW 显示
         
@@ -287,7 +287,7 @@ def plot_comparison_heatmap(n_mmm, n_nmm, config, output_dir, tech, province_fil
                 ax1_twin.tick_params(axis='y', labelcolor='black')
                 ax1_twin.set_xlim(0, len(day_columns))
     
-    # 绘制 NMM 热力图
+    # 绘制 NMMU 热力图
     if not df_nmm.empty and base_nmm > 0:
         base_nmm_display = str(int(base_nmm / 1e3))  # 转换为 GW 显示
         
@@ -341,13 +341,13 @@ def main():
     """
     主函数
     """
-    parser = argparse.ArgumentParser(description='Compare heatmaps between MMM and NMM scenarios')
+    parser = argparse.ArgumentParser(description='Compare heatmaps between MMMU and NMMU scenarios')
     parser.add_argument('--config-mmm', type=str, 
-                       default='configs/config_MMM_2050_20p.yaml',
-                       help='MMM configuration file path')
+                      default='configs/config_MMMU_2050_20p.yaml',
+                      help='MMMU configuration file path')
     parser.add_argument('--config-nmm', type=str,
-                       default='configs/config_NMM_2050_20p.yaml', 
-                       help='NMM configuration file path')
+                      default='configs/config_NMMU_2050_20p.yaml', 
+                      help='NMMU configuration file path')
     parser.add_argument('--output-dir', type=str,
                        default='results/comparison_heatmaps',
                        help='Output directory')
@@ -377,16 +377,26 @@ def main():
     mmm_version = config_mmm['version']
     nmm_version = config_nmm['version']
     
-    mmm_network_path = f"results/version-{mmm_version}/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-2050.nc"
-    nmm_network_path = f"results/version-{nmm_version}/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-2050.nc"
+    def _pick_network_path(version: str) -> str:
+        candidates = [
+            f"results/version-{version}/postnetworks/positive/postnetwork-ll-current+FCG-linear2050-2050.nc",
+            f"results/version-{version}/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-2050.nc",
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                return p
+        return candidates[0]
+
+    mmm_network_path = _pick_network_path(mmm_version)
+    nmm_network_path = _pick_network_path(nmm_version)
     
     # 检查网络文件是否存在
     if not os.path.exists(mmm_network_path):
-        print(f"Error: MMM network file not found: {mmm_network_path}")
+        print(f"Error: MMMU network file not found: {mmm_network_path}")
         return
     
     if not os.path.exists(nmm_network_path):
-        print(f"Error: NMM network file not found: {nmm_network_path}")
+        print(f"Error: NMMU network file not found: {nmm_network_path}")
         return
     
     # 加载网络

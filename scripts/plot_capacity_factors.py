@@ -876,7 +876,7 @@ if __name__ == "__main__":
         from _helpers import mock_snakemake
         snakemake = mock_snakemake('plot_capacity_factors',
                                    opts='ll',
-                                   topology='current+Neighbor',
+                                   topology='current+FCG',
                                    pathway='exponential175',
                                    planning_horizons="2020")
     configure_logging(snakemake)
