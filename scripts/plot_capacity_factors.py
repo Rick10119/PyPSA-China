@@ -6,6 +6,15 @@ It creates visualizations showing how capacity factors vary by month for:
 - Other resources (biomass, etc.)
 
 The plots show monthly average capacity factors (p.u.) for each technology type.
+
+In addition to figures, the script **also writes monthly statistics to CSV** via
+`save_monthly_data_to_csv`:
+- Output directory: `results/monthly_capacity_factors/`
+- Filenames: `monthly_capacity_factors_<planning_horizon>[ _<province> ][ _vN ].csv`
+
+These CSV files are intended as inputs for scripts such as:
+- `scripts/plot_capacity_factors_from_csv.py`
+- `scripts/calculate_employment_from_capacity_factors.py`
 """
 
 from _helpers import configure_logging

@@ -17,69 +17,69 @@ module purge
 module load anaconda3/2024.10
 conda activate pypsa-china
 
-# 创建日志目录
+# Create log directory
 mkdir -p logs
 
 echo "=========================================="
-echo "开始运行场景分析作业"
-echo "作业ID: $SLURM_JOB_ID"
-echo "开始时间: $(date)"
+echo "Starting scenario analysis job"
+echo "Job ID: $SLURM_JOB_ID"
+echo "Start time: $(date)"
 echo "=========================================="
 
-# 创建输出目录
+# Create output directory
 mkdir -p results/scenario_analysis
 
 echo "=========================================="
-echo "运行场景成本变化分析脚本..."
+echo "Running scenario cost-change analysis script..."
 echo "=========================================="
 
-# 运行场景成本变化分析脚本
+# Run scenario cost-change analysis script
 python scripts/plot_value_scenario_comparison.py \
     --config config.yaml \
     --output results/scenario_analysis \
     --file-type costs
 
 if [ $? -eq 0 ]; then
-    echo "✅ 场景成本变化分析脚本运行成功"
+    echo "✅ Scenario cost-change analysis script finished successfully"
 else
-    echo "❌ 场景成本变化分析脚本运行失败"
+    echo "❌ Scenario cost-change analysis script FAILED"
     exit 1
 fi
 
 echo "=========================================="
-echo "运行场景容量变化分析脚本..."
+echo "Running scenario capacity-change analysis script..."
 echo "=========================================="
 
-# 运行场景容量变化分析脚本
+# Run scenario capacity-change analysis script
 python scripts/plot_value_scenario_comparison.py \
     --config config.yaml \
     --output results/scenario_analysis \
     --file-type capacities
 
 if [ $? -eq 0 ]; then
-    echo "✅ 场景容量变化分析脚本运行成功"
+    echo "✅ Scenario capacity-change analysis script finished successfully"
 else
-    echo "❌ 场景容量变化分析脚本运行失败"
+    echo "❌ Scenario capacity-change analysis script FAILED"
     exit 1
 fi
 
 echo "=========================================="
-echo "所有场景分析脚本运行完成！"
-echo "结束时间: $(date)"
-echo "输出目录: results/scenario_analysis"
+echo "All scenario-analysis scripts finished!"
+echo "End time: $(date)"
+echo "Output directory: results/scenario_analysis"
 echo "=========================================="
 
-# 显示生成的文件
-echo "生成的文件列表："
-echo "场景对比图表："
-ls -la results/scenario_analysis/scenario_plots/ 2>/dev/null || echo "scenario_plots目录不存在"
+# Show generated files
+echo "List of generated files:"
+echo "Scenario comparison plots:"
+ls -la results/scenario_analysis/scenario_plots/ 2>/dev/null || echo "scenario_plots directory does not exist"
 echo ""
-echo "摘要表格："
-ls -la results/scenario_analysis/summary_tables/ 2>/dev/null || echo "summary_tables目录不存在"
+echo "Summary tables:"
+ls -la results/scenario_analysis/summary_tables/ 2>/dev/null || echo "summary_tables directory does not exist"
 echo ""
-echo "完整目录结构："
-ls -la results/scenario_analysis/ 2>/dev/null || echo "scenario_analysis目录不存在"
+echo "Full directory tree:"
+ls -la results/scenario_analysis/ 2>/dev/null || echo "scenario_analysis directory does not exist"
 
 echo "=========================================="
-echo "作业完成！"
+echo "Job finished!"
 echo "=========================================="

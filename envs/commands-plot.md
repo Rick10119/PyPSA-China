@@ -8,7 +8,7 @@ git restore .
 git pull
 snakemake --unlock
 
-sbatch job_fig_3_plot_value_scenario_comparison.slurm
-sbatch job_plot_capacity.slurm
-
-sbatch job_scenario_analysis.slurm
+sbatch jobs_plot/job_plot_value_scenario_comparison.slurm
+sbatch jobs_plot/job_plot_capacity.slurm
+sbatch jobs_plot/job_plot_optimal_point.slurm
+sbatch jobs_plot/job_plot_capacity_factor.slurm

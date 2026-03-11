@@ -136,7 +136,7 @@ def find_scenario_results(results_dir, base_version):
     for flex in flexibility_levels:
         for dem in demand_levels:
             for mar in market_levels:
-                full_scenario_code = f"{flex}{dem}{mar}"
+                full_scenario_code = f"{flex}{dem}{mar}{employment_letter}"
                 if full_scenario_code in scenarios:
                     # For the non-flexible reference we use mid flexibility and mid demand,
                     # while keeping the same market level.
@@ -912,6 +912,11 @@ def validate_scenario_matching(scenarios, file_type='costs'):
         if len(scenario_code) == 4:
             # 检查目录是否存在
             dir_100p = scenario_info['100p']['version_dir']
+            if 'non_flexible' not in scenario_info:
+                invalid_scenarios += 1
+                logger.warning(f"Scenario {scenario_code}: missing 'non_flexible' baseline metadata")
+                continue
+
             dir_non_flex = scenario_info['non_flexible']['version_dir']
             
             if dir_100p.exists() and dir_non_flex.exists():

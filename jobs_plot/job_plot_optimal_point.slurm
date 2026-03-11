@@ -17,41 +17,41 @@ module purge
 module load anaconda3/2024.10
 conda activate pypsa-china
 
-# 创建日志目录
+# Create log directory
 mkdir -p logs
 
 echo "=========================================="
-echo "开始运行最优点分析作业"
-echo "作业ID: $SLURM_JOB_ID"
-echo "开始时间: $(date)"
+echo "Starting optimal-point analysis job"
+echo "Job ID: $SLURM_JOB_ID"
+echo "Start time: $(date)"
 echo "=========================================="
 
 
 echo "=========================================="
-echo "运行最优点分析脚本..."
+echo "Running optimal-point analysis script..."
 echo "=========================================="
 
-# 运行最优点分析脚本
-python scripts/plot_capacity_optimal_point.py
+# Run optimal-point analysis script
+python scripts/plot_optimal_point.py
 
 if [ $? -eq 0 ]; then
-    echo "✅ 最优点分析脚本运行成功"
+    echo "✅ Optimal-point analysis script finished successfully"
 else
-    echo "❌ 最优点分析脚本运行失败"
+    echo "❌ Optimal-point analysis script FAILED"
     exit 1
 fi
 
 echo "=========================================="
-echo "最优点分析脚本运行完成！"
-echo "结束时间: $(date)"
-echo "输出目录: results/optimal_point_analysis"
+echo "Optimal-point analysis script finished!"
+echo "End time: $(date)"
+echo "Output directory: results/optimal_point_analysis"
 echo "=========================================="
 
-# 显示生成的文件
-echo "生成的文件列表："
-ls -la results/optimal_point_analysis/plots/ 2>/dev/null || echo "plots目录不存在"
-ls -la results/optimal_point_analysis/ 2>/dev/null || echo "optimal_point_analysis目录不存在"
+# Show generated files
+echo "List of generated files:"
+ls -la results/optimal_point_analysis/plots/ 2>/dev/null || echo "plots directory does not exist"
+ls -la results/optimal_point_analysis/ 2>/dev/null || echo "optimal_point_analysis directory does not exist"
 
 echo "=========================================="
-echo "作业完成！"
+echo "Job finished!"
 echo "=========================================="
