@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-绘制MMMU-2050情景下的成本分析图表
+绘制 MMMU/MMMF-2050 情景下的成本分析图表
 横轴：不同电解铝容量比例（5p-100p）
 纵轴：成本节约（十亿人民币）和碳排放减少（百万吨CO2）
 显示电力系统成本节约、电解铝运行成本变化、净成本节约和碳排放减少
-需求设为M，灵活性设为M，市场机会设为M，就业转移设为U（核心情景：MMMU）
+需求设为M，灵活性设为M，市场机会设为M，就业转移设为U/F（核心情景：MMMU，对比情景：MMMF）
 成本减少为正方向，碳排放减少为正方向
 """
 
@@ -297,7 +297,7 @@ def calculate_total_emissions_from_costs(costs_data):
     
     return total_emissions
 
-def save_plot_data_to_csv(plot_data, output_dir, year, market):
+def save_plot_data_to_csv(plot_data, output_dir, year, market, scenario_code):
     """
     将画图数据保存为CSV文件
     
@@ -330,7 +330,8 @@ def save_plot_data_to_csv(plot_data, output_dir, year, market):
     
     # 保存详细数据
     detailed_df = pd.DataFrame(detailed_data)
-    detailed_file = output_path / f"mmmu_{year}_{market}_detailed_data.csv"
+    prefix = scenario_code.lower()
+    detailed_file = output_path / f"{prefix}_{year}_{market}_detailed_data.csv"
     detailed_df.to_csv(detailed_file, index=False, encoding='utf-8')
     logger.info(f"Detailed data saved to: {detailed_file}")
     
@@ -349,14 +350,14 @@ def save_plot_data_to_csv(plot_data, output_dir, year, market):
     }
     
     summary_df = pd.DataFrame(summary_data)
-    summary_file = output_path / f"mmmu_{year}_{market}_summary.csv"
+    summary_file = output_path / f"{prefix}_{year}_{market}_summary.csv"
     summary_df.to_csv(summary_file, index=False, encoding='utf-8')
     logger.info(f"Summary data saved to: {summary_file}")
     
     # 创建成本分类数据表格（如果可用）
     try:
         # 这里可以添加更详细的成本分类数据保存
-        cost_breakdown_file = output_path / f"mmmu_{year}_{market}_cost_breakdown.csv"
+        cost_breakdown_file = output_path / f"{prefix}_{year}_{market}_cost_breakdown.csv"
         # 暂时创建一个空的成本分解文件，后续可以扩展
         pd.DataFrame({'Note': ['Cost breakdown data will be added in future versions']}).to_csv(
             cost_breakdown_file, index=False, encoding='utf-8')
@@ -622,13 +623,13 @@ def plot_single_year_market(
     
     # 保存数据到CSV文件
     if save_data and output_dir is not None:
-        save_plot_data_to_csv(plot_data, output_dir, year, market)
+        save_plot_data_to_csv(plot_data, output_dir, year, market, scenario_code)
     
     return plot_data
 
-def plot_mmmu_2050_analysis():
+def plot_mmm_2050_analysis(employment="U"):
     """
-    绘制MMMU-2050情景下的成本分析图表
+    绘制 MMMU/MMMF-2050 情景下的成本分析图表
     """
     # 从主配置文件读取基础版本号
     main_config = load_config('config.yaml')
@@ -642,20 +643,21 @@ def plot_mmmu_2050_analysis():
     # 定义容量比例
     capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
     
-    # 固定为MMMU-2050核心情景（M demand, M flexibility, M market, U employment）
+    # 固定为 MMM*-2050 情景（M demand, M flexibility, M market，employment 由参数决定）
     year = 2050
     market = 'M'
     flexibility = "M"
     demand = "M"
-    employment = "U"
     
     # 创建单个图表
     fig, ax = plt.subplots(1, 1, figsize=(10, 8.5))
     
-    logger.info("Plotting MMMU-2050 scenario chart...")
+    scenario_code = f"{flexibility}{demand}{market}{employment}"
+    logger.info(f"Plotting {scenario_code}-2050 scenario chart...")
     
-    # 设置输出目录
-    output_dir = Path('results/mmmu_2050_analysis')
+    # 设置输出目录：根据 scenario_code 区分 MMMU 和 MMMF 等
+    scenario_tag = f"mmm{employment.lower()}"  # e.g. U->mmmu, F->mmmf
+    output_dir = Path(f"results/{scenario_tag}_2050_analysis")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # 调用绘图函数并保存数据
@@ -692,32 +694,38 @@ def plot_mmmu_2050_analysis():
     plt.tight_layout()
     
     # 保存图表（输出目录已在前面创建）
-    plot_file = output_dir / "mmmu_2050_analysis.png"
+    plot_file = output_dir / f"{scenario_tag}_2050_analysis.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"MMMU-2050 scenario analysis chart saved to: {plot_file}")
+    logger.info(f"{scenario_code}-2050 scenario analysis chart saved to: {plot_file}")
     
     # 打印数据保存信息
     logger.info(f"Data files saved to: {output_dir}")
-    logger.info(f"- Detailed data: mmmu_{year}_{market}_detailed_data.csv")
-    logger.info(f"- Summary data: mmmu_{year}_{market}_summary.csv")
-    logger.info(f"- Cost breakdown: mmmu_{year}_{market}_cost_breakdown.csv")
+    logger.info(f"- Detailed data: {scenario_tag}_{year}_{market}_detailed_data.csv")
+    logger.info(f"- Summary data: {scenario_tag}_{year}_{market}_summary.csv")
+    logger.info(f"- Cost breakdown: {scenario_tag}_{year}_{market}_cost_breakdown.csv")
     
     # plt.show()
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description='Plot cost analysis chart for MMMU-2050 scenario')
+    parser = argparse.ArgumentParser(description='Plot cost analysis chart for MMMU/MMMF-2050 scenario')
     parser.add_argument('--results-dir', default='results', help='Results directory path (default: results)')
-    parser.add_argument('--output', default='results/mmmu_2050_analysis', help='Output directory')
+    parser.add_argument('--output', default=None, help='(Deprecated, kept for backward compatibility; output dir is derived from scenario)')
+    parser.add_argument(
+        '--employment',
+        default='U',
+        choices=['U', 'F'],
+        help='Employment transfer level: U (core MMMU) or F (MMMF). Default: U',
+    )
     
     args = parser.parse_args()
     
     logger.info("Starting MMMU-2050 scenario analysis")
     logger.info(f"Results directory: {args.results_dir}")
-    logger.info(f"Output directory: {args.output}")
+    logger.info(f"Employment level: {args.employment}")
     
-    # Plot MMMU-2050 scenario analysis chart
-    plot_mmmu_2050_analysis()
+    # Plot MMM*-2050 scenario analysis chart
+    plot_mmm_2050_analysis(employment=args.employment)
     
     logger.info("Analysis completed!")
 

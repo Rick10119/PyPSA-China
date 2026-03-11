@@ -66,6 +66,7 @@ def create_cost_comparison_plot(df, output_dir):
     # 获取场景描述和颜色
     scenario_descriptions = get_scenario_descriptions()
     category_colors = get_category_colors()
+    global_categories = sorted(df["Category"].dropna().unique().tolist())
     
     # 定义维度
     market_levels = ['L', 'M', 'H']
@@ -105,57 +106,92 @@ def create_cost_comparison_plot(df, output_dir):
                 continue
             
             # 获取所有分类
-            all_categories = set()
-            for data in demand_data.values():
-                all_categories.update(data.keys())
-            all_categories = sorted(list(all_categories))
-            
             # 准备堆叠柱状图数据 - 按照L, M, H的顺序
             demand_names = [d for d in demand_levels if d in demand_data]  # 保持L, M, H的顺序
             x_pos = np.arange(len(demand_names))
             width = 0.6
-            
-            # 分离正负值
-            positive_data = []
-            negative_data = []
-            
-            for demand in demand_names:
-                pos_values = []
-                neg_values = []
-                for category in all_categories:
-                    value = demand_data[demand].get(category, 0)
-                    if value < 0:  # 成本减少，显示在上方
-                        pos_values.append(abs(value))
-                        neg_values.append(0)
-                    elif value > 0:  # 成本增加，显示在下方
-                        pos_values.append(0)
-                        neg_values.append(value)
-                    else:
-                        pos_values.append(0)
-                        neg_values.append(0)
-                positive_data.append(pos_values)
-                negative_data.append(neg_values)
-            
-            # 绘制堆叠柱状图
-            bottom_pos = np.zeros(len(x_pos))
-            bottom_neg = np.zeros(len(x_pos))
-            
-            for cat_idx, category in enumerate(all_categories):
-                color = category_colors.get(category, plt.cm.tab20(cat_idx % 20))
-                
-                # 绘制正值（成本减少）
-                pos_values = [data[cat_idx] for data in positive_data]
-                if any(v > 0 for v in pos_values):
-                    ax.bar(x_pos, pos_values, width, bottom=bottom_pos, 
-                          color=color, alpha=0.8, label=category)
-                    bottom_pos += np.array(pos_values)
-                
-                # 绘制负值（成本增加）
-                neg_values = [data[cat_idx] for data in negative_data]
-                if any(v > 0 for v in neg_values):
-                    ax.bar(x_pos, -np.array(neg_values), width, bottom=bottom_neg, 
-                          color=color, alpha=0.8)
-                    bottom_neg += np.array(neg_values)
+
+            # 绘制堆叠柱状图（每根柱子单独排序，避免正负切换时重合难辨）
+            bottom_pos = np.zeros(len(x_pos))  # 上方：成本减少（Value<0，画 abs(value)）
+            bottom_neg = np.zeros(len(x_pos))  # 下方：成本增加（Value>0，画 -value）
+
+            for i, demand in enumerate(demand_names):
+                demand_vals = demand_data.get(demand, {})
+
+                def _enforce_non_renewable_relative_order(categories: list[str], *, operation_above: bool) -> list[str]:
+                    """
+                    Force a fixed relative order between:
+                    - Non-renewable operation
+                    - Non-renewable investment
+
+                    We interpret "operation above investment" as a drawing-order constraint:
+                    - Positive stack (upwards): later draw = higher (above)
+                    - Negative stack (downwards): earlier draw = closer to 0 (above)
+
+                    This enforcement is applied AFTER the main magnitude-based sort so that only
+                    the relative order of these two categories is affected.
+                    """
+                    op = "Non-renewable operation"
+                    inv = "Non-renewable investment"
+                    if op not in categories or inv not in categories:
+                        return categories
+
+                    cats = [c for c in categories if c not in (op, inv)]
+
+                    # If operation_above=True:
+                    # - For positive stack: draw inv then op (op later -> above)
+                    # - For negative stack: draw op then inv (op earlier -> above)
+                    # The caller chooses the appropriate operation_above meaning per stack.
+                    if operation_above:
+                        return cats + [inv, op]
+                    return cats + [op, inv]
+
+                # 成本减少：Value < 0，按绝对值从大到小（堆在更靠近 0 的位置）
+                dec_cats = sorted(
+                    [c for c, v in demand_vals.items() if v < 0],
+                    key=lambda c: abs(demand_vals[c]),
+                    reverse=True,
+                )
+                # 正轴（往上堆）：operation 要在 investment 上方 => operation 需要更晚画
+                dec_cats = _enforce_non_renewable_relative_order(dec_cats, operation_above=True)
+                for category in dec_cats:
+                    height = abs(demand_vals[category])
+                    if height == 0:
+                        continue
+                    color = category_colors.get(category, plt.cm.tab20(global_categories.index(category) % 20))
+                    ax.bar(
+                        x_pos[i],
+                        height,
+                        width,
+                        bottom=bottom_pos[i],
+                        color=color,
+                        alpha=0.8,
+                    )
+                    bottom_pos[i] += height
+
+                # 成本增加：Value > 0，按数值从大到小（堆在更靠近 0 的位置）
+                inc_cats = sorted(
+                    [c for c, v in demand_vals.items() if v > 0],
+                    key=lambda c: demand_vals[c],
+                    reverse=True,
+                )
+                # 负轴（往下堆）：operation 要在 investment 上方 => operation 需要更早画
+                # 这里我们用 operation_above=False 来生成 [op, inv] 的绘制顺序
+                inc_cats = _enforce_non_renewable_relative_order(inc_cats, operation_above=False)
+                for category in inc_cats:
+                    height = -demand_vals[category]  # negative
+                    if height == 0:
+                        continue
+                    color = category_colors.get(category, plt.cm.tab20(global_categories.index(category) % 20))
+                    ax.bar(
+                        x_pos[i],
+                        height,
+                        width,
+                        bottom=bottom_neg[i],
+                        color=color,
+                        alpha=0.8,
+                    )
+                    bottom_neg[i] += height  # more negative
             
             # 计算并显示净值（每个柱子的总高度）
             net_values = []
@@ -170,7 +206,8 @@ def create_cost_comparison_plot(df, output_dir):
                 text_y = bottom_pos[i] + 5e9  # 在堆叠图顶部稍微上方
                 
                 # 格式化净值显示
-                value_text = f'{-net_value/1e9:.0f}'
+                displayed_value = max(-net_value / 1e9, 0)
+                value_text = f'{displayed_value:.0f}'
                 
                 # 添加净值文本
                 ax.text(x, text_y, value_text, 
@@ -183,8 +220,8 @@ def create_cost_comparison_plot(df, output_dir):
             ax.set_xticklabels(x_labels, fontsize=20)
             
             # 设置y轴
-            ax.set_ylim(-20e9, 80e9)
-            y_ticks = np.arange(-20e9, 81e9, 20e9)
+            ax.set_ylim(-30e9, 80e9)
+            y_ticks = np.arange(-30e9, 81e9, 20e9)
             y_labels = [f'{int(tick/1e9)}' for tick in y_ticks]
             ax.set_yticks(y_ticks)
             ax.set_yticklabels(y_labels, fontsize=20)
@@ -217,7 +254,7 @@ def create_cost_comparison_plot(df, output_dir):
     ]
     
     for category in ordered_categories:
-        if category in all_categories:  # 只添加实际存在的分类
+        if category in global_categories:  # 只添加实际存在的分类
             color = category_colors.get(category, plt.cm.tab20(len(legend_elements) % 20))
             legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=color, 
                                                label=category, alpha=0.8))
@@ -232,7 +269,7 @@ def create_cost_comparison_plot(df, output_dir):
     plt.savefig(plot_file, dpi=300, bbox_inches='tight', pad_inches=0.3)
     logger.info(f"图表已保存到: {plot_file}")
     
-    # plt.show()
+    plt.show()
     plt.close()
 
 def create_summary_table(df, output_dir):

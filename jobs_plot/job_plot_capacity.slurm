@@ -32,7 +32,10 @@ echo "运行多灵活性多市场比较分析脚本..."
 echo "=========================================="
 
 # 运行多灵活性多市场比较分析脚本
-python scripts/plot_capacity_MMM_2050.py
+python3 scripts/plot_capacity_MMM_2050.py --employment F
+
+sleep 10
+python3 scripts/plot_capacity_MMM_2050.py
 
 if [ $? -eq 0 ]; then
     echo "✅ 多灵活性多市场比较分析脚本运行成功"

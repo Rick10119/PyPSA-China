@@ -7,16 +7,14 @@ The script reads the pre-processed file `mmmu_2050_M_detailed_data.csv` and
 produces a figure with:
   - x-axis: aluminum smelting capacity (5p–100p, converted to Mt/year)
   - left y-axis: cost savings / increases (billion CNY)
-  - right y-axis: CO2 emissions reductions (million tonnes)
 
 It displays electricity-system cost savings, aluminum operational cost changes,
-net cost savings, and associated emissions reductions.
+and net cost savings.
 """
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from pathlib import Path
 import logging
 
@@ -82,10 +80,6 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     power_savings = df['Power_Cost_Changes_Billion_CNY'].values
     aluminum_changes = df['Aluminum_Cost_Changes_Billion_CNY'].values
     net_savings = df['Net_Cost_Savings_Billion_CNY'].values
-    emissions = df['Emissions_Changes_Million_Tonnes_CO2'].values
-    
-    # Create a secondary y-axis for emissions
-    ax2 = ax.twinx()
     
     # Set bar width
     bar_width = 150
@@ -123,18 +117,9 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
                 fontsize=20, weight='bold', color='red',
                 bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
     
-    # Plot emissions change on the right y-axis (original x positions)
-    line1 = ax2.plot(x, emissions, linewidth=2, marker='o', 
-                     markersize=6, label='Emissions Reduction', color='red')
-    
     # Axis labels
     ax.set_xlabel('Aluminum Smelting Capacity (Mt/Year)', fontsize=20)
     ax.set_ylabel('Cost Savings/Increase (Billion CNY)', fontsize=20, color='blue')
-    ax2.set_ylabel('Carbon Emissions Reduction (Mt CO2)', fontsize=20, color='red')
-    
-    # Add reference zero line on the emissions axis
-    # ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1)
-    ax2.axhline(y=0, color='red', linestyle='--', alpha=0.5, linewidth=1)
     
     # Add light grid
     ax.grid(True, alpha=0.3, axis='y')
@@ -149,19 +134,12 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     ax.set_yticks(y_ticks)
     ax.set_yticklabels(y_tick_labels, fontsize=20, color='blue')
     
-    # Configure right y-axis tick labels
-    y2_ticks = ax2.get_yticks()
-    y2_tick_labels = [f'{tick:.0f}' for tick in y2_ticks]
-    ax2.set_yticks(y2_ticks)
-    ax2.set_yticklabels(y2_tick_labels, fontsize=20, color='red')
-    
     # Build legend elements
     legend_elements = [
         plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='Electricity System Cost Savings'),
         plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='Smelter Operational Cost Increase'),
         plt.Line2D([0], [0], color='black', linewidth=3, marker='o', markersize=8, label='Net Benefit'),
         plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='Highest Net Benefit'),
-        plt.Line2D([0], [0], color='red', linewidth=2, marker='o', markersize=6, label='Reduced Carbon Emissions')
     ]
     
     # Add legend
@@ -175,7 +153,7 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     logger.info(f"MMMU-2050 scenario analysis figure saved to: {plot_file}")
     
     
-    return fig, ax, ax2
+    return fig, ax
 
 def main():
     """CLI entry point."""
@@ -200,7 +178,7 @@ def main():
     
     # Generate the plot
     try:
-        fig, ax, ax2 = plot_mmm_2050_from_csv(csv_path)
+        fig, ax = plot_mmm_2050_from_csv(csv_path)
         logger.info("Plotting complete.")
         
         # Optionally show the figure in interactive environments
