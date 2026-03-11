@@ -364,7 +364,19 @@ def save_plot_data_to_csv(plot_data, output_dir, year, market):
     except Exception as e:
         logger.warning(f"Could not save cost breakdown data: {str(e)}")
 
-def plot_single_year_market(year, market, base_version, capacity_ratios, results_dir, ax, save_data=True, output_dir=None):
+def plot_single_year_market(
+    year,
+    market,
+    base_version,
+    capacity_ratios,
+    results_dir,
+    ax,
+    save_data=True,
+    output_dir=None,
+    flexibility="M",
+    demand="M",
+    employment="U",
+):
     """
     绘制单个年份-市场组合的图表
     
@@ -374,6 +386,12 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
         年份
     market : str
         市场机会级别 (L, M, H)
+    flexibility : str
+        灵活性级别 (L, M, H, N). Default: M (core scenario)
+    demand : str
+        需求级别 (L, M, H). Default: M (core scenario)
+    employment : str
+        就业转移级别 (U/F). Default: U (core scenario)
     base_version : str
         基础版本号
     capacity_ratios : list
@@ -398,18 +416,20 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
     # 构建版本名称 - 使用正确的格式
     version_names = []
     config_versions = {}
-    
-    employment_letter = 'U'
+
+    scenario_code = f"{flexibility}{demand}{market}{employment}"
 
     for ratio in capacity_ratios:
-        # 版本号格式: base_version-MM{market}-{year}-{ratio}
-        version = f"{base_version}-MM{market}{employment_letter}-{year}-{ratio}"
+        # 版本号格式: base_version-{scenario_code}-{year}-{ratio}
+        version = f"{base_version}-{scenario_code}-{year}-{ratio}"
         version_names.append(version)
         config_versions[ratio] = version
     
     # 基准版本
-    aluminum_baseline_version = f"{base_version}-MM{market}{employment_letter}-{year}-5p"
-    power_baseline_version = f"{base_version}-MM{market}{employment_letter}-{year}-non_flexible"
+    aluminum_baseline_version = f"{base_version}-{scenario_code}-{year}-5p"
+
+    # power-system baseline uses the dedicated non-flexible run for the same scenario-code
+    power_baseline_version = f"{base_version}-{scenario_code}-{year}-non_flexible"
     
     # 收集数据
     costs_data = {}
@@ -490,23 +510,21 @@ def plot_single_year_market(year, market, base_version, capacity_ratios, results
             emissions_changes.append(0)
         
         # 读取容量比例值
-        # 从base_version中提取市场机会部分，格式：0815.1H.1-MML-2030-5p -> MML
-        market_part = base_version.split('-')[1] if len(base_version.split('-')) > 1 else 'MML'
-        config_file = f"configs/config_{market_part}_{year}_{ratio}.yaml"
+        config_file = f"configs/config_{scenario_code}_{year}_{ratio}.yaml"
         config = load_config(config_file)
-        if config is not None:
-            capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
-            if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
-                capacity_ratio = config['aluminum']['capacity_ratio']
-            
-            # 计算实际容量 (4500 * capacity ratio)
-            actual_capacity = 4500 * capacity_ratio
-            capacity_values.append(actual_capacity)
-        else:
-            # 如果配置文件不存在，使用默认值
-            default_ratio = float(ratio.replace('p', '')) / 100.0
-            default_capacity = 4500 * default_ratio
-            capacity_values.append(default_capacity)
+        if config is None:
+            raise FileNotFoundError(
+                f"Required config YAML not found or unreadable: {config_file}. "
+                f"Please generate it first (scenario_code={scenario_code}, year={year}, ratio={ratio})."
+            )
+
+        capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
+        if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
+            capacity_ratio = config['aluminum']['capacity_ratio']
+        
+        # 计算实际容量 (4500 * capacity ratio)
+        actual_capacity = 4500 * capacity_ratio
+        capacity_values.append(actual_capacity)
     
     # 创建双y轴图表
     ax2 = ax.twinx()
@@ -627,6 +645,9 @@ def plot_mmmu_2050_analysis():
     # 固定为MMMU-2050核心情景（M demand, M flexibility, M market, U employment）
     year = 2050
     market = 'M'
+    flexibility = "M"
+    demand = "M"
+    employment = "U"
     
     # 创建单个图表
     fig, ax = plt.subplots(1, 1, figsize=(10, 8.5))
@@ -638,8 +659,19 @@ def plot_mmmu_2050_analysis():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # 调用绘图函数并保存数据
-    plot_data = plot_single_year_market(year, market, base_version, capacity_ratios, 'results', ax, 
-                                       save_data=True, output_dir=output_dir)
+    plot_data = plot_single_year_market(
+        year,
+        market,
+        base_version,
+        capacity_ratios,
+        'results',
+        ax,
+        save_data=True,
+        output_dir=output_dir,
+        flexibility=flexibility,
+        demand=demand,
+        employment=employment,
+    )
     
     # 创建图例
     legend_elements = [
