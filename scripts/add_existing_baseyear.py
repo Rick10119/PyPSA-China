@@ -369,7 +369,7 @@ if __name__ == "__main__":
     cost_year = snakemake.wildcards.planning_horizons
     costs = load_costs(tech_costs, config['costs'], config['electricity'], cost_year, Nyears)
     
-    # 应用市场情景成本调整
+    # Apply technology-cost adjustments for the active market-opportunity scenario
     from add_electricity import apply_market_scenario_costs
     costs = apply_market_scenario_costs(costs, config)
 

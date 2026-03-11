@@ -22,7 +22,7 @@ def count_link_startups(n, link_name='smelter'):
             'startup_series': startups
         }
     else:
-        print("警告：网络中没有状态变量。可能没有启用整数优化或没有记录状态。")
+        print("Warning: Network has no state variables. Integer optimization may not be enabled or states were not recorded.")
         return None
 
 def plot_link_startups(startup_data, link_name='smelter'):

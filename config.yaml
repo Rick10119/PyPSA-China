@@ -6,9 +6,9 @@ version: 0120.1H.1
 logging_level: INFO
 foresight: "myopic"
 
-# 单节点设置 - 如果为true，将只保留指定省份的节点
+# Single-node mode – if true, keep only one target province in the network
 using_single_node: False
-single_node_province: "Shandong"  # 当single_node为true时，指定要保留的省份
+single_node_province: "Shandong"  # Target province when single-node mode is enabled
 
 results_dir: 'results/'
 summary_dir: 'summary/'
@@ -23,10 +23,10 @@ add_aluminum: True
 only_other_load: False
 iterative_optimization: True
 aluminum_commitment: False # keep False for iterative optimization
-aluminum_max_iterations: 2  # 最大迭代次数
-aluminum_convergence_tolerance: 0.01  # 收敛阈值（0.1%）
+aluminum_max_iterations: 2  # Maximum number of aluminum–power iterations
+aluminum_convergence_tolerance: 0.01  # Convergence threshold (relative change in objective; 0.01 = 1%)
 
-# 电解铝厂容量比例设置 (100%, 90%, 80%, 70%, 60%)
+# Aluminum smelter capacity ratio scenarios (100%, 90%, 80%, 70%, 60%)
 aluminum_capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
 
 scenario:
@@ -110,55 +110,56 @@ aluminum:
     "2055": true
     "2060": true
 
-  # 电解铝厂容量比例设置
+  # Aluminum smelter capacity ratio (overrides top-level `aluminum_capacity_ratio` if set)
   capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
 
-  # 情景维度设置
+  # Scenario-dimension settings (these correspond to the scenario definitions summarized in Table 5 and the SI)
   scenario_dimensions:
-    # 1. 电解铝厂运行灵活性 (Smelter operational flexibility)
+    # 1. Smelter operational flexibility scenarios
     smelter_flexibility:
       low:
-        p_min_pu: 0.99  # p.u.
-        restart_cost: 96593.79766  # $/MW
-        stand_by_cost: 1.2  # $/MW/h
+        p_min_pu: 0.99  # Minimum power level (p.u.)
+        restart_cost: 96593.79766  # Restart cost [eur / MW]
+        stand_by_cost: 1.2  # Stand-by cost [eur / MW / h]
       mid:
-        p_min_pu: 0.9  # p.u.
-        restart_cost: 13980.68124  # $/MW
-        stand_by_cost: 1.2  # $/MW/h
+        p_min_pu: 0.9  # Minimum power level (p.u.)
+        restart_cost: 13980.68124  # Restart cost [eur / MW]
+        stand_by_cost: 1.2  # Stand-by cost [eur / MW / h]
       high:
-        p_min_pu: 0.7  # p.u.
-        restart_cost: 2796.136248  # $/MW
-        stand_by_cost: 1.2  # $/MW/h
+        p_min_pu: 0.7  # Minimum power level (p.u.)
+        restart_cost: 2796.136248  # Restart cost [eur / MW]
+        stand_by_cost: 1.2  # Stand-by cost [eur / MW / h]
       non_constrained:
-        p_min_pu: 0.0  # p.u.
-        restart_cost: 0  # $/MW
-        stand_by_cost: 0  # $/MW/h
+        p_min_pu: 0.0  # Fully flexible operation (no minimum power)
+        restart_cost: 0  # No restart cost [eur / MW]
+        stand_by_cost: 0  # No stand-by cost [eur / MW / h]
     
-    # 2. 市场机会情景 (Market opportunity scenarios)
+    # 2. Market opportunity / technology-cost scenarios
     market_opportunity:
       low:
-        vre_cost_factor: 0.8      # VRE成本调整系数
-        battery_cost_factor: 0.8  # 电池成本调整系数
-        h2_cost_factor: 0.8       # H2/water tank成本调整系数
-        sabatier_cost_factor: 0.8 # Sabatier成本调整系数
+        vre_cost_factor: 0.8      # Multiplier on VRE capital costs (0.8x)
+        battery_cost_factor: 0.8  # Multiplier on battery capital costs (0.8x)
+        h2_cost_factor: 0.8       # Multiplier on H2 / long-duration storage costs (0.8x)
+        sabatier_cost_factor: 0.8 # Multiplier on methanation (Sabatier) costs (0.8x)
       mid:
-        vre_cost_factor: 1.0      # VRE成本调整系数
-        battery_cost_factor: 1.0  # 电池成本调整系数
-        h2_cost_factor: 1.0       # H2/water tank成本调整系数
-        sabatier_cost_factor: 1.0 # Sabatier成本调整系数
+        vre_cost_factor: 1.0      # Reference VRE capital costs (1.0x)
+        battery_cost_factor: 1.0  # Reference battery capital costs (1.0x)
+        h2_cost_factor: 1.0       # Reference H2 / long-duration storage costs (1.0x)
+        sabatier_cost_factor: 1.0 # Reference methanation (Sabatier) costs (1.0x)
       high:
-        vre_cost_factor: 1.0      # VRE成本调整系数
-        battery_cost_factor: 1.5  # 电池成本调整系数
-        h2_cost_factor: 1.5       # H2/water tank成本调整系数
-        sabatier_cost_factor: 1.5 # Sabatier成本调整系数
+        vre_cost_factor: 1.0      # Same VRE capital costs as mid (1.0x)
+        battery_cost_factor: 1.5  # Higher battery capital costs (1.5x)
+        h2_cost_factor: 1.5       # Higher H2 / long-duration storage costs (1.5x)
+        sabatier_cost_factor: 1.5 # Higher methanation (Sabatier) costs (1.5x)
     
-    # 3. 就业转移情景 (Employment transfer scenarios)
+    # 3. Employment transfer scenarios (affecting stand-by cost)
     employment_transfer:
       unfavorable:
-        stand_by_cost_factor: 0.0  # 不利情景，保持standby cost不变
+        stand_by_cost_factor: 0.0  # Unfavorable case – keep stand-by cost at baseline
       favorable:
-        stand_by_cost_factor: 1.0  # 有利情景，standby cost降低
-  # 当前选择的情景组合 (默认设置为mid-mid-mid)
+        stand_by_cost_factor: 1.0  # Favorable case – reduce effective stand-by cost
+
+  # Current scenario combination (default: mid demand, mid flexibility, mid market opportunity)
   current_scenario:
     smelter_flexibility: "mid"
     primary_demand: "mid"

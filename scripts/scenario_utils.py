@@ -1,6 +1,9 @@
 """
-情景维度工具函数
-用于处理config.yaml中定义的情景维度参数
+Utility functions for handling scenario-dimension parameters.
+
+These helpers read and interpret the scenario dimensions defined in `config.yaml`
+for aluminum smelter flexibility, primary demand, market opportunity, and
+employment-transfer assumptions.
 """
 
 import yaml
@@ -10,13 +13,13 @@ import json
 
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     """
-    加载配置文件
-    
+    Load a YAML configuration file.
+
     Args:
-        config_path: 配置文件路径
-        
+        config_path: Path to the configuration file.
+
     Returns:
-        配置字典
+        Parsed configuration dictionary.
     """
     with open(config_path, 'r', encoding='utf-8') as f:
         return yaml.safe_load(f)
@@ -42,16 +45,17 @@ def get_scenario_params(config: Dict[str, Any],
                        grid_interaction: str = None,
                        employment_transfer: str = None) -> Dict[str, Any]:
     """
-    获取指定情景的参数
-    
+    Retrieve the parameter bundles for a given scenario combination.
+
     Args:
-        config: 配置字典
-        smelter_flexibility: 电解铝厂灵活性情景 ('low', 'mid', 'high')
-        primary_demand: 原铝需求情景 ('low', 'mid', 'high')
-        grid_interaction: 电网交互情景 ('low', 'mid', 'high')
-        
+        config: Full configuration dictionary.
+        smelter_flexibility: Smelter flexibility scenario ('low', 'mid', 'high').
+        primary_demand: Primary aluminum demand scenario ('low', 'mid', 'high').
+        grid_interaction: Grid interaction / market opportunity scenario ('low', 'mid', 'high').
+        employment_transfer: Employment transfer scenario ('unfavorable', 'favorable').
+
     Returns:
-        情景参数字典
+        Dictionary with sub-dictionaries for each scenario dimension.
     """
     # 如果没有指定，使用当前配置中的默认值
     current_scenario = config['aluminum']['current_scenario']
@@ -85,14 +89,14 @@ def get_scenario_params(config: Dict[str, Any],
 
 def get_smelter_params(config: Dict[str, Any], scenario: str = None) -> Dict[str, Any]:
     """
-    获取电解铝厂参数
-    
+    Get smelter-flexibility parameters for a given scenario.
+
     Args:
-        config: 配置字典
-        scenario: 情景 ('low', 'mid', 'high')
-        
+        config: Full configuration dictionary.
+        scenario: Flexibility scenario ('low', 'mid', 'high').
+
     Returns:
-        电解铝厂参数字典
+        Dictionary with smelter parameters.
     """
     if scenario is None:
         scenario = config['aluminum']['current_scenario']['smelter_flexibility']
@@ -102,14 +106,14 @@ def get_smelter_params(config: Dict[str, Any], scenario: str = None) -> Dict[str
 
 def get_demand_params(config: Dict[str, Any], scenario: str = None) -> Dict[str, Any]:
     """
-    获取原铝需求参数
-    
+    Get primary-aluminum demand parameters for a given scenario.
+
     Args:
-        config: 配置字典
-        scenario: 情景 ('low', 'mid', 'high')
-        
+        config: Full configuration dictionary.
+        scenario: Demand scenario ('low', 'mid', 'high').
+
     Returns:
-        需求参数字典
+        Dictionary with demand parameters.
     """
     if scenario is None:
         scenario = config['aluminum']['current_scenario']['primary_demand']
@@ -119,14 +123,14 @@ def get_demand_params(config: Dict[str, Any], scenario: str = None) -> Dict[str,
 
 def get_grid_interaction_params(config: Dict[str, Any], scenario: str = None) -> Dict[str, Any]:
     """
-    获取电网交互参数
-    
+    Get grid-interaction / market-opportunity parameters for a given scenario.
+
     Args:
-        config: 配置字典
-        scenario: 情景 ('low', 'mid', 'high')
-        
+        config: Full configuration dictionary.
+        scenario: Grid-interaction scenario ('low', 'mid', 'high').
+
     Returns:
-        电网交互参数字典
+        Dictionary with grid-interaction parameters.
     """
     if scenario is None:
         market_key = _get_current_market_key(config)
@@ -138,14 +142,14 @@ def get_grid_interaction_params(config: Dict[str, Any], scenario: str = None) ->
 
 def get_employment_transfer_params(config: Dict[str, Any], scenario: str = None) -> Dict[str, Any]:
     """
-    获取就业转移参数
-    
+    Get employment-transfer parameters for a given scenario.
+
     Args:
-        config: 配置字典
-        scenario: 情景 ('unfavorable', 'favorable')
-        
+        config: Full configuration dictionary.
+        scenario: Employment-transfer scenario ('unfavorable', 'favorable').
+
     Returns:
-        就业转移参数字典
+        Dictionary with employment-transfer parameters.
     """
     if scenario is None:
         scenario = config['aluminum']['current_scenario'].get('employment_transfer')
@@ -155,10 +159,10 @@ def get_employment_transfer_params(config: Dict[str, Any], scenario: str = None)
 
 def list_all_scenarios() -> Dict[str, list]:
     """
-    列出所有可用的情景
-    
+    List all available scenario labels for each dimension.
+
     Returns:
-        包含所有情景的字典
+        Dictionary mapping dimension name to list of scenario labels.
     """
     return {
         'smelter_flexibility': ['low', 'mid', 'high'],
@@ -170,10 +174,10 @@ def list_all_scenarios() -> Dict[str, list]:
 
 def generate_scenario_combinations() -> list:
     """
-    生成所有可能的情景组合
-    
+    Generate all possible combinations across the scenario dimensions.
+
     Returns:
-        情景组合列表
+        List of scenario-combination dictionaries.
     """
     scenarios = list_all_scenarios()
     combinations = []
@@ -197,15 +201,18 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
                                           smelter_flexibility: str = None,
                                           al_smelter_p_nom: float = None) -> Dict[str, Any]:
     """
-    获取电解铝厂运行参数，包括启动成本、待机成本、停机成本等
-    
+    Build operational parameters for the aluminum smelter links.
+
+    This includes restart, stand-by, and marginal costs consistent with the
+    scenario settings in `config.yaml`.
+
     Args:
-        config: 配置字典
-        smelter_flexibility: 电解铝厂灵活性情景 ('low', 'mid', 'high')
-        al_smelter_p_nom: 电解铝厂容量 (MW)，用于计算成本
-        
+        config: Full configuration dictionary.
+        smelter_flexibility: Smelter flexibility scenario ('low', 'mid', 'high').
+        al_smelter_p_nom: Smelter capacity (MW), used to scale absolute costs.
+
     Returns:
-        电解铝厂运行参数字典
+        Dictionary with operational parameters for the smelter links.
     """
     # 获取电解铝厂灵活性参数
     smelter_params = get_smelter_params(config, smelter_flexibility)
@@ -248,16 +255,16 @@ def get_aluminum_demand_for_year(config: Dict[str, Any],
                                 primary_demand_scenario: str = None,
                                 aluminum_demand_json_path: str = "data/aluminum_demand/aluminum_primary_demand_all_scenarios.json") -> float:
     """
-    获取指定年份和情景的原铝需求
-    
+    Look up primary-aluminum demand for a given year and demand scenario.
+
     Args:
-        config: 配置字典
-        year: 年份 (如 '2030', '2050')
-        primary_demand_scenario: 原铝需求情景 ('low', 'mid', 'high')
-        aluminum_demand_json_path: 铝需求JSON文件路径
-        
+        config: Full configuration dictionary.
+        year: Year label (e.g. '2030', '2050').
+        primary_demand_scenario: Demand scenario ('low', 'mid', 'high').
+        aluminum_demand_json_path: Path to JSON file with demand trajectories.
+
     Returns:
-        原铝需求 (吨)
+        Total primary-aluminum demand in tonnes.
     """
     if primary_demand_scenario is None:
         primary_demand_scenario = config['aluminum']['current_scenario']['primary_demand']
@@ -283,19 +290,19 @@ def get_aluminum_load_for_network(config: Dict[str, Any],
                                  primary_demand_scenario: str = None,
                                  aluminum_demand_json_path: str = "data/aluminum_demand/aluminum_primary_demand_all_scenarios.json") -> Dict[str, Any]:
     """
-    获取电解铝负荷数据，用于网络建模
-    
+    Construct aluminum-load time series for the network model.
+
     Args:
-        config: 配置字典
-        year: 年份
-        network_snapshots: 网络时间序列
-        nodes: 节点列表
-        production_ratio: 各省份生产比例
-        primary_demand_scenario: 原铝需求情景
-        aluminum_demand_json_path: 铝需求JSON文件路径
-        
+        config: Full configuration dictionary.
+        year: Year label used for demand.
+        network_snapshots: Network snapshot index.
+        nodes: List or index of provincial nodes.
+        production_ratio: Provincial production share used to spatially allocate demand.
+        primary_demand_scenario: Demand scenario.
+        aluminum_demand_json_path: Path to JSON file with demand trajectories.
+
     Returns:
-        包含铝负荷数据的字典
+        Dictionary with provincial aluminum load and aggregate quantities.
     """
     # 获取原铝需求
     primary_demand_tons = get_aluminum_demand_for_year(
@@ -327,13 +334,13 @@ def get_aluminum_load_for_network(config: Dict[str, Any],
 
 def get_current_scenario_name(config: Dict[str, Any]) -> str:
     """
-    获取当前情景组合的名称
-    
+    Build a human-readable name for the current scenario combination.
+
     Args:
-        config: 配置字典
-        
+        config: Full configuration dictionary.
+
     Returns:
-        情景组合名称 (如 'mid-mid-mid')
+        Scenario-name string (e.g. 'mid-mid-mid' or 'mid-mid-high-favorable').
     """
     current = config['aluminum']['current_scenario']
     market_key = _get_current_market_key(config)
@@ -349,16 +356,17 @@ def validate_scenario_params(config: Dict[str, Any],
                            grid_interaction: str = None,
                            employment_transfer: str = None) -> bool:
     """
-    验证情景参数是否有效
-    
+    Validate whether the provided scenario labels are allowed.
+
     Args:
-        config: 配置字典
-        smelter_flexibility: 电解铝厂灵活性情景
-        primary_demand: 原铝需求情景
-        grid_interaction: 电网交互情景
-        
+        config: Full configuration dictionary.
+        smelter_flexibility: Smelter flexibility scenario label.
+        primary_demand: Primary demand scenario label.
+        grid_interaction: Grid-interaction / market-opportunity label.
+        employment_transfer: Employment-transfer scenario label.
+
     Returns:
-        参数是否有效
+        True if all provided labels are valid, False otherwise.
     """
     valid_flex = ['low', 'mid', 'high', 'non_constrained']
     valid_demand = ['low', 'mid', 'high']
@@ -379,37 +387,37 @@ def validate_scenario_params(config: Dict[str, Any],
 
 def print_scenario_summary(config: Dict[str, Any], scenario_params: Dict[str, Any]):
     """
-    打印情景参数摘要
-    
+    Print a concise, English-language summary of the active scenario parameters.
+
     Args:
-        config: 配置字典
-        scenario_params: 情景参数字典
+        config: Full configuration dictionary.
+        scenario_params: Scenario-parameter bundle returned by `get_scenario_params`.
     """
-    print("=== 情景参数摘要 ===")
-    print(f"情景组合: {get_current_scenario_name(config)}")
+    print("=== Scenario summary ===")
+    print(f"Scenario combination: {get_current_scenario_name(config)}")
     
-    # 电解铝厂参数
+    # Smelter-operational parameters
     smelter = scenario_params['smelter_flexibility']
-    print(f"\n电解铝厂运行灵活性:")
-    print(f"  最小功率: {smelter['p_min']}")
-    print(f"  启动成本: {smelter['start_up_cost']} $/MW")
-    print(f"  停机成本: {smelter['shut_down_cost']} $/MW")
+    print("\nSmelter operating flexibility:")
+    print(f"  Minimum power: {smelter['p_min']}")
+    print(f"  Start-up cost: {smelter['start_up_cost']} $/MW")
+    print(f"  Shut-down cost: {smelter['shut_down_cost']} $/MW")
     
-    # 需求参数
+    # Demand-side parameters
     demand = scenario_params['primary_demand']
-    print(f"\n原铝需求:")
-    print(f"  国内需求比例: {demand['domestic_demand_ratio']}")
-    print(f"  出口率: {demand['export_rate']}")
-    print(f"  回收率: {demand['recycling_rate']}")
-    print(f"  产品寿命: {demand['product_lifetime']} 年")
+    print("\nPrimary aluminum demand:")
+    print(f"  Domestic demand share: {demand['domestic_demand_ratio']}")
+    print(f"  Export rate: {demand['export_rate']}")
+    print(f"  Recycling rate: {demand['recycling_rate']}")
+    print(f"  Product lifetime: {demand['product_lifetime']} years")
     
-    # 电网交互参数
+    # Grid-interaction / technology-cost parameters
     grid = scenario_params['grid_interaction']
-    print(f"\n电网交互市场机会:")
-    print(f"  VRE成本降低: {grid['vre_cost_reduction']*100}%")
-    print(f"  电池成本降低: {grid['battery_cost_reduction']*100}%")
-    print(f"  H2存储成本降低: {grid['h2_storage_cost_reduction']*100}%")
-    print(f"  其他灵活需求: {grid['other_flexible_demand']*100}%")
+    print("\nGrid-interaction / market opportunity:")
+    print(f"  VRE cost reduction: {grid['vre_cost_reduction']*100}%")
+    print(f"  Battery cost reduction: {grid['battery_cost_reduction']*100}%")
+    print(f"  H2 storage cost reduction: {grid['h2_storage_cost_reduction']*100}%")
+    print(f"  Other flexible demand: {grid['other_flexible_demand']*100}%")
 
 
 # 添加必要的导入

@@ -143,37 +143,37 @@ def main():
     # 创建输出目录
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
-    print("正在生成分省铝需求数据...")
+    print("Generating provincial aluminum demand data...")
     demand_df = generate_demand_by_province()
     demand_output = OUTPUT_DIR / "aluminum_demand_by_province.csv"
     demand_df.to_csv(demand_output, index=False, encoding='utf-8-sig')
-    print(f"✓ 需求数据已保存到: {demand_output}")
-    print(f"  包含 {len(demand_df)} 条记录")
-    print(f"  省份数: {demand_df['Province'].nunique()}")
-    print(f"  年份: {sorted(demand_df['Year'].unique())}")
-    print(f"  情景: {sorted(demand_df['Scenario'].unique())}")
-    
-    print("\n正在生成分省装机数据...")
+    print(f"✓ Demand data saved to: {demand_output}")
+    print(f"  {len(demand_df)} records")
+    print(f"  Provinces: {demand_df['Province'].nunique()}")
+    print(f"  Years: {sorted(demand_df['Year'].unique())}")
+    print(f"  Scenarios: {sorted(demand_df['Scenario'].unique())}")
+
+    print("\nGenerating provincial capacity data...")
     capacity_df = generate_capacity_by_province()
     capacity_output = OUTPUT_DIR / "aluminum_capacity_by_province.csv"
     capacity_df.to_csv(capacity_output, index=False, encoding='utf-8-sig')
-    print(f"✓ 装机数据已保存到: {capacity_output}")
-    print(f"  包含 {len(capacity_df)} 个省份")
-    print(f"  总装机: {capacity_df['Capacity_ton_per_h'].sum():.6f} 吨/小时")
+    print(f"✓ Capacity data saved to: {capacity_output}")
+    print(f"  {len(capacity_df)} provinces")
+    print(f"  Total capacity: {capacity_df['Capacity_ton_per_h'].sum():.6f} ton/h")
     
     # 显示一些统计信息
-    print("\n=== 需求数据预览 ===")
+    print("\n=== Demand data preview ===")
     print(demand_df.head(10))
     
-    print("\n=== 装机数据预览 ===")
+    print("\n=== Capacity data preview ===")
     print(capacity_df.head(10))
     
     # 按年份汇总需求
-    print("\n=== 全国需求汇总（吨/小时）===")
+    print("\n=== National demand summary (ton/h) ===")
     demand_summary = demand_df.groupby(['Year', 'Scenario'])['Demand_ton_per_h'].sum()
     print(demand_summary)
     
-    print("\n完成！")
+    print("\nDone!")
 
 
 if __name__ == "__main__":

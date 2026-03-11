@@ -77,7 +77,7 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     capacity_factors, load_factors = load_csv_data(csv_file)
     
     if capacity_factors.empty and load_factors.empty:
-        print("警告: CSV文件中没有找到容量因子或负荷因子数据")
+        print("Warning: No capacity factor or load factor data found in CSV file")
         return
     
     # 设置绘图样式
@@ -189,10 +189,10 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     fig.savefig(output_file, dpi=150, bbox_inches='tight')
     plt.close()
     
-    print(f"图表已保存到: {output_file}")
+    print(f"Plot saved to: {output_file}")
     
     # 打印统计信息
-    print(f"\n上子图 - 负荷因子和Aluminum容量因子月度统计{title_suffix}")
+    print(f"\nTop subplot - Load factor and Aluminum capacity factor monthly statistics{title_suffix}")
     print("=" * 60)
     
     # 显示负荷因子统计
@@ -205,7 +205,7 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
                 min_load = data.min()
                 # 使用显示标签
                 display_label = display_labels.get(load_type, load_type)
-                print(f"{display_label:15s}: 平均={avg_load:.3f}, 最大={max_load:.3f}, 最小={min_load:.3f}")
+                print(f"{display_label:15s}: avg={avg_load:.3f}, max={max_load:.3f}, min={min_load:.3f}")
     
     # 显示Aluminum容量因子统计
     if 'Aluminum' in capacity_factors.columns:
@@ -213,9 +213,9 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
         avg_cf = data.mean()
         max_cf = data.max()
         min_cf = data.min()
-        print(f"{'Aluminum':15s}: 平均={avg_cf:.3f}, 最大={max_cf:.3f}, 最小={min_cf:.3f}")
+        print(f"{'Aluminum':15s}: avg={avg_cf:.3f}, max={max_cf:.3f}, min={min_cf:.3f}")
     
-    print(f"\n下子图 - 发电技术容量因子月度统计 (Hydro, Coal, Gas, Wind, Solar){title_suffix}")
+    print(f"\nBottom subplot - Generator capacity factor monthly statistics (Hydro, Coal, Gas, Wind, Solar){title_suffix}")
     print("=" * 70)
     for tech in capacity_factors.columns:
         if tech in tech_types_lower:  # 只显示下子图的技术
@@ -223,7 +223,7 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
             avg_cf = data.mean()
             max_cf = data.max()
             min_cf = data.min()
-            print(f"{tech:15s}: 平均={avg_cf:.3f}, 最大={max_cf:.3f}, 最小={min_cf:.3f}")
+            print(f"{tech:15s}: avg={avg_cf:.3f}, max={max_cf:.3f}, min={min_cf:.3f}")
 
 def main():
     """
@@ -239,7 +239,7 @@ def main():
     try:
         plot_capacity_factors_from_csv(args.csv_file, args.output, args.title)
     except Exception as e:
-        print(f"错误: {e}")
+        print(f"Error: {e}")
         return 1
     
     return 0
@@ -254,14 +254,14 @@ if __name__ == "__main__":
             csv_files.sort()  # 按文件名排序
             
             if csv_files:
-                print(f"找到 {len(csv_files)} 个CSV文件:")
+                print(f"Found {len(csv_files)} CSV file(s):")
                 for csv_file in csv_files:
                     print(f"  - {csv_file}")
                 
-                print("\n开始处理文件...")
+                print("\nStarting to process files...")
                 for csv_file in csv_files:
                     csv_path = os.path.join(csv_dir, csv_file)
-                    print(f"\n处理文件: {csv_file}")
+                    print(f"\nProcessing file: {csv_file}")
                     
                     # 从文件名提取信息作为标题后缀
                     base_name = csv_file.replace('.csv', '')
@@ -278,10 +278,10 @@ if __name__ == "__main__":
                     
                     plot_capacity_factors_from_csv(csv_path, title_suffix=title_suffix)
             else:
-                print(f"在 {csv_dir} 目录中没有找到CSV文件")
-                print("请先运行 plot_capacity_factors.py 生成CSV文件")
+                print(f"No CSV files found in directory {csv_dir}")
+                print("Please run plot_capacity_factors.py first to generate CSV files")
         else:
-            print(f"目录 {csv_dir} 不存在")
-            print("请先运行 plot_capacity_factors.py 生成CSV文件")
+            print(f"Directory {csv_dir} does not exist")
+            print("Please run plot_capacity_factors.py first to generate CSV files")
     else:
         exit(main())

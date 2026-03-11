@@ -59,14 +59,14 @@ def load_csv_data(csv_file):
         # 使用平均容量因子数据
         capacity_factors = df[avg_capacity_cols]
         capacity_factors.columns = [col.replace('_Capacity_Factor_Avg', '') for col in capacity_factors.columns]
-        print(f"使用月度平均容量因子数据计算就业: {os.path.basename(csv_file)}")
+        print(f"Using monthly average capacity factor data for employment: {os.path.basename(csv_file)}")
         
     else:
         # 兼容旧格式：只有Capacity_Factor列
         capacity_cols = [col for col in df.columns if 'Capacity_Factor' in col and 'Max' not in col and 'Avg' not in col]
         capacity_factors = df[capacity_cols] if capacity_cols else pd.DataFrame()
         capacity_factors.columns = [col.replace('_Capacity_Factor', '') for col in capacity_factors.columns]
-        print(f"使用旧格式容量因子数据计算就业: {os.path.basename(csv_file)}")
+        print(f"Using legacy capacity factor data for employment: {os.path.basename(csv_file)}")
     
     load_factors = df[load_cols] if load_cols else pd.DataFrame()
     # 重命名负荷因子列
@@ -498,7 +498,7 @@ def plot_mean_variance_comparison(differences, output_file=None):
     fig.savefig(output_file, dpi=150, bbox_inches='tight')
     plt.close()
     
-    print(f"均值和方差对比图已保存到: {output_file}")
+    print(f"Mean and variance comparison plot saved to: {output_file}")
 
 def calculate_scenario_differences(employment_data_20p, employment_data_non_flexible):
     """
@@ -572,23 +572,23 @@ def print_mean_variance_summary(differences):
     differences : dict
         包含差异统计的字典
     """
-    print(f"\n均值和方差统计摘要")
+    print(f"\nMean and variance statistics summary")
     print("=" * 60)
     
     for industry, stats in differences.items():
         print(f"\n{industry}:")
-        print(f"  20p场景:")
-        print(f"    均值: {stats['avg_20p']:.1f}k")
-        print(f"    方差: {stats['var_20p']:.2f}")
-        print(f"    标准差: {stats['std_20p']:.1f}k")
-        print(f"  Non-flexible场景:")
-        print(f"    均值: {stats['avg_non_flexible']:.1f}k")
-        print(f"    方差: {stats['var_non_flexible']:.2f}")
-        print(f"    标准差: {stats['std_non_flexible']:.1f}k")
-        print(f"  差异统计:")
-        print(f"    均值差异: {stats['avg_diff']:.1f}k ({stats['avg_percent_diff']:.1f}%)")
-        print(f"    差异方差: {stats['var_diff']:.2f}")
-        print(f"    差异标准差: {stats['std_diff']:.1f}k")
+        print(f"  20p scenario:")
+        print(f"    Mean: {stats['avg_20p']:.1f}k")
+        print(f"    Variance: {stats['var_20p']:.2f}")
+        print(f"    Std dev: {stats['std_20p']:.1f}k")
+        print(f"  Non-flexible scenario:")
+        print(f"    Mean: {stats['avg_non_flexible']:.1f}k")
+        print(f"    Variance: {stats['var_non_flexible']:.2f}")
+        print(f"    Std dev: {stats['std_non_flexible']:.1f}k")
+        print(f"  Difference statistics:")
+        print(f"    Mean difference: {stats['avg_diff']:.1f}k ({stats['avg_percent_diff']:.1f}%)")
+        print(f"    Variance of difference: {stats['var_diff']:.2f}")
+        print(f"    Std dev of difference: {stats['std_diff']:.1f}k")
 
 def print_comparison_statistics(differences, employment_params_20p, employment_params_non_flexible):
     """
@@ -619,7 +619,7 @@ def print_comparison_statistics(differences, employment_params_20p, employment_p
     # 打印均值和方差摘要
     print_mean_variance_summary(differences)
     
-    print(f"\n详细统计信息:")
+    print(f"\nDetailed statistics:")
     for industry, stats in differences.items():
         print(f"\n{industry}:")
         print(f"  Average Employment - 20p: {stats['avg_20p']:.1f}k")

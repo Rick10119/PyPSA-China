@@ -43,7 +43,7 @@ def plot_results(n, p_min_pu, save_path="examples/results"):
     month_data = smelter_p[smelter_p.index.month == 2]
     
     if len(month_data) == 0:
-        print("警告: 没有找到4月的数据")
+        print("Warning: No data found for April")
         return
     
     # 创建图形
@@ -85,7 +85,7 @@ def analyze_ramp_constraints(n, config, save_path="examples/results"):
     """分析爬坡约束对电解槽运行的影响"""
     
     if 'p0' not in n.links_t:
-        print("警告: 找不到链接的时间序列结果")
+        print("Warning: Link time series results not found")
         return
     
     # 获取电解槽输入功率时间序列
@@ -103,10 +103,10 @@ def analyze_ramp_constraints(n, config, save_path="examples/results"):
     max_ramp_up_pu = max_ramp_up / p_nom
     max_ramp_down_pu = max_ramp_down / p_nom
     
-    print(f"\n爬坡约束分析:")
-    print(f"最大上升爬坡率: {max_ramp_up:.2f} MW ({max_ramp_up_pu:.3f} p.u.)")
-    print(f"最大下降爬坡率: {max_ramp_down:.2f} MW ({max_ramp_down_pu:.3f} p.u.)")
-    print(f"设定的爬坡限制: {1/config['al_start_up_time']:.3f} p.u.")
+    print(f"\nRamp constraint analysis:")
+    print(f"Max ramp-up rate: {max_ramp_up:.2f} MW ({max_ramp_up_pu:.3f} p.u.)")
+    print(f"Max ramp-down rate: {max_ramp_down:.2f} MW ({max_ramp_down_pu:.3f} p.u.)")
+    print(f"Configured ramp limit: {1/config['al_start_up_time']:.3f} p.u.")
     
     # 绘制功率变化图
     plt.figure(figsize=(12, 6))
@@ -289,7 +289,7 @@ def create_summary_plots(results, config, save_path="examples/results"):
     # 创建容量对比图
     plot_capacity_comparison(results, config, save_path)
     
-    print(f"所有图表已保存到 {save_path} 目录")
+    print(f"All plots saved to directory {save_path}")
 
 def plot_aluminum_usage(ax, aluminum_usage, ts, title_suffix=""):
     """
@@ -302,10 +302,10 @@ def plot_aluminum_usage(ax, aluminum_usage, ts, title_suffix=""):
     if 'smelter' in aluminum_usage.columns:
         ax.plot(aluminum_usage.index, aluminum_usage['smelter'], 
                 label='Aluminum Smelter Power', linewidth=2, color='red')
-        print(f"电解铝用能范围: {aluminum_usage['smelter'].min():.2f} - {aluminum_usage['smelter'].max():.2f} MW")
+        print(f"Aluminum usage range: {aluminum_usage['smelter'].min():.2f} - {aluminum_usage['smelter'].max():.2f} MW")
     else:
-        print("警告：电解铝用能数据中没有'smelter'列")
-        print(f"可用列: {list(aluminum_usage.columns)}")
+        print("Warning: No 'smelter' column in aluminum usage data")
+        print(f"Available columns: {list(aluminum_usage.columns)}")
     
     ax.plot(ts.index, ts.aluminum, label='Aluminum Demand', linewidth=2, color='blue', linestyle='--')
     ax.set_title(f'Aluminum Smelter Power Pattern{title_suffix}', fontsize=14)
@@ -322,12 +322,12 @@ def plot_nodal_prices(ax, network, title_suffix=""):
     """
     # 检查是否有边际价格数据
     if hasattr(network, 'buses_t') and hasattr(network.buses_t, 'marginal_price'):
-        print(f"找到边际价格数据，列数: {len(network.buses_t.marginal_price.columns)}")
-        print(f"边际价格列名: {list(network.buses_t.marginal_price.columns)}")
+        print(f"Found marginal price data, columns: {len(network.buses_t.marginal_price.columns)}")
+        print(f"Marginal price column names: {list(network.buses_t.marginal_price.columns)}")
         
         # 获取电力节点（通过节点名称识别）
         electricity_buses = [bus for bus in network.buses.index if bus == "electricity"]
-        print(f"电力节点: {electricity_buses}")
+        print(f"Electricity buses: {electricity_buses}")
         
         if len(electricity_buses) > 0:
             price_bus = electricity_buses[0]
@@ -335,7 +335,7 @@ def plot_nodal_prices(ax, network, title_suffix=""):
                 prices = network.buses_t.marginal_price[price_bus]
                 ax.plot(prices.index, prices, 
                         label=f'Nodal Price ({price_bus})', linewidth=2, color='green')
-                print(f"绘制节点电价: {price_bus}, 价格范围: {prices.min():.2f} - {prices.max():.2f} €/MWh")
+                print(f"Plotting nodal price: {price_bus}, range: {prices.min():.2f} - {prices.max():.2f} €/MWh")
             else:
                 # 如果没有找到特定节点，绘制所有电力节点的平均电价
                 available_buses = [bus for bus in electricity_buses if bus in network.buses_t.marginal_price.columns]
@@ -344,7 +344,7 @@ def plot_nodal_prices(ax, network, title_suffix=""):
                     avg_price = elec_prices.mean(axis=1)
                     ax.plot(avg_price.index, avg_price, 
                             label='Average Nodal Price', linewidth=2, color='green')
-                    print(f"绘制平均节点电价，使用节点: {available_buses}, 价格范围: {avg_price.min():.2f} - {avg_price.max():.2f} €/MWh")
+                    print(f"Plotting average nodal price, buses: {available_buses}, range: {avg_price.min():.2f} - {avg_price.max():.2f} €/MWh")
                 else:
                     # 如果没有任何电力节点，使用第一个可用的节点
                     if len(network.buses_t.marginal_price.columns) > 0:
@@ -352,7 +352,7 @@ def plot_nodal_prices(ax, network, title_suffix=""):
                         prices = network.buses_t.marginal_price[first_bus]
                         ax.plot(prices.index, prices, 
                                 label=f'Nodal Price ({first_bus})', linewidth=2, color='green')
-                        print(f"绘制节点电价: {first_bus} (备选), 价格范围: {prices.min():.2f} - {prices.max():.2f} €/MWh")
+                        print(f"Plotting nodal price: {first_bus} (fallback), range: {prices.min():.2f} - {prices.max():.2f} €/MWh")
                     else:
                         ax.text(0.5, 0.5, 'No Marginal Price Data Available', 
                                 transform=ax.transAxes, ha='center', va='center', fontsize=12)
@@ -363,13 +363,13 @@ def plot_nodal_prices(ax, network, title_suffix=""):
                 prices = network.buses_t.marginal_price[first_bus]
                 ax.plot(prices.index, prices, 
                         label=f'Nodal Price ({first_bus})', linewidth=2, color='green')
-                print(f"绘制节点电价: {first_bus} (无电力节点), 价格范围: {prices.min():.2f} - {prices.max():.2f} €/MWh")
+                print(f"Plotting nodal price: {first_bus} (no electricity bus), range: {prices.min():.2f} - {prices.max():.2f} €/MWh")
             else:
                 ax.text(0.5, 0.5, 'No Marginal Price Data Available', 
                         transform=ax.transAxes, ha='center', va='center', fontsize=12)
     else:
         # 如果没有边际价格数据，显示提示
-        print("未找到边际价格数据")
+        print("Marginal price data not found")
         ax.text(0.5, 0.5, 'Marginal Price Data Not Available', 
                 transform=ax.transAxes, ha='center', va='center', fontsize=12)
     
@@ -395,7 +395,7 @@ def save_and_show_plot(fig, filename, output_dir="examples/results"):
     
     # 保存图片
     plt.savefig(filepath, dpi=300, bbox_inches='tight')
-    print(f"图片已保存到: {filepath}")
+    print(f"Figure saved to: {filepath}")
     
     # 显示图片
     plt.show()
@@ -404,7 +404,7 @@ def plot_iteration_results(network, aluminum_usage, ts, p_min_pu, iteration, sta
     """
     绘制每次迭代的结果：电解槽用能和节点电价
     """
-    print(f"绘制第 {iteration} 次迭代 {stage} 阶段结果...")
+    print(f"Plotting iteration {iteration} {stage} stage results...")
     
     # 创建图形
     fig, axes = plt.subplots(2, 1, figsize=(15, 10))
@@ -424,9 +424,9 @@ def plot_iterative_results(network, aluminum_usage, ts, p_min_pu, iteration):
     """
     绘制迭代优化结果：电解槽用能和节点电价
     """
-    print(f"绘制第 {iteration} 次迭代结果...")
-    print(f"电解铝用能数据形状: {aluminum_usage.shape}")
-    print(f"电解铝用能列名: {list(aluminum_usage.columns)}")
+    print(f"Plotting iteration {iteration} results...")
+    print(f"Aluminum usage data shape: {aluminum_usage.shape}")
+    print(f"Aluminum usage column names: {list(aluminum_usage.columns)}")
     
     # 创建图形
     fig, axes = plt.subplots(2, 1, figsize=(15, 10))

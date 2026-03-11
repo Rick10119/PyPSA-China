@@ -278,7 +278,7 @@ def create_summary_table(df, output_dir):
         logger.info(f"摘要表格已保存到: {table_file}")
         
         # 打印表格
-        print(f"\n=== 成本摘要表格 ===")
+        print(f"\n=== Cost summary table ===")
         print(df_table.to_string(index=False))
     else:
         logger.warning("没有数据可用于摘要表格")

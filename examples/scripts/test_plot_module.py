@@ -18,7 +18,7 @@ from plot_capacity_expansion import (
 
 def test_plot_module():
     """测试绘图模块的导入和基本功能"""
-    print("测试绘图模块导入...")
+    print("Testing plot module import...")
     
     # 检查所有函数是否都能正常导入
     functions = [
@@ -30,12 +30,12 @@ def test_plot_module():
         create_summary_plots
     ]
     
-    print(f"成功导入 {len(functions)} 个绘图函数:")
+    print(f"Successfully imported {len(functions)} plotting functions:")
     for func in functions:
         print(f"  - {func.__name__}: {func.__doc__}")
     
-    print("\n绘图模块测试完成！")
-    print("所有绘图函数已成功从主文件中分离到 plot_capacity_expansion.py 模块中。")
+    print("\nPlot module test complete!")
+    print("All plotting functions have been successfully separated into the plot_capacity_expansion.py module.")
 
 if __name__ == "__main__":
     test_plot_module() 

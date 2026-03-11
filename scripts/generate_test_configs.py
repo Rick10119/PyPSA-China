@@ -18,11 +18,11 @@ def clean_configs_dir() -> None:
         for file_path in configs_dir.glob("*"):
             if file_path.is_file():
                 file_path.unlink()
-                print(f"已删除: {file_path}")
-        print("configs文件夹已清空")
+                print(f"Removed: {file_path}")
+        print("configs folder cleared")
     else:
         configs_dir.mkdir(exist_ok=True)
-        print("创建configs文件夹")
+        print("Created configs folder")
 
 
 def _load_base_config() -> dict:
@@ -37,7 +37,7 @@ def _write_config(path: Path, config: dict) -> None:
 
 def run_value_tests(years: Iterable[int], clean: bool = True) -> None:
     if clean:
-        print("=== 清空configs文件夹 ===")
+        print("=== Clearing configs folder ===")
         clean_configs_dir()
         print()
 
@@ -93,12 +93,12 @@ def run_value_tests(years: Iterable[int], clean: bool = True) -> None:
                         _write_config(config_path, new_config)
 
                         config_count += 1
-                        print(f"已生成配置文件 {config_count}:")
-                        print(f"  {scenario_suffix}_{year}_100p.yaml - 版本: {new_config['version']}")
+                        print(f"Generated config file {config_count}:")
+                        print(f"  {scenario_suffix}_{year}_100p.yaml - version: {new_config['version']}")
                         print()
 
-        print("=== 生成non-flexible配置文件 ===")
-        print("注意：对于non-flexible情景，每个market只生成一个配置文件（固定flex/demand/employment）")
+        print("=== Generating non-flexible config files ===")
+        print("Note: For non-flexible scenarios, one config per market (fixed flex/demand/employment)")
         print()
 
         for market in market_levels:
@@ -132,12 +132,12 @@ def run_value_tests(years: Iterable[int], clean: bool = True) -> None:
             _write_config(config_path, new_config)
 
             config_count += 1
-            print(f"已生成non-flexible配置文件 {config_count}:")
-            print(f"  {scenario_suffix}_{year}_non_flexible.yaml - 版本: {new_config['version']}")
-            print(f"  (使用中等flex和demand，适用于所有non-flexible情景)")
+            print(f"Generated non-flexible config file {config_count}:")
+            print(f"  {scenario_suffix}_{year}_non_flexible.yaml - version: {new_config['version']}")
+            print(f"  (Uses mid flex and demand, applies to all non-flexible scenarios)")
             print()
 
-    print(f"总共生成了 {config_count} 个配置文件")
+    print(f"Generated {config_count} config file(s) in total")
 
 
 def _calculate_actual_capacity_ratio(year: int, cap_ratio: float, demand_level: str) -> float:
@@ -154,7 +154,7 @@ def _calculate_actual_capacity_ratio(year: int, cap_ratio: float, demand_level: 
 
 def run_capacity_tests(years: Iterable[int], clean: bool = True) -> None:
     if clean:
-        print("=== 清空configs文件夹 ===")
+        print("=== Clearing configs folder ===")
         clean_configs_dir()
         print()
 
@@ -264,7 +264,7 @@ def run_capacity_tests(years: Iterable[int], clean: bool = True) -> None:
             _write_config(path, cfg)
             config_count += 1
 
-    print(f"总共生成了 {config_count} 个配置文件")
+    print(f"Generated {config_count} config file(s) in total")
 
 
 def _parse_years(value: str) -> List[int]:
@@ -290,7 +290,7 @@ def main() -> None:
     if args.mode in ("capacity", "all"):
         run_capacity_tests(years=years, clean=args.clean)
 
-    print("=== 生成SLURM作业文件 ===")
+    print("=== Generating SLURM job files ===")
     try:
         import subprocess
         import sys
@@ -301,18 +301,18 @@ def main() -> None:
             text=True,
         )
         if result.returncode == 0:
-            print("✓ 成功生成SLURM作业文件")
+            print("✓ Successfully generated SLURM job files")
             if "共生成" in result.stdout:
                 for line in result.stdout.split("\n"):
                     if "共生成" in line and "个SLURM作业文件" in line:
                         print(line.strip())
                         break
         else:
-            print(f"✗ 生成SLURM作业文件时出错: {result.stderr}")
-            print("请手动运行: python scripts/generate_slurm_jobs_advanced.py")
+            print(f"✗ Error generating SLURM job files: {result.stderr}")
+            print("Please run manually: python scripts/generate_slurm_jobs_advanced.py")
     except Exception as e:
-        print(f"✗ 生成SLURM作业文件时出错: {e}")
-        print("请手动运行: python scripts/generate_slurm_jobs_advanced.py")
+        print(f"✗ Error generating SLURM job files: {e}")
+        print("Please run manually: python scripts/generate_slurm_jobs_advanced.py")
 
 
 if __name__ == "__main__":

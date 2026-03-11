@@ -299,7 +299,7 @@ def export_load_data_to_csv(n, config):
     
     # 获取AC bus列表
     ac_buses = n.buses[n.buses.carrier == 'AC'].index.tolist()
-    print(f"找到的AC bus: {ac_buses}")
+    print(f"AC buses found: {ac_buses}")
     
     # 创建空的DataFrame来存储负荷数据
     load_data = pd.DataFrame(index=time_index)
@@ -381,10 +381,10 @@ def export_load_data_to_csv(n, config):
     output_file = snakemake.output.get("load_data_csv", f"results/ac_bus_load_data_{planning_horizon}.csv")
     final_data.to_csv(output_file, index=False)
     
-    print(f"AC bus负荷数据已保存到: {output_file}")
-    print(f"数据包含 {len(final_data)} 个时间点")
-    print(f"AC bus列表: {ac_buses}")
-    print(f"输出列: datetime, total_consumption")
+    print(f"AC bus load data saved to: {output_file}")
+    print(f"Data contains {len(final_data)} time points")
+    print(f"AC bus list: {ac_buses}")
+    print(f"Output columns: datetime, total_consumption")
     
     # 7. 生成汇总统计
     summary_stats = {
@@ -393,7 +393,7 @@ def export_load_data_to_csv(n, config):
         '总消耗最小值 (MW)': final_data['total_consumption'].min(),
     }
     
-    print("\n汇总统计:")
+    print("\nSummary statistics:")
     for key, value in summary_stats.items():
         print(f"{key}: {value:.2f}")
     

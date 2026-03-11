@@ -58,14 +58,14 @@ def load_csv_data(csv_file):
         # 使用平均容量因子数据
         capacity_factors = df[avg_capacity_cols]
         capacity_factors.columns = [col.replace('_Capacity_Factor_Avg', '') for col in capacity_factors.columns]
-        print("使用月度平均容量因子数据计算就业")
+        print("Using monthly average capacity factor data for employment calculation")
         
     else:
         # 兼容旧格式：只有Capacity_Factor列
         capacity_cols = [col for col in df.columns if 'Capacity_Factor' in col and 'Max' not in col and 'Avg' not in col]
         capacity_factors = df[capacity_cols] if capacity_cols else pd.DataFrame()
         capacity_factors.columns = [col.replace('_Capacity_Factor', '') for col in capacity_factors.columns]
-        print("使用旧格式容量因子数据计算就业")
+        print("Using legacy capacity factor format for employment calculation")
     
     load_factors = df[load_cols] if load_cols else pd.DataFrame()
     # 重命名负荷因子列

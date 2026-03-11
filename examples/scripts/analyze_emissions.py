@@ -42,10 +42,10 @@ def analyze_emissions(n):
                 emissions_by_carrier[carrier] = emissions_by_generator[generator]
         
         # 8. 打印结果
-        print("\n碳排放分析:")
-        print(f"总排放量: {total_emissions/1e6:.2f} 百万吨 CO2")
-        print(f"平均排放强度: {average_intensity:.2f} kgCO2/MWh")
-        print(f"\n按能源类型排放量 (百万吨 CO2):")
+        print("\nCarbon emissions analysis:")
+        print(f"Total emissions: {total_emissions/1e6:.2f} Mt CO2")
+        print(f"Average emission intensity: {average_intensity:.2f} kgCO2/MWh")
+        print(f"\nEmissions by energy type (Mt CO2):")
         for carrier, value in emissions_by_carrier.items():
             print(f"{carrier}: {value/1e6:.4f}")
         
@@ -60,7 +60,7 @@ def analyze_emissions(n):
             'emissions_by_carrier': emissions_by_carrier
         }
     else:
-        print("警告: 无法找到发电机的发电量数据")
+        print("Warning: Could not find generator power output data")
         return None
 
 def plot_emissions(monthly_emissions, emissions_by_carrier):
@@ -97,7 +97,7 @@ def compare_scenarios(results, scenario_names):
     """比较不同情景的排放结果"""
     # 确保结果列表与情景名称列表长度一致
     if len(results) != len(scenario_names):
-        print("错误: 结果数量与情景名称数量不一致")
+        print("Error: Number of results does not match number of scenario names")
         return
     
     # 提取总排放量和平均排放强度

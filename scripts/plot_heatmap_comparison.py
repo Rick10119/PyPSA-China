@@ -68,13 +68,13 @@ def create_df(n, tech, province_filter=None):
         if len(province_stores) > 0:
             stores = stores[province_stores]
         else:
-            print(f"警告: 在省份 {province_filter} 中未找到 {tech} 储能设备")
+            print(f"Warning: No {tech} storage found in province {province_filter}")
             return pd.DataFrame(), 0
     
     # 计算最大功率作为归一化的基础值
     base = abs(stores.sum(axis=1)).max()
     if base == 0:
-        print(f"警告: {tech} 功率为零 {'省份 ' + province_filter if province_filter else '全国'}")
+        print(f"Warning: {tech} power is zero {'in province ' + province_filter if province_filter else 'nationwide'}")
         return pd.DataFrame(), 0
     
     # 通过基础值归一化功率值
@@ -114,7 +114,7 @@ def create_aluminum_df(n, province_filter=None):
     aluminum_links = n.links_t.p0.filter(like='aluminum smelter')
     
     if aluminum_links.empty:
-        print("警告: 在网络中未找到铝冶炼厂链接")
+        print("Warning: No aluminum smelter links found in network")
         return pd.DataFrame(), 0
     
     # 如果指定了省份过滤器，则应用过滤
@@ -123,14 +123,14 @@ def create_aluminum_df(n, province_filter=None):
         if len(province_smelters) > 0:
             aluminum_links = aluminum_links[province_smelters]
         else:
-            print(f"警告: 在省份 {province_filter} 中未找到铝冶炼厂")
+            print(f"Warning: No aluminum smelters found in province {province_filter}")
             return pd.DataFrame(), 0
     
     # 计算最大功率作为归一化的基础值
     base = abs(aluminum_links.sum(axis=1)).max()
     
     if base == 0:
-        print(f"警告: 铝冶炼厂功率为零 {'省份 ' + province_filter if province_filter else '全国'}")
+        print(f"Warning: Aluminum smelter power is zero {'in province ' + province_filter if province_filter else 'nationwide'}")
         return pd.DataFrame(), 0
     
     # 通过基础值归一化功率值
@@ -170,7 +170,7 @@ def get_aluminum_storage_daily_average(n, province_filter=None):
     aluminum_stores = n.stores_t.e.filter(like='aluminum storage')
     
     if aluminum_stores.empty:
-        print("警告: 在网络中未找到铝储能")
+        print("Warning: No aluminum storage found in network")
         return pd.Series(), 0
     
     # 如果指定了省份过滤器，则应用过滤
@@ -179,14 +179,14 @@ def get_aluminum_storage_daily_average(n, province_filter=None):
         if len(province_stores) > 0:
             aluminum_stores = aluminum_stores[province_stores]
         else:
-            print(f"警告: 在省份 {province_filter} 中未找到铝储能")
+            print(f"Warning: No aluminum storage found in province {province_filter}")
             return pd.Series(), 0
     
     # 计算所有储能的总额
     total_storage = aluminum_stores.sum(axis=1)
     
     if total_storage.empty:
-        print(f"警告: 铝储能数据为空 {'省份 ' + province_filter if province_filter else '全国'}")
+        print(f"Warning: Aluminum storage data is empty {'in province ' + province_filter if province_filter else 'nationwide'}")
         return pd.Series(), 0
     
     # 获取最小储能水平用于归一化

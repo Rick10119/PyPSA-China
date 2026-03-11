@@ -94,8 +94,8 @@ def prepare_network(config):
         snapshots = snapshots.map(lambda t: t.replace(year=int(planning_horizons)))
 
     network.set_snapshots(snapshots)
-    # 从freq中解析出小时数来设置snapshot_weightings
-    # 例如：'1h' -> 1, '2h' -> 2, '8h' -> 8
+    # Derive snapshot weights in hours from the time resolution string
+    # Example: '1h' -> 1, '2h' -> 2, '8h' -> 8
     freq_hours = float(config['freq'].replace('h', ''))
     network.snapshot_weightings[:] = freq_hours
     represented_hours = network.snapshot_weightings.sum().iloc[0]

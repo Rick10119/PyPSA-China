@@ -50,7 +50,7 @@ def filter_network_by_province(n, target_province=None):
     if target_province is None:
         return n
     
-    print(f"正在过滤网络，只保留 {target_province} 省份的组件...")
+    print(f"Filtering network to keep only components in province {target_province}...")
     
     # Create a copy of the network to avoid modifying the original
     n_filtered = n.copy()
@@ -59,54 +59,54 @@ def filter_network_by_province(n, target_province=None):
     province_buses = n_filtered.buses[n_filtered.buses.index.str.contains(target_province, case=False)].index
     
     if len(province_buses) == 0:
-        print(f"警告：未找到 {target_province} 省份的节点")
+        print(f"Warning: No nodes found for province {target_province}")
         return n_filtered
     
-    print(f"找到 {len(province_buses)} 个 {target_province} 省份的节点: {list(province_buses)}")
+    print(f"Found {len(province_buses)} nodes in province {target_province}: {list(province_buses)}")
     
     # Remove generators not in the target province
     non_province_generators = n_filtered.generators[~n_filtered.generators.bus.isin(province_buses)].index
     if len(non_province_generators) > 0:
         n_filtered.mremove("Generator", non_province_generators)
-        print(f"移除了 {len(non_province_generators)} 个非 {target_province} 省份的发电机")
+        print(f"Removed {len(non_province_generators)} generators outside province {target_province}")
     
     # Remove loads not in the target province
     non_province_loads = n_filtered.loads[~n_filtered.loads.bus.isin(province_buses)].index
     if len(non_province_loads) > 0:
         n_filtered.mremove("Load", non_province_loads)
-        print(f"移除了 {len(non_province_loads)} 个非 {target_province} 省份的负荷")
+        print(f"Removed {len(non_province_loads)} loads outside province {target_province}")
     
     # Remove storage units not in the target province
     non_province_storage = n_filtered.storage_units[~n_filtered.storage_units.bus.isin(province_buses)].index
     if len(non_province_storage) > 0:
         n_filtered.mremove("StorageUnit", non_province_storage)
-        print(f"移除了 {len(non_province_storage)} 个非 {target_province} 省份的储能单元")
+        print(f"Removed {len(non_province_storage)} storage units outside province {target_province}")
     
     # Remove stores not in the target province
     non_province_stores = n_filtered.stores[~n_filtered.stores.bus.isin(province_buses)].index
     if len(non_province_stores) > 0:
         n_filtered.mremove("Store", non_province_stores)
-        print(f"移除了 {len(non_province_stores)} 个非 {target_province} 省份的存储")
+        print(f"Removed {len(non_province_stores)} stores outside province {target_province}")
     
     # Remove links not connected to the target province
     non_province_links = n_filtered.links[~(n_filtered.links.bus0.isin(province_buses) | n_filtered.links.bus1.isin(province_buses))].index
     if len(non_province_links) > 0:
         n_filtered.mremove("Link", non_province_links)
-        print(f"移除了 {len(non_province_links)} 个非 {target_province} 省份的连接")
+        print(f"Removed {len(non_province_links)} links outside province {target_province}")
     
     # Remove lines not connected to the target province
     non_province_lines = n_filtered.lines[~(n_filtered.lines.bus0.isin(province_buses) | n_filtered.lines.bus1.isin(province_buses))].index
     if len(non_province_lines) > 0:
         n_filtered.mremove("Line", non_province_lines)
-        print(f"移除了 {len(non_province_lines)} 个非 {target_province} 省份的线路")
+        print(f"Removed {len(non_province_lines)} lines outside province {target_province}")
     
     # Finally remove non-province buses
     non_province_buses = n_filtered.buses[~n_filtered.buses.index.isin(province_buses)].index
     if len(non_province_buses) > 0:
         n_filtered.mremove("Bus", non_province_buses)
-        print(f"移除了 {len(non_province_buses)} 个非 {target_province} 省份的节点")
+        print(f"Removed {len(non_province_buses)} buses outside province {target_province}")
     
-    print(f"过滤完成。剩余组件：{len(n_filtered.generators)} 个发电机，{len(n_filtered.loads)} 个负荷，{len(n_filtered.links)} 个连接")
+    print(f"Filter complete. Remaining: {len(n_filtered.generators)} generators, {len(n_filtered.loads)} loads, {len(n_filtered.links)} links")
     
     return n_filtered
 
@@ -662,9 +662,9 @@ def save_monthly_data_to_csv(monthly_cf, monthly_max_cf, monthly_load, planning_
         
         # Create versioned filename
         csv_filename = f"{output_dir}/{base_filename}_v{version}.csv"
-        print(f"文件 {base_filename}.csv 已存在，创建新版本: {base_filename}_v{version}.csv")
+        print(f"File {base_filename}.csv already exists; creating new version: {base_filename}_v{version}.csv")
     else:
-        print(f"创建新文件: {base_filename}.csv")
+        print(f"Creating new file: {base_filename}.csv")
     
     # Combine all data into a single DataFrame
     all_data = {}
@@ -700,15 +700,15 @@ def save_monthly_data_to_csv(monthly_cf, monthly_max_cf, monthly_load, planning_
         
         # Save to CSV
         df.to_csv(csv_filename, index=True)
-        print(f"\n月度容量因子和负荷因子数据已保存到: {csv_filename}")
+        print(f"\nMonthly capacity factor and load factor data saved to: {csv_filename}")
         
         # Print summary of saved data
-        print(f"保存的数据包括:")
+        print(f"Saved data includes:")
         for col in df.columns:
             if col != 'Month_Name':
                 print(f"  - {col}")
     else:
-        print("警告: 没有可保存的数据")
+        print("Warning: No data available to save")
 
 def plot_capacity_factors(n, config, target_province=None):
     """
@@ -841,32 +841,32 @@ def plot_capacity_factors(n, config, target_province=None):
     
     # Print summary statistics
     province_info = f" - {target_province}" if target_province else ""
-    print(f"\n容量因子月度统计 - {planning_horizon}{province_info}")
+    print(f"\nCapacity factor monthly statistics - {planning_horizon}{province_info}")
     print("=" * 50)
     for tech, cf_data in monthly_cf.items():
         if not cf_data.empty:
             avg_cf = cf_data.mean()
             max_cf = cf_data.max()
             min_cf = cf_data.min()
-            print(f"{tech:15s}: 平均={avg_cf:.3f}, 最大={max_cf:.3f}, 最小={min_cf:.3f}")
+            print(f"{tech:15s}: avg={avg_cf:.3f}, max={max_cf:.3f}, min={min_cf:.3f}")
     
-    print(f"\n月度最大容量因子统计 - {planning_horizon}{province_info}")
+    print(f"\nMonthly max capacity factor statistics - {planning_horizon}{province_info}")
     print("=" * 50)
     for tech, max_cf_data in monthly_max_cf.items():
         if not max_cf_data.empty:
             avg_max_cf = max_cf_data.mean()
             max_max_cf = max_cf_data.max()
             min_max_cf = max_cf_data.min()
-            print(f"{tech:15s}: 平均={avg_max_cf:.3f}, 最大={max_max_cf:.3f}, 最小={min_max_cf:.3f}")
+            print(f"{tech:15s}: avg={avg_max_cf:.3f}, max={max_max_cf:.3f}, min={min_max_cf:.3f}")
     
-    print(f"\n负荷因子月度统计 - {planning_horizon}{province_info}")
+    print(f"\nLoad factor monthly statistics - {planning_horizon}{province_info}")
     print("=" * 50)
     for load_type, load_data in monthly_load.items():
         if not load_data.empty:
             avg_load = load_data.mean()
             max_load = load_data.max()
             min_load = load_data.min()
-            print(f"{load_type:15s}: 平均={avg_load:.3f}, 最大={max_load:.3f}, 最小={min_load:.3f}")
+            print(f"{load_type:15s}: avg={avg_load:.3f}, max={max_load:.3f}, min={min_load:.3f}")
 
 
 
@@ -893,7 +893,7 @@ if __name__ == "__main__":
     target_province = None
     if hasattr(snakemake.config, 'single_node_province') and snakemake.config.get('using_single_node', False):
         target_province = snakemake.config['single_node_province']
-        print(f"检测到单节点模式，将过滤 {target_province} 省份的结果")
+        print(f"Single-node mode detected; filtering results for province {target_province}")
     
     # Generate capacity factor plots
     plot_capacity_factors(n, config, target_province) 

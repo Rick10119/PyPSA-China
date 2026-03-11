@@ -28,8 +28,8 @@ PyPSA-China is an open-source optimization model for the Chinese energy system b
 
 ### Prerequisites
 
-- Python 3.8+
-- Gurobi solver (or other compatible solver)
+- Python 3.9+ (as specified in `envs/environment.yaml`)
+- Gurobi Optimizer with a valid license (required to reproduce all scenarios in the paper)
 - Sufficient memory (20-100 GB depending on network size)
 
 ### Environment Setup
@@ -46,10 +46,21 @@ conda env create -f envs/environment_linux.yaml
 conda activate pypsa-china
 ```
 
-3. Install additional dependencies if needed:
+3. Install Gurobi Python bindings inside the environment (if not already installed by the environment file):
+```bash
+conda install -c gurobi gurobi
+```
+
+4. Install additional dependencies if needed:
 ```bash
 pip install -r requirements.txt
 ```
+
+### Solver and licensing
+
+- **Default solver**: The model is configured to use **Gurobi** via PyPSA/linopy (`solving.solver.name: gurobi` in `config.yaml`).  
+- **Academic license**: Gurobi offers free academic licenses for university users; see the official instructions at the Gurobi website (e.g. the *Academic Program and Licenses* page) and follow their steps to activate a license on your machine.
+- **Alternative solvers (optional)**: In principle, other MILP solvers supported by PyPSA/linopy (e.g. HiGHS, CPLEX) can be used by changing `solving.solver.name` and the corresponding `solver_options` in `config.yaml`. We have not systematically benchmarked all scenarios with these alternative solvers; large-scale runs may be slower or fail to converge, so for exact reproduction of the published results we recommend Gurobi.
 
 ## Quick Start
 

@@ -18,11 +18,11 @@ data['System_Cost_Million'] = data['System_Cost'] / 1000
 formatted_data = data.round(2)
 
 # 打印表格格式，便于复制到Excel
-print("以下是格式化的数据表格，可直接复制到Excel中：")
+print("Below is the formatted data table; you can copy it directly into Excel:")
 print("\nExcess_Rate\tAl_Capacity\tSystem_Cost\tSystem_Cost_Million\tWind\tSolar\tBattery\tH2_Store")
 for _, row in formatted_data.iterrows():
     print(f"{row['Excess_Rate']}\t{row['Al_Capacity']}\t{row['System_Cost']}\t{row['System_Cost_Million']}\t{row['Wind']}\t{row['Solar']}\t{row['Battery']}\t{row['H2_Store']}")
 
 # 将数据保存为CSV文件，可以直接在Excel中打开
 formatted_data.to_csv("examples/results/system_data.csv", index=False)
-print("\n数据已保存到 examples/results/system_data.csv 文件中，可以直接在Excel中打开。") 
+print("\nData has been saved to examples/results/system_data.csv and can be opened in Excel.") 

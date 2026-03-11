@@ -177,9 +177,9 @@ def add_aluminum_components(n, al_p_nom, p_min_pu, aluminum_commitment=False, in
     )
     
     if aluminum_commitment and verbose:
-        print(f"电解铝启停约束: {aluminum_commitment}")
-        print(f"启动成本: {CONFIG['al_start_up_cost'] * al_p_nom}")
-        print(f"最小出力比例: {p_min_pu}")
+        print(f"Aluminum commitment: {aluminum_commitment}")
+        print(f"Startup cost: {CONFIG['al_start_up_cost'] * al_p_nom}")
+        print(f"Minimum power ratio: {p_min_pu}")
     
     # 添加铝存储（可选）
     if include_storage:
@@ -354,7 +354,7 @@ def solve_aluminum_optimization(n, costs, ts, p_min_pu, excess_rate, nodal_price
     基于节点电价，运行以满足铝需求为约束的电解铝最优运行问题
     """
     if verbose:
-        print("步骤2: 运行电解铝最优运行问题")
+        print("Step 2: Solve aluminum optimal operation problem")
     
     # 使用通用函数创建基础网络
     n_al = create_base_network(ts, network_type="aluminum_only")
@@ -374,7 +374,7 @@ def solve_aluminum_optimization(n, costs, ts, p_min_pu, excess_rate, nodal_price
     
     # 求解电解铝优化问题
     if verbose:
-        print("求解电解铝优化问题...")
+        print("Solving aluminum optimization problem...")
     # 使用安全的优化函数
     safe_optimize(n_al, "gurobi", {})
     
@@ -396,7 +396,7 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
     verbose: 是否输出详细信息
     """
     if verbose:
-        print("开始电解铝迭代优化算法")
+        print("Starting aluminum iterative optimization algorithm")
     
     # 记录总开始时间
     total_start_time = time.time()
@@ -416,11 +416,11 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
         iteration_start_time = time.time()  # 记录每次迭代开始时间
         
         if verbose:
-            print(f"开始第 {iteration} 次迭代")
+            print(f"Starting iteration {iteration}")
         
         # 步骤1: 使用连续化电解铝模型求解，得到节点电价
         if verbose:
-            print("步骤1: 使用连续化电解铝模型求解")
+            print("Step 1: Solve with continuous aluminum model")
         
         # 创建网络，禁用电解铝启停约束
         n = create_network(costs, ts, p_min_pu, excess_rate, aluminum_commitment=False)
@@ -428,7 +428,7 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
         # 如果有固定的电解铝用能，需要添加约束
         if aluminum_usage is not None:
             if verbose:
-                print("固定电解铝用能，求解剩余优化问题")
+                print("Fix aluminum usage and solve remaining optimization problem")
             # 固定电解铝用能 - 使用p_set来固定smelter的link出力
             fixed_aluminum_power = aluminum_usage['smelter'].values
             # 修改al demand设定，和p_set一样
@@ -438,7 +438,7 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
         
         # 求解网络
         if verbose:
-            print("求解网络...")
+            print("Solving network...")
         # 使用安全的优化函数，确保计算边际价格
         current_objective = safe_optimize(n, "gurobi", {})
         
@@ -450,7 +450,7 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
                 price_bus = electricity_buses[0]
                 current_nodal_prices = n.buses_t.marginal_price[price_bus]
                 if verbose:
-                    print(f"提取节点电价: {price_bus}")
+                    print(f"Extract nodal prices: {price_bus}")
         
         # 步骤2: 基于节点电价，运行电解铝最优运行问题
         new_aluminum_usage = solve_aluminum_optimization(n, costs, ts, p_min_pu, excess_rate, current_nodal_prices, verbose)
@@ -462,17 +462,17 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
             relative_change = objective_change / abs(previous_objective) if abs(previous_objective) > 1e-10 else float('inf')
             
             if verbose:
-                print(f"目标函数变化统计:")
-                print(f"  当前目标函数值: {current_objective:.6e}")
-                print(f"  上次目标函数值: {previous_objective:.6e}")
-                print(f"  绝对变化: {objective_change:.6e}")
-                print(f"  相对变化: {relative_change:.6f} ({relative_change*100:.2f}%)")
-                print(f"  收敛阈值: {convergence_tolerance:.6f} ({convergence_tolerance*100:.2f}%)")
+                print(f"Objective function change statistics:")
+                print(f"  Current objective: {current_objective:.6e}")
+                print(f"  Previous objective: {previous_objective:.6e}")
+                print(f"  Absolute change: {objective_change:.6e}")
+                print(f"  Relative change: {relative_change:.6f} ({relative_change*100:.2f}%)")
+                print(f"  Convergence threshold: {convergence_tolerance:.6f} ({convergence_tolerance*100:.2f}%)")
             
             if relative_change < convergence_tolerance:
                 if verbose:
-                    print(f"算法收敛，在第 {iteration} 次迭代后停止")
-                    print(f"目标函数相对变化 {relative_change:.6f} ({relative_change*100:.2f}%) < 收敛阈值 {convergence_tolerance:.6f} ({convergence_tolerance*100:.2f}%)")
+                    print(f"Algorithm converged after {iteration} iterations")
+                    print(f"Relative objective change {relative_change:.6f} ({relative_change*100:.2f}%) < threshold {convergence_tolerance:.6f} ({convergence_tolerance*100:.2f}%)")
                 final_network = n
                 final_aluminum_usage = new_aluminum_usage
                 break
@@ -492,29 +492,29 @@ def solve_network_iterative(costs, ts, p_min_pu, excess_rate, max_iterations=10,
         iteration_times.append(iteration_time)
         
         if verbose:
-            print(f"第 {iteration} 次迭代完成，耗时: {iteration_time:.2f} 秒")
+            print(f"Iteration {iteration} complete, elapsed: {iteration_time:.2f} s")
     
     # 计算总时间
     total_time = time.time() - total_start_time
     
     if iteration >= max_iterations:
         if verbose:
-            print(f"达到最大迭代次数 {max_iterations}，算法未完全收敛")
+            print(f"Reached maximum iterations ({max_iterations}); algorithm did not fully converge")
     
     # 输出时间统计
-    print(f"\n=== 迭代时间统计 ===")
-    print(f"总迭代次数: {iteration}")
-    print(f"总耗时: {total_time:.2f} 秒 ({total_time/60:.2f} 分钟)")
+    print(f"\n=== Iteration time statistics ===")
+    print(f"Total iterations: {iteration}")
+    print(f"Total time: {total_time:.2f} s ({total_time/60:.2f} min)")
     if iteration_times:
-        print(f"平均每次迭代耗时: {np.mean(iteration_times):.2f} 秒")
-        print(f"最快迭代耗时: {np.min(iteration_times):.2f} 秒")
-        print(f"最慢迭代耗时: {np.max(iteration_times):.2f} 秒")
-        print(f"迭代时间详情:")
+        print(f"Average time per iteration: {np.mean(iteration_times):.2f} s")
+        print(f"Fastest iteration: {np.min(iteration_times):.2f} s")
+        print(f"Slowest iteration: {np.max(iteration_times):.2f} s")
+        print(f"Iteration time details:")
         for i, t in enumerate(iteration_times, 1):
-            print(f"  第{i}次迭代: {t:.2f} 秒")
+            print(f"  Iteration {i}: {t:.2f} s")
     
     if verbose:
-        print(f"电解铝迭代优化算法完成，共进行 {iteration} 次迭代")
+        print(f"Aluminum iterative optimization complete; {iteration} iterations performed")
     
     # 绘制最后一次迭代的结果
     if final_network is not None and final_aluminum_usage is not None:
@@ -568,13 +568,13 @@ def print_results_table(results):
               f"{co2_emissions:^12.2f} | {load_shed:^10.2f} | {al_load_shed:^12.2f} | {ocgt_cap:^10.2f} | {wind_cap:^10.2f} | {solar_cap:^10.2f} | {battery_cap:^10.2f} | {h2_cap:^10.2f} | {total_time:^10.1f} | {iteration_count:^10d}")
     
     # 添加总体时间统计
-    print("\n=== 总体时间统计 ===")
+    print("\n=== Overall time statistics ===")
     total_times = [result.get('total_time', 0) for result in year_results.values()]
     total_iterations = [result.get('iteration_count', 0) for result in year_results.values()]
     
     if total_times:
-        print(f"总计算时间: {sum(total_times):.2f} 秒 ({sum(total_times)/60:.2f} 分钟)")
-        print(f"总迭代次数: {sum(total_iterations)}")
+        print(f"Total computation time: {sum(total_times):.2f} s ({sum(total_times)/60:.2f} min)")
+        print(f"Total iterations: {sum(total_iterations)}")
 
 def main(config_file="config.yaml"):
     """主运行函数"""
@@ -602,8 +602,8 @@ def main(config_file="config.yaml"):
         
         # 对每个p_min_pu进行计算
         for p_min_pu in CONFIG["al_p_min_pu"]:
-            print(f"\n=== 测试电解铝迭代优化算法 ===")
-            print(f"参数: p_min_pu = {p_min_pu}, excess_rate = {CONFIG['al_excess_rate']}")
+            print(f"\n=== Testing aluminum iterative optimization ===")
+            print(f"Parameters: p_min_pu = {p_min_pu}, excess_rate = {CONFIG['al_excess_rate']}")
             
             # 使用迭代优化算法
             n, aluminum_usage, time_stats = solve_network_iterative(
@@ -614,7 +614,7 @@ def main(config_file="config.yaml"):
             )
             
             if n is None:
-                print("迭代优化失败，跳过该参数组合")
+                print("Iterative optimization failed; skipping this parameter combination")
                 continue
             
             # # 在优化后调用启动分析
@@ -671,11 +671,11 @@ def main(config_file="config.yaml"):
             if 'smelter' in n.links.index:
                 plot_results(n, p_min_pu)
             else:
-                print("警告：网络中没有冶炼设备，跳过标准绘图")
+                print("Warning: No smelter in network; skipping standard plotting")
                 # 使用我们自己的绘图函数，传入迭代次数（这里假设是最后一次迭代）
                 plot_iterative_results(n, aluminum_usage, ts, p_min_pu, 1)  # 使用1作为默认迭代次数
             
-            print(f"迭代优化完成，系统成本: {year_results[p_min_pu]['system_cost']:.2f} Billion")
+            print(f"Iterative optimization complete; system cost: {year_results[p_min_pu]['system_cost']:.2f} Billion")
         
         results[year] = year_results
     

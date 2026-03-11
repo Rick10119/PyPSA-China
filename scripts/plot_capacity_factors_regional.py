@@ -35,7 +35,7 @@ def filter_network_by_province(n, target_province=None):
     if target_province is None:
         return n
     
-    print(f"正在过滤网络，只保留 {target_province} 省份的组件...")
+    print(f"Filtering network to keep only components in province {target_province}...")
     
     # Create a copy of the network to avoid modifying the original
     n_filtered = n.copy()
@@ -44,10 +44,10 @@ def filter_network_by_province(n, target_province=None):
     province_buses = n_filtered.buses[n_filtered.buses.index.str.contains(target_province, case=False)].index
     
     if len(province_buses) == 0:
-        print(f"警告：未找到 {target_province} 省份的节点")
+        print(f"Warning: No nodes found for province {target_province}")
         return n_filtered
     
-    print(f"找到 {len(province_buses)} 个 {target_province} 省份的节点")
+    print(f"Found {len(province_buses)} nodes in province {target_province}")
     
     # Remove generators not in the target province
     non_province_generators = n_filtered.generators[~n_filtered.generators.bus.isin(province_buses)].index

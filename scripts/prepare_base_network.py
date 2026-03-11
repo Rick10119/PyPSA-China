@@ -62,8 +62,8 @@ def prepare_network(config):
         snapshots = snapshots.map(lambda t: t.replace(year=int(planning_horizons)))
 
     network.set_snapshots(snapshots)
-    # 从freq中解析出小时数来设置snapshot_weightings
-    # 例如：'1h' -> 1, '2h' -> 2, '8h' -> 8
+    # Derive snapshot weights in hours from the time resolution string
+    # Example: '1h' -> 1, '2h' -> 2, '8h' -> 8
     freq_hours = float(config['freq'].replace('h', ''))
     network.snapshot_weightings[:] = freq_hours
     represented_hours = network.snapshot_weightings.sum().iloc[0]
@@ -77,7 +77,7 @@ def prepare_network(config):
     cost_year = snakemake.wildcards.planning_horizons
     costs = load_costs(tech_costs, config['costs'], config['electricity'], cost_year, Nyears)
     
-    # 应用市场情景成本调整
+    # Apply technology-cost adjustments for the active market-opportunity scenario
     from add_electricity import apply_market_scenario_costs
     costs = apply_market_scenario_costs(costs, config)
 
@@ -184,41 +184,41 @@ def prepare_network(config):
     load.columns = pro_names
     
     if config["add_aluminum"] and config["aluminum"]["grid_interaction"][planning_horizons]:
-        # 使用改进的情景读取工具
+        # Use the dedicated scenario helper functions for aluminum-related parameters
         from scripts.scenario_utils import (
             get_aluminum_demand_for_year,
             get_aluminum_load_for_network,
             get_aluminum_smelter_operational_params
         )
         
-        # 获取原铝需求
+        # Retrieve total primary-aluminum demand for the selected year and scenario
         primary_demand_tons = get_aluminum_demand_for_year(
             config, 
             planning_horizons, 
             aluminum_demand_json_path=snakemake.input.aluminum_demand_json
         )
         
-        # 读取电解铝厂容量数据
+        # Read provincial smelter annual production and keep only provinces with non-trivial capacity
         al_smelter_annual_production = pd.read_csv(snakemake.input.al_smelter_p_max)
         al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
         al_smelter_annual_production = al_smelter_annual_production.reindex(nodes).fillna(0).infer_objects(copy=False)
         al_smelter_annual_production = al_smelter_annual_production[al_smelter_annual_production > 0.01]
         
-        # 计算生产比例
+        # Compute provincial production shares
         production_ratio = al_smelter_annual_production / al_smelter_annual_production.sum()
         
-        # 转换为功率容量 (MW)，并根据配置的容量比例进行调整
+        # Convert annual production to power capacity (MW) and scale by the selected capacity ratio
         base_capacity = al_smelter_annual_production * 10000 * 13.3 / 8760
         
-        # 获取容量比例设置
+        # Read the capacity-ratio setting (this maps to the 100/90/80/70/60% aluminum scenarios)
         capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
         if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
             capacity_ratio = config['aluminum']['capacity_ratio']
         
-        # 应用容量比例
+        # Apply the capacity-ratio multiplier
         al_smelter_p_nom = base_capacity * capacity_ratio
         
-        # 获取铝负荷数据
+        # Build the aluminum-load time series consistent with the national demand scenario
         load_data = get_aluminum_load_for_network(
             config,
             planning_horizons,
@@ -229,13 +229,13 @@ def prepare_network(config):
         )
         aluminum_load = load_data['aluminum_load']
         
-        # 获取电解铝厂运行参数
+        # Build aluminum-smelter operational parameters (p_min, start-up and stand-by costs)
         operational_params = get_aluminum_smelter_operational_params(
             config, 
             al_smelter_p_nom=al_smelter_p_nom
         )
         
-        # 添加电解铝厂
+        # Add provincial aluminum smelter links
         network.madd("Link",
                     production_ratio.index,
                     suffix=" aluminum smelter",
@@ -254,7 +254,7 @@ def prepare_network(config):
                     p_min_pu=operational_params['p_min_pu'] if config['aluminum_commitment'] else 0,
                     )
 
-        # Add aluminum storage only for provinces with production > 0.01 10kt/year
+        # Add aluminum storage only for provinces with production > 0.01 10 kt/year
         network.madd("Store",
                     production_ratio.index,  # Only add for filtered provinces
                     suffix=" aluminum storage",
@@ -263,27 +263,27 @@ def prepare_network(config):
                     e_nom_extendable=True,
                     e_cyclic=True)
 
-        # Add aluminum load only for provinces with production > 0.01 10kt/year
+        # Add aluminum load only for provinces with production > 0.01 10 kt/year
         network.madd("Load",
                     production_ratio.index,  # Only add for filtered provinces
                     suffix=" aluminum",
                     bus=production_ratio.index + " aluminum",
                     p_set=aluminum_load[production_ratio.index])
 
-        # Subtract aluminum load from electric load only for affected provinces
+        # Subtract aluminum load from provincial electric load for affected provinces
         load_minus_al = load.copy()
-        # 将铝负荷转换为功率容量 (MW)
+        # Convert aluminum load back into electrical power (MW) before subtracting
         load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index] * 10000 * 13.3 / 8760
         network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
         
-        # 添加中国的aluminum bus（等效为满足全国铝需求）
-        # add carrier aluminum transfer
+        # Add a China-wide aluminum hub bus (for tracking national aluminum balancing)
+        # Add a carrier for aluminum transfer
         network.add("Carrier", "aluminum transfer")
         network.add("Bus", 
                    "China aluminum hub", 
                    carrier="aluminum transfer")
         
-        # add generator to China aluminum hub, for monitoring load shedding
+        # Optionally, generators connected to the hub can be used to monitor load shedding
         # network.add("Generator",
         #              "China aluminum hub load shedding",
         #              bus="China aluminum hub",
@@ -297,8 +297,8 @@ def prepare_network(config):
         #              p_nom=-1e10,
         #              marginal_cost=-1e6)
         
-        # 添加从各省份aluminum bus到中国aluminum hub的links
-        # 支持双向转移，转移效率为1
+        # Add links between each provincial aluminum bus and the China aluminum hub
+        # Allow bi-directional transfers with efficiency 1.0
         for province in production_ratio.index:
             # 从省份到中国hub的link
             network.add("Link",
