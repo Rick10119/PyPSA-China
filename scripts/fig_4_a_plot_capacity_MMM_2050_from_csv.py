@@ -85,16 +85,55 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     bar_width = 150
     
     # Use slightly offset x-positions so electricity and aluminum bars do not overlap
-    x_power = [pos - bar_width/6 for pos in x]      # electricity-system costs shifted left
-    x_aluminum = [pos + bar_width/6 for pos in x]   # aluminum operational costs shifted right
+    x_power = [pos - bar_width/3 for pos in x]      # electricity-system costs shifted left
+    x_aluminum = [pos + bar_width/3 for pos in x]   # aluminum operational costs shifted further right
     
     # Plot electricity-system cost savings (bottom bars)
     bars1 = ax.bar(x_power, power_savings, bar_width*0.8, color='#1f77b4', alpha=0.8, 
                    label='Power System Cost Savings')
     
-    # Plot aluminum operational cost changes (stacked and slightly offset)
-    bars2 = ax.bar(x_aluminum, aluminum_changes, bar_width*0.8, bottom=power_savings, 
-                   color='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Increase')
+    # If detailed aluminum components are available, plot them as stacked bars;
+    # otherwise fall back to a single aggregate orange bar.
+    aluminum_component_cols = [
+        col for col in df.columns
+        if col.startswith('Aluminum_')
+        and col.endswith('_Billion_CNY')
+        and col != 'Aluminum_Cost_Changes_Billion_CNY'
+    ]
+
+    if aluminum_component_cols:
+        bottom = power_savings.copy()
+        # Use a color map for different aluminum components
+        cmap = plt.cm.Oranges
+        n_comp = len(aluminum_component_cols)
+        for idx, col in enumerate(aluminum_component_cols):
+            comp_values = df[col].values
+            if np.allclose(comp_values, 0):
+                continue
+            color = cmap(0.4 + 0.5 * idx / max(n_comp - 1, 1))
+            # Make a shorter, human-readable label
+            label = col.replace('Aluminum_', '').replace('_Billion_CNY', '').replace('_', ' ')
+            ax.bar(
+                x_aluminum,
+                comp_values,
+                bar_width*0.8,
+                bottom=bottom,
+                color=color,
+                alpha=0.85,
+                label=label,
+            )
+            bottom = bottom + comp_values
+    else:
+        # Fallback: single aggregate aluminum bar (original behavior)
+        ax.bar(
+            x_aluminum,
+            aluminum_changes,
+            bar_width*0.8,
+            bottom=power_savings,
+            color='#ff7f0e',
+            alpha=0.8,
+            label='Aluminum Operation Cost Increase',
+        )
     
     # Plot net cost savings curve (black line at original x positions)
     ax.plot(x, net_savings, 'k-', linewidth=3, label='Net Cost Savings', marker='o', markersize=8, zorder=20)
@@ -134,16 +173,9 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     ax.set_yticks(y_ticks)
     ax.set_yticklabels(y_tick_labels, fontsize=20, color='blue')
     
-    # Build legend elements
-    legend_elements = [
-        plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='Electricity System Cost Savings'),
-        plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='Smelter Operational Cost Increase'),
-        plt.Line2D([0], [0], color='black', linewidth=3, marker='o', markersize=8, label='Net Benefit'),
-        plt.Line2D([0], [0], marker='*', color='red', markersize=15, linestyle='', label='Highest Net Benefit'),
-    ]
-    
-    # Add legend
-    ax.legend(handles=legend_elements, loc='lower left', fontsize=20)
+    # Build legend dynamically from plotted artists so that aluminum components appear separately
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles=handles, labels=labels, loc='lower left', fontsize=16)
     
     plt.tight_layout()
     

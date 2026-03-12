@@ -29,7 +29,7 @@ plt.rcParams['axes.unicode_minus'] = False
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# 配置铝成本采用方法：
+# 配置铝成本采用方法（因为跑完程序后 U 和 F 的铝成本采用方法不同）：
 # 按就业情景 (U=MMMU, F=MMMF) 和成本类型 (capital/marginal/standby/other) 指定权重。
 # 例如：
 # - capital: 0 表示完全忽略资本成本
@@ -47,6 +47,23 @@ ALUMINUM_COST_METHODS = {
         "marginal": 1.4227,
         "standby": 0.94847,
         "other": 1.0,
+    },
+}
+
+# 电解铝成本细分比例（用于记录 maintenance / labor / restart），按就业情景 U(MMMU)/F(MMMF) 分别设置
+# maintenance = capital 变化量 × maintenance_ratio
+# labor = capital 变化量 × labor_capital_ratio + standby 变化量 × labor_standby_ratio
+# restart_cost = startup + shutdown（两者都有时取绝对值小者×2）
+ALUMINUM_COST_BREAKDOWN_RATIOS = {
+    "U": {  # MMMU
+        "maintenance_ratio": 0.625,
+        "labor_capital_ratio": 0.375,
+        "labor_standby_ratio": 0.0,
+    },
+    "F": {  # MMMF
+        "maintenance_ratio": 1.0,
+        "labor_capital_ratio": 0.0,
+        "labor_standby_ratio": 0.1,
     },
 }
 
@@ -339,15 +356,19 @@ def save_plot_data_to_csv(plot_data, output_dir, year, market, scenario_code):
     # 创建详细数据表格
     detailed_data = []
     for i, ratio in enumerate(plot_data['capacity_ratios']):
-        detailed_data.append({
+        row = {
             'Capacity_Ratio': ratio,
             'Capacity_Value_Mt': plot_data['capacity_values'][i],
             'Power_Cost_Changes_Billion_CNY': plot_data['power_cost_changes'][i] / 1e9,
             'Aluminum_Cost_Changes_Billion_CNY': plot_data['aluminum_cost_changes'][i] / 1e9,
+            'Aluminum_Maintenance_Billion_CNY': plot_data['aluminum_maintenance_cny'][i] / 1e9,
+            'Aluminum_Labor_Billion_CNY': plot_data['aluminum_labor_cny'][i] / 1e9,
+            'Aluminum_Restart_Billion_CNY': plot_data['aluminum_restart_cny'][i] / 1e9,
             'Net_Cost_Savings_Billion_CNY': plot_data['net_cost_savings'][i] / 1e9,
             'Emissions_Changes_Million_Tonnes_CO2': plot_data['emissions_changes'][i],
             'Is_Max_Savings': i == plot_data['max_saving_index']
-        })
+        }
+        detailed_data.append(row)
     
     # 保存详细数据
     detailed_df = pd.DataFrame(detailed_data)
@@ -366,6 +387,9 @@ def save_plot_data_to_csv(plot_data, output_dir, year, market, scenario_code):
         'Max_Savings_Capacity_Ratio': [plot_data['capacity_ratios'][plot_data['max_saving_index']]],
         'Total_Power_Cost_Savings_Billion_CNY': [sum(plot_data['power_cost_changes']) / 1e9],
         'Total_Aluminum_Cost_Changes_Billion_CNY': [sum(plot_data['aluminum_cost_changes']) / 1e9],
+        'Total_Aluminum_Maintenance_Billion_CNY': [sum(plot_data['aluminum_maintenance_cny']) / 1e9],
+        'Total_Aluminum_Labor_Billion_CNY': [sum(plot_data['aluminum_labor_cny']) / 1e9],
+        'Total_Aluminum_Restart_Billion_CNY': [sum(plot_data['aluminum_restart_cny']) / 1e9],
         'Total_Net_Cost_Savings_Billion_CNY': [sum(plot_data['net_cost_savings']) / 1e9],
         'Total_Emissions_Reduction_Million_Tonnes_CO2': [sum(plot_data['emissions_changes'])]
     }
@@ -483,6 +507,9 @@ def plot_single_year_market(
     # 计算成本变化（成本减少为正方向）
     power_cost_changes = []
     aluminum_cost_changes = []
+    aluminum_maintenance_cny = []   # 细分：维护成本 (capital×比例)，人民币
+    aluminum_labor_cny = []         # 细分：人工 (capital×比例+standby×比例)，人民币
+    aluminum_restart_cny = []       # 细分：重启成本 (startup+shutdown)，人民币
     emissions_changes = []
     capacity_values = []
     
@@ -510,32 +537,40 @@ def plot_single_year_market(
             baseline_costs = calculate_cost_categories(baseline_data['aluminum'])
 
             method = ALUMINUM_COST_METHODS.get(employment, ALUMINUM_COST_METHODS.get("U", {}))
+            ratios = ALUMINUM_COST_BREAKDOWN_RATIOS.get(employment, ALUMINUM_COST_BREAKDOWN_RATIOS.get("U", {}))
             aluminum_change = 0
             aluminum_startup_change = 0
             aluminum_shutdown_change = 0
             has_startup = False
             has_shutdown = False
+            # 原始变化量（未加权），用于细分 maintenance / labor / restart
+            capital_delta_raw = 0.0
+            standby_delta_raw = 0.0
 
             for category, value in current_costs.items():
                 name = category.lower()
                 if 'aluminum' not in name:
                     continue
 
+                baseline_value = baseline_costs.get(category, 0)
+                delta_raw = value - baseline_value
+
                 # 根据类别前缀判断成本类型
                 if name.startswith('capital'):
                     weight = method.get("capital", 1.0)
+                    capital_delta_raw += delta_raw
                 elif name.startswith('marginal'):
                     weight = method.get("marginal", 1.0)
                 elif name.startswith('standby'):
                     weight = method.get("standby", 1.0)
+                    standby_delta_raw += delta_raw
                 else:
                     weight = method.get("other", 1.0)
 
                 if weight == 0:
                     continue
 
-                baseline_value = baseline_costs.get(category, 0)
-                delta = weight * (value - baseline_value)
+                delta = weight * delta_raw
 
                 # startup/shutdown 可能存在统计异常：两者都出现时只取绝对值较小的一项
                 if "startup" in name:
@@ -547,24 +582,42 @@ def plot_single_year_market(
                 else:
                     aluminum_change += delta
 
-            # 合并 startup/shutdown：
-            # 两者都存在则取绝对值更小者（保留符号）并乘以 2，避免一边统计异常导致放大
+            # 合并 startup/shutdown → restart_cost（两者都存在则取绝对值更小者×2）
             if has_startup and has_shutdown:
                 chosen = (
                     aluminum_startup_change
                     if abs(aluminum_startup_change) <= abs(aluminum_shutdown_change)
                     else aluminum_shutdown_change
                 )
-                aluminum_change += 2 * chosen
+                restart_eur = 2 * chosen
+                aluminum_change += restart_eur
             elif has_startup:
+                restart_eur = aluminum_startup_change
                 aluminum_change += aluminum_startup_change
             elif has_shutdown:
+                restart_eur = aluminum_shutdown_change
                 aluminum_change += aluminum_shutdown_change
+            else:
+                restart_eur = 0.0
+
+            # 细分：维护成本 = capital×比例；人工 = capital×比例 + standby×比例（EUR）
+            maintenance_eur = capital_delta_raw * ratios.get("maintenance_ratio", 0.0)
+            labor_eur = (
+                capital_delta_raw * ratios.get("labor_capital_ratio", 0.0)
+                + standby_delta_raw * ratios.get("labor_standby_ratio", 0.0)
+            )
+            # 转为人民币并记录（正值表示成本增加）
+            aluminum_maintenance_cny.append(maintenance_eur * EUR_TO_CNY)
+            aluminum_labor_cny.append(labor_eur * EUR_TO_CNY)
+            aluminum_restart_cny.append(restart_eur * EUR_TO_CNY)
 
             # 成本减少为正方向，所以取负值
             aluminum_cost_changes.append(-aluminum_change * EUR_TO_CNY)  # 转换为人民币，成本减少为正
         else:
             aluminum_cost_changes.append(0)
+            aluminum_maintenance_cny.append(0.0)
+            aluminum_labor_cny.append(0.0)
+            aluminum_restart_cny.append(0.0)
         
         # 计算碳排放变化（碳排放减少为正方向）
         if ratio in costs_data and 'power' in baseline_data:
@@ -678,6 +731,9 @@ def plot_single_year_market(
         'capacity_values': capacity_values,
         'power_cost_changes': power_cost_changes,
         'aluminum_cost_changes': aluminum_cost_changes,
+        'aluminum_maintenance_cny': aluminum_maintenance_cny,
+        'aluminum_labor_cny': aluminum_labor_cny,
+        'aluminum_restart_cny': aluminum_restart_cny,
         'net_cost_savings': net_cost_savings,
         'emissions_changes': emissions_changes,
         'max_saving_index': max_saving_index,
