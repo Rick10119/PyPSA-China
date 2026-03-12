@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Plot scatter chart of optimal points showing capacity and net value
+Plot scatter chart of optimal points showing capacity and net value.
+
 X-axis: Aluminum smelting capacity (10,000 tons/year)
 Y-axis: Net value (billion CNY)
-Different years represented by different colors
-Need the config files for the capacity tests
+Different years represented by different colors.
+Requires the config files for the capacity tests.
+
+Outputs (all under results/optimal_points_analysis/ unless overridden):
+  - optimal_points_distribution.png   (--plot-type distribution, default)
+  - optimal_points_boxplot.png        (--plot-type boxplot)
+  - optimal_points_scatter.png        (--plot-type scatter)
+  - optimal_points_{type}_data_{timestamp}.csv   (unless --no-csv)
+  - optimal_points_{type}_data_latest.csv
+  - optimal_points_cache_{hash}.csv   (cache of computed optimal points)
+  - optimal_points_metadata_{hash}.json
 """
 
 import pandas as pd
@@ -290,7 +300,7 @@ def find_available_years(results_dir, base_version):
             # Check if data exists for this year
             summary_dir = version_dir / 'summary' / 'postnetworks' / 'positive'
             if summary_dir.exists():
-                year_pattern = f"postnetwork-ll-current+Neighbor-linear2050-{year}"
+                year_pattern = f"postnetwork-ll-current+FCG-linear2050-{year}"
                 year_dir = summary_dir / year_pattern
                 if year_dir.exists() and (year_dir / 'costs.csv').exists():
                     available_years.append(year)
@@ -323,7 +333,7 @@ def load_costs_data(version_name, year, results_dir='results'):
     """
     try:
         # Build file path
-        file_path = Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-{year}/costs.csv")
+        file_path = Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+FCG-linear2050-{year}/costs.csv")
         
         if not file_path.exists():
             logger.warning(f"File does not exist: {file_path}")

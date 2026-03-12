@@ -92,43 +92,34 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     bars1 = ax.bar(x_power, power_savings, bar_width*0.8, color='#1f77b4', alpha=0.8, 
                    label='Power System Cost Savings')
     
-    # If detailed aluminum components are available, plot them as stacked bars;
-    # otherwise fall back to a single aggregate orange bar.
-    aluminum_component_cols = [
-        col for col in df.columns
-        if col.startswith('Aluminum_')
-        and col.endswith('_Billion_CNY')
-        and col != 'Aluminum_Cost_Changes_Billion_CNY'
+    # 电解铝成本增加按 维护 / 劳动力 / 重启 堆叠（若 CSV 含对应列）；否则用总量
+    breakdown_cols = [
+        ('Aluminum_Maintenance_Billion_CNY', '#e6550d', 'Maintenance'),
+        ('Aluminum_Labor_Billion_CNY', '#fd8d3c', 'Labor'),
+        ('Aluminum_Restart_Billion_CNY', '#fdae6b', 'Restart'),
     ]
+    has_breakdown = all(col in df.columns for col, _, _ in breakdown_cols)
 
-    if aluminum_component_cols:
-        bottom = power_savings.copy()
-        # Use a color map for different aluminum components
-        cmap = plt.cm.Oranges
-        n_comp = len(aluminum_component_cols)
-        for idx, col in enumerate(aluminum_component_cols):
-            comp_values = df[col].values
-            if np.allclose(comp_values, 0):
-                continue
-            color = cmap(0.4 + 0.5 * idx / max(n_comp - 1, 1))
-            # Make a shorter, human-readable label
-            label = col.replace('Aluminum_', '').replace('_Billion_CNY', '').replace('_', ' ')
+    if has_breakdown:
+        bottom = np.asarray(power_savings, dtype=float)
+        for col, color, label in breakdown_cols:
+            comp = df[col].values
+            comp = np.asarray(comp, dtype=float)
             ax.bar(
                 x_aluminum,
-                comp_values,
-                bar_width*0.8,
+                comp,
+                bar_width * 0.8,
                 bottom=bottom,
                 color=color,
                 alpha=0.85,
                 label=label,
             )
-            bottom = bottom + comp_values
+            bottom = bottom + comp
     else:
-        # Fallback: single aggregate aluminum bar (original behavior)
         ax.bar(
             x_aluminum,
             aluminum_changes,
-            bar_width*0.8,
+            bar_width * 0.8,
             bottom=power_savings,
             color='#ff7f0e',
             alpha=0.8,
