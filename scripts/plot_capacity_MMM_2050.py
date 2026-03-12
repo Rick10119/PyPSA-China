@@ -543,9 +543,9 @@ def plot_single_year_market(
             aluminum_shutdown_change = 0
             has_startup = False
             has_shutdown = False
-            # 原始变化量（未加权），用于细分 maintenance / labor / restart
-            capital_delta_raw = 0.0
-            standby_delta_raw = 0.0
+            # 加权后的变化量（先乘就业情景系数 method，再用于细分 maintenance / labor / restart）
+            capital_delta_weighted = 0.0
+            standby_delta_weighted = 0.0
 
             for category, value in current_costs.items():
                 name = category.lower()
@@ -558,12 +558,10 @@ def plot_single_year_market(
                 # 根据类别前缀判断成本类型
                 if name.startswith('capital'):
                     weight = method.get("capital", 1.0)
-                    capital_delta_raw += delta_raw
                 elif name.startswith('marginal'):
                     weight = method.get("marginal", 1.0)
                 elif name.startswith('standby'):
                     weight = method.get("standby", 1.0)
-                    standby_delta_raw += delta_raw
                 else:
                     weight = method.get("other", 1.0)
 
@@ -571,6 +569,12 @@ def plot_single_year_market(
                     continue
 
                 delta = weight * delta_raw
+
+                # 用加权后的 delta 作为细分口径（与 aluminum_change 口径一致）
+                if name.startswith('capital'):
+                    capital_delta_weighted += delta
+                elif name.startswith('standby'):
+                    standby_delta_weighted += delta
 
                 # startup/shutdown 可能存在统计异常：两者都出现时只取绝对值较小的一项
                 if "startup" in name:
@@ -601,10 +605,10 @@ def plot_single_year_market(
                 restart_eur = 0.0
 
             # 细分：维护成本 = capital×比例；人工 = capital×比例 + standby×比例（EUR）
-            maintenance_eur = capital_delta_raw * ratios.get("maintenance_ratio", 0.0)
+            maintenance_eur = capital_delta_weighted * ratios.get("maintenance_ratio", 0.0)
             labor_eur = (
-                capital_delta_raw * ratios.get("labor_capital_ratio", 0.0)
-                + standby_delta_raw * ratios.get("labor_standby_ratio", 0.0)
+                capital_delta_weighted * ratios.get("labor_capital_ratio", 0.0)
+                + standby_delta_weighted * ratios.get("labor_standby_ratio", 0.0)
             )
             # 转为人民币并记录（正值表示成本增加）
             aluminum_maintenance_cny.append(maintenance_eur * EUR_TO_CNY)

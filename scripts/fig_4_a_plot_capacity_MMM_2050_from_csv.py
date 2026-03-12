@@ -92,11 +92,12 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     bars1 = ax.bar(x_power, power_savings, bar_width*0.8, color='#1f77b4', alpha=0.8, 
                    label='Power System Cost Savings')
     
-    # 电解铝成本增加按 维护 / 劳动力 / 重启 堆叠（若 CSV 含对应列）；否则用总量
+    # 电解铝成本：从 power_savings 位置“向下”扣减（画负方向），
+    # 这样堆叠后的终点会对齐净节省 net_savings（黑线数值正确时）。
     breakdown_cols = [
-        ('Aluminum_Maintenance_Billion_CNY', '#e6550d', 'Maintenance'),
-        ('Aluminum_Labor_Billion_CNY', '#fd8d3c', 'Labor'),
-        ('Aluminum_Restart_Billion_CNY', '#fdae6b', 'Restart'),
+        ('Aluminum_Maintenance_Billion_CNY', '#d62728', 'Aluminum: Maintenance'),
+        ('Aluminum_Labor_Billion_CNY', '#2ca02c', 'Aluminum: Labor'),
+        ('Aluminum_Restart_Billion_CNY', '#ff7f0e', 'Aluminum: Restart'),
     ]
     has_breakdown = all(col in df.columns for col, _, _ in breakdown_cols)
 
@@ -105,20 +106,23 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
         for col, color, label in breakdown_cols:
             comp = df[col].values
             comp = np.asarray(comp, dtype=float)
+            # Costs should reduce net savings: always draw downward
+            comp_down = -np.abs(comp)
             ax.bar(
                 x_aluminum,
-                comp,
+                comp_down,
                 bar_width * 0.8,
                 bottom=bottom,
                 color=color,
                 alpha=0.85,
                 label=label,
             )
-            bottom = bottom + comp
+            bottom = bottom + comp_down
     else:
+        aluminum_down = -np.abs(np.asarray(aluminum_changes, dtype=float))
         ax.bar(
             x_aluminum,
-            aluminum_changes,
+            aluminum_down,
             bar_width * 0.8,
             bottom=power_savings,
             color='#ff7f0e',
@@ -205,7 +209,7 @@ def main():
         logger.info("Plotting complete.")
         
         # Optionally show the figure in interactive environments
-        # plt.show()
+        plt.show()
         
     except Exception as e:
         logger.error(f"Error while plotting MMMU-2050 analysis figure: {str(e)}")
