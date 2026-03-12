@@ -335,16 +335,60 @@ def load_costs_data(version_name, year, results_dir='results'):
         Cost data. Raises FileNotFoundError if no costs file exists; propagates other errors.
     """
     try:
-        # Build file path (prefer FCG, then Neighbor, same as plot_capacity_MMM_2050)
+        # Version aliases:
+        # - Some scenarios reuse the same non-flexible results (see scripts/generate_test_configs.py):
+        #   non-flexible uses mid flex + mid demand + unfavorable employment regardless of requested flexibility.
+        #   Example: ...-LMLU-2030-non_flexible should reuse ...-MMLU-2030-non_flexible.
+        version_aliases = [str(version_name)]
+        if "non_flexible" in str(version_name):
+            v = str(version_name)
+            v2 = re.sub(r"-(?:L|H|N)M([LMH])U-(\d+)-non_flexible$", r"-MM\1U-\2-non_flexible", v)
+            if v2 != v:
+                version_aliases.append(v2)
+
+        # Resolve version directory (some workflows may already include the 'version-' prefix)
+        version_dir = None
+        for v in version_aliases:
+            cand = Path(results_dir) / f"version-{v}"
+            if cand.exists():
+                version_dir = cand
+                break
+            alt = Path(results_dir) / v
+            if alt.exists():
+                version_dir = alt
+                break
+        if version_dir is None:
+            version_dir = Path(results_dir) / f"version-{version_aliases[0]}"
+
+        # Build file path (prefer FCG, then Neighbor)
         candidates = [
-            Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+FCG-linear2050-{year}/costs.csv"),
-            Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-{year}/costs.csv"),
+            version_dir / f"summary/postnetworks/positive/postnetwork-ll-current+FCG-linear2050-{year}/costs.csv",
+            version_dir / f"summary/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-{year}/costs.csv",
         ]
-        file_path = next((p for p in candidates if p.exists()), candidates[0])
-        
-        if not file_path.exists():
+
+        file_path = next((p for p in candidates if p.exists()), None)
+
+        # Fallback: search more flexibly for costs.csv in case directory naming differs
+        if file_path is None:
+            patterns = [
+                f"summary/postnetworks/**/postnetwork-ll-current+FCG*{year}*/costs.csv",
+                f"summary/postnetworks/**/postnetwork-ll-current+Neighbor*{year}*/costs.csv",
+                f"summary/postnetworks/**/postnetwork*FCG*{year}*/costs.csv",
+                f"summary/postnetworks/**/postnetwork*Neighbor*{year}*/costs.csv",
+            ]
+            for pat in patterns:
+                matches = sorted(version_dir.glob(pat))
+                if matches:
+                    file_path = matches[0]
+                    break
+
+        if file_path is None or not file_path.exists():
+            tried = " and ".join(str(p) for p in candidates)
             raise FileNotFoundError(
-                f"Costs file not found. Tried: {candidates[0]} and {candidates[1]}"
+                "Costs file not found. "
+                f"Tried: {tried}. "
+                f"Also searched under: {version_dir}/summary/postnetworks/** for year={year}. "
+                f"Version aliases tried: {version_aliases}"
             )
         
         # Read CSV file
@@ -617,7 +661,8 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results', us
                 
                 # Baseline versions
                 aluminum_baseline_version = f"{scenario_base_version}-{flexibility}M{market}{employment_letter}-{year}-5p"
-                power_baseline_version = f"{scenario_base_version}-{flexibility}M{market}U-{year}-non_flexible"
+                # non-flexible baseline reuses a single fixed scenario (mid flex + mid demand + unfavorable)
+                power_baseline_version = f"{scenario_base_version}-MM{market}U-{year}-non_flexible"
                 
                 # Collect data
                 costs_data = {}

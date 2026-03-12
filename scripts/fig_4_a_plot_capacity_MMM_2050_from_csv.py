@@ -95,9 +95,10 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     # 电解铝成本：从 power_savings 位置“向下”扣减（画负方向），
     # 这样堆叠后的终点会对齐净节省 net_savings（黑线数值正确时）。
     breakdown_cols = [
-        ('Aluminum_Maintenance_Billion_CNY', '#d62728', 'Aluminum: Maintenance'),
-        ('Aluminum_Labor_Billion_CNY', '#2ca02c', 'Aluminum: Labor'),
-        ('Aluminum_Restart_Billion_CNY', '#ff7f0e', 'Aluminum: Restart'),
+        # warm monochrome palette (colorbrewer-like), distinct from power-system blue
+        ('Aluminum_Maintenance_Billion_CNY', '#b35806', 'Aluminum: Maintenance Cost Increase'),
+        ('Aluminum_Labor_Billion_CNY', '#f1a340', 'Aluminum: Labor Cost Increase'),
+        ('Aluminum_Restart_Billion_CNY', '#fee0b6', 'Aluminum: Restart Cost Increase'),
     ]
     has_breakdown = all(col in df.columns for col, _, _ in breakdown_cols)
 
@@ -115,6 +116,8 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
                 bottom=bottom,
                 color=color,
                 alpha=0.85,
+                edgecolor="white",
+                linewidth=0.6,
                 label=label,
             )
             bottom = bottom + comp_down
@@ -127,6 +130,8 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
             bottom=power_savings,
             color='#ff7f0e',
             alpha=0.8,
+            edgecolor="white",
+            linewidth=0.6,
             label='Aluminum Operation Cost Increase',
         )
     
