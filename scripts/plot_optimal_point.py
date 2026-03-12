@@ -79,7 +79,7 @@ def load_config(config_path):
         return config
     except Exception as e:
         logger.error(f"Error loading configuration file {config_path}: {str(e)}")
-        return None
+        raise
 
 def generate_cache_key(base_version, capacity_ratios, results_dir):
     """
@@ -300,16 +300,19 @@ def find_available_years(results_dir, base_version):
             # Check if data exists for this year
             summary_dir = version_dir / 'summary' / 'postnetworks' / 'positive'
             if summary_dir.exists():
-                year_pattern = f"postnetwork-ll-current+FCG-linear2050-{year}"
-                year_dir = summary_dir / year_pattern
-                if year_dir.exists() and (year_dir / 'costs.csv').exists():
-                    available_years.append(year)
-                    break
+                for tag in ("FCG", "Neighbor"):
+                    year_dir = summary_dir / f"postnetwork-ll-current+{tag}-linear2050-{year}"
+                    if year_dir.exists() and (year_dir / 'costs.csv').exists():
+                        available_years.append(year)
+                        break
+            if year in available_years:
+                break
     
-    # If no years found, default to 2050
     if not available_years:
-        available_years = [2050]
-        logger.warning("No year data found, defaulting to 2050")
+        raise FileNotFoundError(
+            f"No year data found under {results_path} for base_version={base_version}. "
+            "Ensure postnetwork cost results exist (FCG or Neighbor) for at least one of 2030, 2040, 2050."
+        )
     
     return sorted(list(set(available_years)))
 
@@ -328,16 +331,21 @@ def load_costs_data(version_name, year, results_dir='results'):
         
     Returns:
     --------
-    pd.DataFrame or None
-        Cost data
+    pd.DataFrame
+        Cost data. Raises FileNotFoundError if no costs file exists; propagates other errors.
     """
     try:
-        # Build file path
-        file_path = Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+FCG-linear2050-{year}/costs.csv")
+        # Build file path (prefer FCG, then Neighbor, same as plot_capacity_MMM_2050)
+        candidates = [
+            Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+FCG-linear2050-{year}/costs.csv"),
+            Path(f"{results_dir}/version-{version_name}/summary/postnetworks/positive/postnetwork-ll-current+Neighbor-linear2050-{year}/costs.csv"),
+        ]
+        file_path = next((p for p in candidates if p.exists()), candidates[0])
         
         if not file_path.exists():
-            logger.warning(f"File does not exist: {file_path}")
-            return None
+            raise FileNotFoundError(
+                f"Costs file not found. Tried: {candidates[0]} and {candidates[1]}"
+            )
         
         # Read CSV file
         df = pd.read_csv(file_path, header=None)
@@ -360,7 +368,7 @@ def load_costs_data(version_name, year, results_dir='results'):
         
     except Exception as e:
         logger.error(f"Error loading data: {str(e)}")
-        return None
+        raise
 
 def calculate_cost_categories(costs_data):
     """
@@ -615,25 +623,20 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results', us
                 costs_data = {}
                 baseline_data = {}
                 
-                # Load baseline data
+                # Load baseline data (raises if file missing)
                 aluminum_baseline = load_costs_data(aluminum_baseline_version, year, results_dir)
-                if aluminum_baseline is not None:
-                    baseline_data['aluminum'] = aluminum_baseline
+                baseline_data['aluminum'] = aluminum_baseline
                 
                 power_baseline = load_costs_data(power_baseline_version, year, results_dir)
-                if power_baseline is not None:
-                    baseline_data['power'] = power_baseline
+                baseline_data['power'] = power_baseline
                 
-                # Load data for each capacity ratio
+                # Load data for each capacity ratio (raises if any file missing)
                 for ratio in capacity_ratios:
                     version_name = config_versions[ratio]
                     costs = load_costs_data(version_name, year, results_dir)
-                    if costs is not None:
-                        costs_data[ratio] = costs
+                    costs_data[ratio] = costs
                 
-                if not costs_data or not baseline_data:
-                    logger.warning(f"No data found for {year}-{market}-{flexibility}")
-                    continue
+                # All required data loaded (otherwise load_costs_data already raised)
                 
                 # Calculate net values (same method as plot_capacity_multi_year_market_comparison)
                 power_cost_changes = []
@@ -722,18 +725,20 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results', us
                         aluminum_cost_changes.append(0)
                     
                     # Read capacity ratio values and calculate actual capacity
-                    scenario_suffix = f"{flexibility}M{market}"
-                    config_file = f"configs/config_{scenario_suffix}_{year}_{ratio}.yaml"
+                    # Config name must match scenario code including employment (e.g. LMLU)
+                    scenario_code_for_config = f"{flexibility}M{market}{employment_letter}"
+                    config_file = f"configs/config_{scenario_code_for_config}_{year}_{ratio}.yaml"
                     config = load_config(config_file)
-                    capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
                     if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
                         capacity_ratio = config['aluminum']['capacity_ratio']
-                    
-                    # Calculate actual capacity using the same method as generate_capacity_test_configs
-                    # Convert cap_ratio from percentage to decimal (e.g., "10p" -> 0.1)
+                    elif 'aluminum_capacity_ratio' in config:
+                        capacity_ratio = config['aluminum_capacity_ratio']
+                    else:
+                        raise KeyError(
+                            f"Config {config_file} must contain 'aluminum_capacity_ratio' or 'aluminum.capacity_ratio'."
+                        )
                     cap_ratio_decimal = float(ratio.replace('p', '')) / 100.0
                     actual_capacity_ratio = calculate_actual_capacity_ratio(year, cap_ratio_decimal, 'mid')
-                    # Calculate actual capacity in 10,000 tons/year (4500 * actual_capacity_ratio)
                     actual_capacity = 45 * actual_capacity_ratio
                     capacity_values.append(actual_capacity)
                 
@@ -790,13 +795,11 @@ def plot_optimal_points_distribution(use_cache=True, save_csv=True):
     from scipy import stats
     from scipy.stats import norm
     
-    # Load base version from main config file
+    # Load base version from main config file (raises if missing)
     main_config = load_config('config.yaml')
-    if main_config is None:
-        logger.error("Cannot load main config file config.yaml")
-        return
-    
-    base_version = main_config.get('version', '0815.1H.1')
+    if 'version' not in main_config:
+        raise KeyError("config.yaml must contain 'version'.")
+    base_version = main_config['version']
     logger.info(f"Loaded base version from main config: {base_version}")
     
     # Define capacity ratios
@@ -935,13 +938,11 @@ def plot_optimal_points_boxplot(use_cache=True, save_csv=True):
     """
     Plot box plot of optimal points showing capacity and net value distribution by year
     """
-    # Load base version from main config file
+    # Load base version from main config file (raises if missing)
     main_config = load_config('config.yaml')
-    if main_config is None:
-        logger.error("Cannot load main config file config.yaml")
-        return
-    
-    base_version = main_config.get('version', '0815.1H.1')
+    if 'version' not in main_config:
+        raise KeyError("config.yaml must contain 'version'.")
+    base_version = main_config['version']
     logger.info(f"Loaded base version from main config: {base_version}")
     
     # Define capacity ratios
@@ -1063,13 +1064,11 @@ def plot_optimal_points_scatter(use_cache=True, save_csv=True):
     """
     Plot scatter chart of optimal points showing capacity and net value
     """
-    # Load base version from main config file
+    # Load base version from main config file (raises if missing)
     main_config = load_config('config.yaml')
-    if main_config is None:
-        logger.error("Cannot load main config file config.yaml")
-        return
-    
-    base_version = main_config.get('version', '0815.1H.1')
+    if 'version' not in main_config:
+        raise KeyError("config.yaml must contain 'version'.")
+    base_version = main_config['version']
     logger.info(f"Loaded base version from main config: {base_version}")
     
     # Define capacity ratios
