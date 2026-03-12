@@ -29,27 +29,6 @@ plt.rcParams['axes.unicode_minus'] = False
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# 配置铝成本采用方法：
-# 按就业情景 (U=MMMU, F=MMMF) 和成本类型 (capital/marginal/standby/other) 指定权重。
-# 例如：
-# - capital: 0 表示完全忽略资本成本
-# - marginal: 1 表示完全计入运行成本
-# - standby: 0.5 表示只计入一半 standby 成本
-ALUMINUM_COST_METHODS = {
-    "U": {  # MMMU
-        "capital": 0.203355,
-        "marginal": 1.4227,
-        "standby": 0,
-        "other": 1.0,
-    },
-    "F": {  # MMMF（可根据需要调整与 MMMU 不同的比例）
-        "capital": 0.325368,
-        "marginal": 1.4227,
-        "standby": 0.94847,
-        "other": 1.0,
-    },
-}
-
 def load_config(config_path):
     """
     加载配置文件
@@ -505,62 +484,17 @@ def plot_single_year_market(
             power_cost_changes.append(0)
         
         if ratio in costs_data and 'aluminum' in baseline_data:
-            # 计算电解铝成本变化（成本减少为正方向），不同情景下按类型加权
+            # 计算电解铝成本变化（成本减少为正方向）
             current_costs = calculate_cost_categories(costs_data[ratio])
             baseline_costs = calculate_cost_categories(baseline_data['aluminum'])
-
-            method = ALUMINUM_COST_METHODS.get(employment, ALUMINUM_COST_METHODS.get("U", {}))
+            
+            # 计算aluminum相关成本变化
             aluminum_change = 0
-            aluminum_startup_change = 0
-            aluminum_shutdown_change = 0
-            has_startup = False
-            has_shutdown = False
-
             for category, value in current_costs.items():
-                name = category.lower()
-                if 'aluminum' not in name:
-                    continue
-
-                # 根据类别前缀判断成本类型
-                if name.startswith('capital'):
-                    weight = method.get("capital", 1.0)
-                elif name.startswith('marginal'):
-                    weight = method.get("marginal", 1.0)
-                elif name.startswith('standby'):
-                    weight = method.get("standby", 1.0)
-                else:
-                    weight = method.get("other", 1.0)
-
-                if weight == 0:
-                    continue
-
-                baseline_value = baseline_costs.get(category, 0)
-                delta = weight * (value - baseline_value)
-
-                # startup/shutdown 可能存在统计异常：两者都出现时只取绝对值较小的一项
-                if "startup" in name:
-                    aluminum_startup_change += delta
-                    has_startup = True
-                elif "shutdown" in name:
-                    aluminum_shutdown_change += delta
-                    has_shutdown = True
-                else:
-                    aluminum_change += delta
-
-            # 合并 startup/shutdown：
-            # 两者都存在则取绝对值更小者（保留符号）并乘以 2，避免一边统计异常导致放大
-            if has_startup and has_shutdown:
-                chosen = (
-                    aluminum_startup_change
-                    if abs(aluminum_startup_change) <= abs(aluminum_shutdown_change)
-                    else aluminum_shutdown_change
-                )
-                aluminum_change += 2 * chosen
-            elif has_startup:
-                aluminum_change += aluminum_startup_change
-            elif has_shutdown:
-                aluminum_change += aluminum_shutdown_change
-
+                if 'aluminum' in category.lower():
+                    baseline_value = baseline_costs.get(category, 0)
+                    aluminum_change += (value - baseline_value)
+            
             # 成本减少为正方向，所以取负值
             aluminum_cost_changes.append(-aluminum_change * EUR_TO_CNY)  # 转换为人民币，成本减少为正
         else:

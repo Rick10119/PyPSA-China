@@ -223,9 +223,9 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
     # 基础参数
     operational_params = {
         'p_min_pu': smelter_params['p_min_pu'],
-        'capital_cost': 163432.8,
-        'stand_by_cost': smelter_params.get('stand_by_cost', 1.5),  # $/MW/h
-        'marginal_cost': 1,
+        'capital_cost': 33234.9, # eur/MW, 400 ￥/tonne
+        'stand_by_cost': smelter_params.get('stand_by_cost', 1.4227),  # eur/MW/h, 150 ￥/tonne
+        'marginal_cost': 1.4227, # eur/MWh, 150 ￥/tonne
     }
 
     if employment_params:
