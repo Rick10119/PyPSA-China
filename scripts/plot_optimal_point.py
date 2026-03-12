@@ -1,4 +1,3 @@
-@ -1,1177 +0,0 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -32,6 +31,23 @@ plt.rcParams['axes.unicode_minus'] = False
 # Set logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
+
+# Aluminum cost aggregation method (keep consistent with plot_capacity_MMM_2050.py)
+# Configure by employment scenario (currently only U is used here) and cost type.
+ALUMINUM_COST_METHODS = {
+    "U": {  # MMMU
+        "capital": 0.203355,
+        "marginal": 1.4227,
+        "standby": 0.0,
+        "other": 1.0,
+    },
+    "F": {  # MMMF (kept for completeness; not used in this script yet)
+        "capital": 0.325368,
+        "marginal": 1.4227,
+        "standby": 0.94847,
+        "other": 1.0,
+    },
+}
 
 def load_config(config_path):
     """
@@ -540,8 +556,8 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results', us
         else:
             logger.info("Cache not available or outdated, computing optimal points...")
     
-    # Euro to CNY conversion rate
-    EUR_TO_CNY = 7.8
+    # Euro to CNY conversion rate (keep consistent with plot_capacity_MMM_2050.py)
+    EUR_TO_CNY = 7.868
     
     # Find available years
     available_years = find_available_years(results_dir, base_version)
@@ -583,7 +599,7 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results', us
                 
                 # Baseline versions
                 aluminum_baseline_version = f"{scenario_base_version}-{flexibility}M{market}{employment_letter}-{year}-5p"
-                power_baseline_version = f"{scenario_base_version}-{flexibility}M{market}{employment_letter}-{year}-non_flexible"
+                power_baseline_version = f"{scenario_base_version}-{flexibility}M{market}U-{year}-non_flexible"
                 
                 # Collect data
                 costs_data = {}
@@ -633,19 +649,65 @@ def find_optimal_points(base_version, capacity_ratios, results_dir='results', us
                         power_cost_changes.append(0)
                     
                     if ratio in costs_data and 'aluminum' in baseline_data:
-                        # Calculate aluminum cost changes (cost reduction is positive)
+                        # Calculate aluminum cost changes (cost reduction is positive),
+                        # using the same weighting method as plot_capacity_MMM_2050.py.
                         current_costs = calculate_cost_categories(costs_data[ratio])
                         baseline_costs = calculate_cost_categories(baseline_data['aluminum'])
-                        
-                        # Calculate aluminum related cost changes
-                        aluminum_cost_change = 0
+
+                        method = ALUMINUM_COST_METHODS.get(employment_letter, ALUMINUM_COST_METHODS.get("U", {}))
+                        aluminum_change = 0
+                        aluminum_startup_change = 0
+                        aluminum_shutdown_change = 0
+                        has_startup = False
+                        has_shutdown = False
+
                         for category, value in current_costs.items():
-                            if 'aluminum' in category.lower():
-                                baseline_value = baseline_costs.get(category, 0)
-                                aluminum_cost_change += (value - baseline_value)
-                        
+                            name = category.lower()
+                            if 'aluminum' not in name:
+                                continue
+
+                            # Determine cost type from category prefix
+                            if name.startswith('capital'):
+                                weight = method.get("capital", 1.0)
+                            elif name.startswith('marginal'):
+                                weight = method.get("marginal", 1.0)
+                            elif name.startswith('standby'):
+                                weight = method.get("standby", 1.0)
+                            else:
+                                weight = method.get("other", 1.0)
+
+                            if weight == 0:
+                                continue
+
+                            baseline_value = baseline_costs.get(category, 0)
+                            delta = weight * (value - baseline_value)
+
+                            # startup/shutdown may contain noisy stats: when both exist,
+                            # we only keep the smaller |delta| (with sign) and double it.
+                            if "startup" in name:
+                                aluminum_startup_change += delta
+                                has_startup = True
+                            elif "shutdown" in name:
+                                aluminum_shutdown_change += delta
+                                has_shutdown = True
+                            else:
+                                aluminum_change += delta
+
+                        # Merge startup/shutdown contributions
+                        if has_startup and has_shutdown:
+                            chosen = (
+                                aluminum_startup_change
+                                if abs(aluminum_startup_change) <= abs(aluminum_shutdown_change)
+                                else aluminum_shutdown_change
+                            )
+                            aluminum_change += 2 * chosen
+                        elif has_startup:
+                            aluminum_change += aluminum_startup_change
+                        elif has_shutdown:
+                            aluminum_change += aluminum_shutdown_change
+
                         # Cost reduction is positive direction, so take negative value
-                        aluminum_cost_changes.append(-aluminum_cost_change * EUR_TO_CNY)
+                        aluminum_cost_changes.append(-aluminum_change * EUR_TO_CNY)
                     else:
                         aluminum_cost_changes.append(0)
                     
