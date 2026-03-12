@@ -180,45 +180,48 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     plt.tight_layout()
     
     # Save figure
-    plot_file = output_dir / "mmmu_2050_analysis.png"
+    # Derive a stable output name from the CSV stem, e.g.
+    #   mmmu_2050_M_detailed_data.csv -> mmmu_2050_analysis.png
+    #   mmmf_2050_M_detailed_data.csv -> mmmf_2050_analysis.png
+    stem = Path(csv_path).stem
+    scenario_tag = stem.replace("_M_detailed_data", "").replace("_detailed_data", "")
+    plot_file = output_dir / f"{scenario_tag}_analysis.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"MMMU-2050 scenario analysis figure saved to: {plot_file}")
+    logger.info(f"Scenario analysis figure saved to: {plot_file}")
     
     
     return fig, ax
 
 def main():
     """CLI entry point."""
-    # Default CSV file path
-    default_csv_path = "results/mmmu_2050_analysis/mmmu_2050_M_detailed_data.csv"
-    
-    # Check that the CSV file exists
-    csv_path = Path(default_csv_path)
-    if not csv_path.exists():
+    # Plot MMMU and MMMF if corresponding CSV files exist (each saved under its own folder)
+    candidate_csv_paths = [
+        Path("results/mmmu_2050_analysis/mmmu_2050_M_detailed_data.csv"),
+        Path("results/mmmf_2050_analysis/mmmf_2050_M_detailed_data.csv"),
         # Backward-compatible fallback to the old naming convention
-        legacy_csv_path = Path("results/mmm_2050_analysis/mmm_2050_M_detailed_data.csv")
-        if legacy_csv_path.exists():
-            logger.warning(f"Default CSV not found; falling back to legacy path: {legacy_csv_path}")
-            csv_path = legacy_csv_path
-        else:
-            logger.error(f"CSV file not found: {csv_path}")
-            logger.info("Please ensure that `mmmu_2050_M_detailed_data.csv` (or legacy `mmm_2050_M_detailed_data.csv`) is available.")
-            return
-    
-    logger.info("Start plotting MMMU-2050 scenario analysis figure.")
-    logger.info(f"Data file: {csv_path}")
-    
-    # Generate the plot
-    try:
-        fig, ax = plot_mmm_2050_from_csv(csv_path)
-        logger.info("Plotting complete.")
-        
-        # Optionally show the figure in interactive environments
-        plt.show()
-        
-    except Exception as e:
-        logger.error(f"Error while plotting MMMU-2050 analysis figure: {str(e)}")
-        raise
+        Path("results/mmm_2050_analysis/mmm_2050_M_detailed_data.csv"),
+    ]
+
+    csv_paths = [p for p in candidate_csv_paths if p.exists()]
+    if not csv_paths:
+        logger.error("No detailed CSV file found for plotting.")
+        logger.info(
+            "Expected one of: "
+            "`results/mmmu_2050_analysis/mmmu_2050_M_detailed_data.csv`, "
+            "`results/mmmf_2050_analysis/mmmf_2050_M_detailed_data.csv`, "
+            "or legacy `results/mmm_2050_analysis/mmm_2050_M_detailed_data.csv`."
+        )
+        return
+
+    logger.info("Start plotting MMM*-2050 scenario analysis figure(s).")
+    for csv_path in csv_paths:
+        logger.info(f"Data file: {csv_path}")
+        try:
+            plot_mmm_2050_from_csv(csv_path)
+            logger.info("Plotting complete.")
+        except Exception as e:
+            logger.error(f"Error while plotting from {csv_path}: {str(e)}")
+            raise
 
 if __name__ == "__main__":
     main()

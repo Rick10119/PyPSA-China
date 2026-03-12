@@ -43,7 +43,7 @@ ALUMINUM_COST_METHODS = {
         "other": 1.0,
     },
     "F": {  # MMMF（可根据需要调整与 MMMU 不同的比例）
-        "capital": 0.325368,
+        "capital": 0.127097,
         "marginal": 1.4227,
         "standby": 0.94847,
         "other": 1.0,
@@ -51,7 +51,7 @@ ALUMINUM_COST_METHODS = {
 }
 
 # 电解铝成本细分比例（用于记录 maintenance / labor / restart），按就业情景 U(MMMU)/F(MMMF) 分别设置
-# maintenance = capital 变化量 × maintenance_ratio
+# maintenance = capital 变化量 × maintenance_ratio （因为变化的维护成本不变）
 # labor = capital 变化量 × labor_capital_ratio + standby 变化量 × labor_standby_ratio
 # restart_cost = startup + shutdown（两者都有时取绝对值小者×2）
 ALUMINUM_COST_BREAKDOWN_RATIOS = {
