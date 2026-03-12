@@ -765,7 +765,7 @@ def plot_mmm_2050_analysis(employment="U"):
     logger.info(f"Base version read from main config file: {base_version}")
     
     # 定义容量比例
-    capacity_ratios = ['5p', '10p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
+    capacity_ratios = ['5p', '10p', '15p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
     
     # 固定为 MMM*-2050 情景（M demand, M flexibility, M market，employment 由参数决定）
     year = 2050
