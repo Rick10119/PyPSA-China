@@ -419,10 +419,10 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
     )
     
     ax.set_xlabel('Month', fontsize=40)
-    ax.set_ylabel('Electricity Demand [TWh]', fontsize=40)
+    ax.set_ylabel('Electricity Demand / Generation (TWh)', fontsize=40)
     title_province = target_province or "National"
     ax.set_title(
-        f'Monthly Net Load & Components - {planning_horizon} ({title_province})',
+        f'Monthly Net Demand & Components - {planning_horizon} ({title_province})',
         fontsize=40
     )
     
@@ -438,7 +438,7 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
     plt.tight_layout()
     plt.subplots_adjust(right=2)
     
-    output_dir = "results/plots/monthly_net_demand"
+    output_dir = "results/monthly_net_demand"
     os.makedirs(output_dir, exist_ok=True)
     safe_province = (target_province or "National").replace(" ", "")
     plot_filename = f"{output_dir}/net_demand_{planning_horizon}_{safe_province}.png"
@@ -454,10 +454,10 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
 
 if __name__ == "__main__":
     # Default scenario if not run via snakemake
-    scenario = "version-0120.1H.1-MMMU-2050-10p"
+    scenario = "version-0120.1H.1-MMMU-2050-15p"
     planning_horizon = "2050"
     network_path = f"results/{scenario}/postnetworks/positive/postnetwork-ll-current+FCG-linear2050-2050.nc"
-    # scenario = "version-0120.1H.1-MMMF-2050-10p"
+    # scenario = "version-0120.1H.1-MMMF-2050-15p"
     # planning_horizon = "2050"
     # network_path = f"results/{scenario}/postnetworks/positive/postnetwork-ll-current+neighbor-linear2050-2050.nc"
     

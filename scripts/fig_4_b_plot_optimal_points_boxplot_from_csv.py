@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-绘制最优点的箱线图
-从 optimal_points_distribution_data_latest.csv 文件读取数据并绘制箱线图
+Plot boxplots of optimal points.
+Read data from optimal_points_distribution_data_latest.csv and plot boxplots.
 """
 
 import pandas as pd
@@ -10,55 +10,55 @@ import numpy as np
 from pathlib import Path
 import logging
 
-# 设置日志
+# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# 设置matplotlib中文字体
+# Matplotlib font settings
 plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'sans-serif']
 plt.rcParams['axes.unicode_minus'] = False
 
 def load_optimal_points_data(csv_file='results/optimal_points_analysis/optimal_points_distribution_data_latest.csv'):
     """
-    从CSV文件加载最优点数据
+    Load optimal points data from CSV.
     
     Parameters:
     -----------
     csv_file : str
-        CSV文件路径
+        Path to CSV file
         
     Returns:
     --------
     pd.DataFrame
-        加载的数据
+        Loaded dataframe
     """
     try:
         df = pd.read_csv(csv_file)
-        logger.info(f"成功加载数据: {len(df)} 个数据点")
-        logger.info(f"年份: {sorted(df['year'].unique())}")
-        logger.info(f"市场: {sorted(df['market'].unique())}")
-        logger.info(f"灵活性: {sorted(df['flexibility'].unique())}")
+        logger.info(f"Successfully loaded data: {len(df)} points")
+        logger.info(f"Years: {sorted(df['year'].unique())}")
+        logger.info(f"Markets: {sorted(df['market'].unique())}")
+        logger.info(f"Flexibility levels: {sorted(df['flexibility'].unique())}")
         return df
     except Exception as e:
-        logger.error(f"加载数据失败: {str(e)}")
+        logger.error(f"Failed to load data: {str(e)}")
         return None
 
 
 def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     """
-    绘制组合箱线图（产能和净价值）
+    Plot combined boxplots (capacity and net value).
     
     Parameters:
     -----------
     df : pd.DataFrame
-        数据框
+        Input data
     output_dir : str
-        输出目录
+        Output directory
     """
-    # 按年份分组
+    # Group by year
     years = sorted(df['year'].unique())
     
-    # 准备数据
+    # Prepare data
     capacity_data = []
     net_value_data = []
     year_labels = []
@@ -72,14 +72,14 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         net_value_data.append(net_values)
         year_labels.append(f'{year}')
     
-    # 创建图形 - 改为上下排列，压扁子图
+    # Create figure: two vertically stacked subplots
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
     
-    # 设置颜色
+    # Colors
     colors = plt.cm.viridis(np.linspace(0, 1, len(years)))
     year_colors = dict(zip(years, colors))
     
-    # 上图：产能箱线图
+    # Top: capacity boxplot
     bp1 = ax1.boxplot(capacity_data, labels=year_labels, patch_artist=True, 
                      boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2),
                      showfliers=False)
@@ -94,10 +94,10 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     ax1.tick_params(axis='both', which='major', labelsize=18)
     ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
     
-    # 设置y轴从0开始
+    # Start y-axis from zero
     ax1.set_ylim(bottom=0)
     
-    # 添加年度需求线 - 使用与箱子相同的颜色
+    # Add annual demand lines using the same colors as boxes
     demand_by_year = {
         2030: 29.0241717,
         2040: 15.0817033,
@@ -111,21 +111,21 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
             ax1.axhline(y=demand, xmin=(i-1)/len(years), xmax=i/len(years), 
                        color=year_colors[year], linestyle='--', linewidth=3, alpha=0.8)
     
-    # 计算每年的平均产能
+    # Compute mean capacity by year
     year_capacity_means = {}
     for i, year in enumerate(years):
         year_data = df[df['year'] == year]
         if not year_data.empty:
             year_capacity_means[year] = year_data['capacity'].mean()
     
-    # 计算每年的平均过剩产能率
+    # Compute mean overcapacity ratio by year
     year_excess_ratio_means = {}
     for i, year in enumerate(years):
         year_data = df[df['year'] == year]
         if not year_data.empty:
             year_excess_ratio_means[year] = year_data['excess_ratio'].mean()
     
-    # 添加连接需求值的虚线
+    # Connect demand values with a dashed line
     demand_years = [year for year in years if year in demand_by_year]
     if len(demand_years) > 1:
         demand_values = [demand_by_year[year] for year in demand_years]
@@ -134,7 +134,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         ax1.plot(demand_x_positions, demand_values, 'k--', linewidth=2, alpha=0.6, 
                 label='Demand Trend')
     
-    # 添加连接平均产能的虚线
+    # Connect mean capacities with a dashed line
     if len(year_capacity_means) > 1:
         capacity_years = sorted(year_capacity_means.keys())
         capacity_values = [year_capacity_means[year] for year in capacity_years]
@@ -143,20 +143,20 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         ax1.plot(capacity_x_positions, capacity_values, 'b--', linewidth=2, alpha=0.6, 
                 label='Average Capacity Trend')
     
-    # 在每个箱子上方添加过剩产能率平均值标注
+    # Annotate mean overcapacity ratio above each box
     for i, year in enumerate(years, 1):
         if year in year_excess_ratio_means:
             excess_ratio_mean = year_excess_ratio_means[year]
-            # 获取该年份产能的最大值，用于确定标注位置
+            # Use mean capacity to position the label
             year_data = df[df['year'] == year]
             if not year_data.empty:
                 mean_capacity = year_data['capacity'].mean()
-                # 在箱子右侧添加文本标注，位置稍微下移
+                # Add text label slightly to the right of the box
                 ax1.text(i + 0.2, mean_capacity, f'{excess_ratio_mean:.0%}', 
                         ha='left', va='center', fontsize=18, fontweight='bold',
                         bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.8))
     
-    # 下图：净价值箱线图
+    # Bottom: net benefit boxplot
     bp2 = ax2.boxplot(net_value_data, labels=year_labels, patch_artist=True, 
                      boxprops=dict(alpha=0.7), medianprops=dict(color='black', linewidth=2),
                      showfliers=False)
@@ -171,30 +171,30 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     ax2.tick_params(axis='both', which='major', labelsize=18)
     ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
     
-    # 设置y轴从0开始
+    # Start y-axis from zero
     ax2.set_ylim(bottom=0)
     
-    # 计算每年的平均净价值
+    # Compute mean net benefit by year
     year_net_value_means = {}
     for i, year in enumerate(years):
         year_data = df[df['year'] == year]
         if not year_data.empty:
             year_net_value_means[year] = year_data['net_value'].mean()
     
-    # 在每个箱子右侧添加净价值平均值标注
+    # Annotate mean net benefit next to each box
     for i, year in enumerate(years, 1):
         if year in year_net_value_means:
             net_value_mean = year_net_value_means[year]
-            # 获取该年份净价值的最大值，用于确定标注位置
+            # Use mean net benefit to position the label
             year_data = df[df['year'] == year]
             if not year_data.empty:
                 mean_net_value = year_data['net_value'].mean()
-                # 在箱子右侧添加文本标注
+                # Add text label next to the box
                 ax2.text(i + 0.2, mean_net_value, f'{net_value_mean:.0f}B', 
                         ha='left', va='center', fontsize=18, fontweight='bold',
                         bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.8))
     
-    # 在第二个子图中添加图例，只显示均值
+    # Add legend to the second subplot (mean net benefit only)
     if year_net_value_means:
         from matplotlib.patches import Rectangle
         legend_elements_2 = [Rectangle((0.1, 0.1), 1, 1, facecolor='white', 
@@ -203,10 +203,10 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         ax2.legend(handles=legend_elements_2, loc='upper left', 
                   frameon=False, fontsize=18)
     
-    # 在第一个子图中添加图例
+    # Legend for the first subplot
     legend_elements = []
     
-    # 添加趋势线到图例
+    # Add trend lines to legend
     if len(demand_years) > 1:
         legend_elements.append(plt.Line2D([0], [0], color='k', linestyle='--', linewidth=2, 
                                         label='Primary Aluminum Demand'))
@@ -215,78 +215,87 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         legend_elements.append(plt.Line2D([0], [0], color='b', linestyle='-.', linewidth=2, 
                                         label='Mean Optimal Capacity'))
     
-    # 添加均值标注到图例
+    # Add mean overcapacity annotation to legend
     if year_capacity_means or year_net_value_means:
-        # 创建一个带框的图例项来表示文本框标注
+        # Use a framed legend item to represent text-box annotations
         from matplotlib.patches import Rectangle
         legend_elements.append(Rectangle((0, 0), 1, 1, facecolor='white', 
                                        edgecolor='black', alpha=0.8,
                                        label='Mean Overcapacity Ratio'))
     
-    # 在第一个子图中添加图例，无框
+    # Add legend to the first subplot without frame
     if legend_elements:
         ax1.legend(handles=legend_elements, loc='lower left', 
                   frameon=False, fontsize=18)
     
-    # 调整布局，为图例留出空间
+    # (Optional) adjust layout if needed to leave space for legends
     # plt.tight_layout(rect=[0, 0.1, 1, 1])
     
-    # 保存图形
+    # Save figure
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     
     plot_file = output_path / "optimal_points_combined_boxplot.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logger.info(f"组合箱线图已保存到: {plot_file}")
+    logger.info(f"Combined boxplot saved to: {plot_file}")
     
     return fig
 
 def print_data_summary(df):
     """
-    打印数据摘要统计
+    Print summary statistics of the data.
     
     Parameters:
     -----------
     df : pd.DataFrame
-        数据框
+        Input dataframe
     """
-    logger.info("=== 数据摘要统计 ===")
-    logger.info(f"总数据点数: {len(df)}")
-    logger.info(f"年份范围: {df['year'].min()} - {df['year'].max()}")
-    logger.info(f"包含年份: {sorted(df['year'].unique())}")
-    logger.info(f"市场类型: {sorted(df['market'].unique())}")
-    logger.info(f"灵活性类型: {sorted(df['flexibility'].unique())}")
+    logger.info("=== Data summary ===")
+    logger.info(f"Total data points: {len(df)}")
+    logger.info(f"Year range: {df['year'].min()} - {df['year'].max()}")
+    logger.info(f"Years included: {sorted(df['year'].unique())}")
+    logger.info(f"Market types: {sorted(df['market'].unique())}")
+    logger.info(f"Flexibility types: {sorted(df['flexibility'].unique())}")
     
-    logger.info("\n=== 按年份统计 ===")
+    logger.info("\n=== Statistics by year ===")
     for year in sorted(df['year'].unique()):
         year_data = df[df['year'] == year]
-        logger.info(f"{year}年:")
-        logger.info(f"  数据点数: {len(year_data)}")
-        logger.info(f"  产能范围: {year_data['capacity'].min():.1f} - {year_data['capacity'].max():.1f} 万吨/年")
-        logger.info(f"  净价值范围: {year_data['net_value'].min():.2f} - {year_data['net_value'].max():.2f} 十亿人民币")
-        logger.info(f"  过剩比例范围: {year_data['excess_ratio'].min():.1%} - {year_data['excess_ratio'].max():.1%}")
+        logger.info(f"Year {year}:")
+        logger.info(f"  Number of points: {len(year_data)}")
+        logger.info(
+            f"  Capacity range: "
+            f"{year_data['capacity'].min():.1f} - {year_data['capacity'].max():.1f} Mt/year"
+        )
+        logger.info(
+            f"  Net benefit range: "
+            f"{year_data['net_value'].min():.2f} - {year_data['net_value'].max():.2f} Billion CNY"
+        )
+        logger.info(
+            f"  Overcapacity ratio range: "
+            f"{year_data['excess_ratio'].min():.1%} - {year_data['excess_ratio'].max():.1%}"
+        )
 
 def main():
     """
-    主函数
+    Main entry point.
     """
-    # 数据文件路径
+    # Data file path
     csv_file = 'results/optimal_points_analysis/optimal_points_distribution_data_latest.csv'
     
-    # 加载数据
+    # Load data
     df = load_optimal_points_data(csv_file)
     if df is None:
-        logger.error("无法加载数据，程序退出")
+        logger.error("Failed to load data; exiting.")
         return
     
-    # 打印数据摘要
+    # Print summary
     print_data_summary(df)
     
-    # 绘制组合箱线图（上下排列）
-    logger.info("开始绘制组合箱线图...")
+    # Plot combined boxplots (capacity and net benefit)
+    logger.info("Start plotting combined boxplots...")
     plot_combined_boxplot(df)
     
-    logger.info("箱线图绘制完成！")
+    logger.info("Boxplots finished.")
 
 if __name__ == "__main__":
     main()

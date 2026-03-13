@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-绘制 MMMU/MMMF-2050 情景下的成本分析图表
-横轴：不同电解铝容量比例（5p-100p）
-纵轴：成本节约（十亿人民币）和碳排放减少（百万吨CO2）
-显示电力系统成本节约、电解铝运行成本变化、净成本节约和碳排放减少
-需求设为M，灵活性设为M，市场机会设为M，就业转移设为U/F（核心情景：MMMU，对比情景：MMMF）
-成本减少为正方向，碳排放减少为正方向
+Plot cost analysis for MMMU/MMMF-2050 scenarios.
+
+X-axis: different aluminum capacity ratios (5p–100p)
+Y-axes:
+- Left: cost savings (Billion CNY)
+- Right: emissions reduction (Million tonnes CO2)
+
+The figure shows:
+- power-system cost savings
+- aluminum operational cost changes
+- net cost savings
+- emissions reduction
+
+Demand is fixed at M, flexibility at M, market opportunity at M,
+and employment transfer at U/F (core scenario: MMMU, comparison: MMMF).
+Positive direction: cost reduction and emissions reduction.
 """
 
 import pandas as pd
@@ -21,20 +31,20 @@ import copy
 import glob
 import re
 
-# 设置中文字体
+# Font settings
 plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'sans-serif']
 plt.rcParams['axes.unicode_minus'] = False
 
-# 设置日志
+# Logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# 配置铝成本采用方法（因为跑完程序后 U 和 F 的铝成本采用方法不同）：
-# 按就业情景 (U=MMMU, F=MMMF) 和成本类型 (capital/marginal/standby/other) 指定权重。
-# 例如：
-# - capital: 0 表示完全忽略资本成本
-# - marginal: 1 表示完全计入运行成本
-# - standby: 0.5 表示只计入一半 standby 成本
+# Aluminum cost weighting method (employment scenarios U and F use different weights).
+# We specify weights by employment scenario (U=MMMU, F=MMMF) and cost type
+# (capital/marginal/standby/other). For example:
+# - capital: 0        → ignore capital cost completely
+# - marginal: 1       → fully include variable cost
+# - standby: 0.5      → include half of standby cost
 ALUMINUM_COST_METHODS = {
     "U": {  # MMMU
         "capital": 0.203355,
@@ -42,7 +52,7 @@ ALUMINUM_COST_METHODS = {
         "standby": 0,
         "other": 1.0,
     },
-    "F": {  # MMMF（可根据需要调整与 MMMU 不同的比例）
+    "F": {  # MMMF (can be tuned separately from MMMU if needed)
         "capital": 0.127097,
         "marginal": 1.4227,
         "standby": 0.94847,
@@ -50,10 +60,12 @@ ALUMINUM_COST_METHODS = {
     },
 }
 
-# 电解铝成本细分比例（用于记录 maintenance / labor / restart），按就业情景 U(MMMU)/F(MMMF) 分别设置
-# maintenance = capital 变化量 × maintenance_ratio （因为变化的维护成本不变）
-# labor = capital 变化量 × labor_capital_ratio + standby 变化量 × labor_standby_ratio
-# restart_cost = startup + shutdown（两者都有时取绝对值小者×2）
+# Aluminum cost breakdown ratios (for logging maintenance / labor / restart),
+# specified separately for employment scenarios U (MMMU) and F (MMMF):
+# - maintenance = capital change × maintenance_ratio
+# - labor      = capital change × labor_capital_ratio
+#                + standby change × labor_standby_ratio
+# - restart_cost = startup + shutdown (if both exist, take the smaller |value| × 2)
 ALUMINUM_COST_BREAKDOWN_RATIOS = {
     "U": {  # MMMU
         "maintenance_ratio": 0.625,
@@ -69,17 +81,17 @@ ALUMINUM_COST_BREAKDOWN_RATIOS = {
 
 def load_config(config_path):
     """
-    加载配置文件
+    Load a YAML config file.
     
     Parameters:
     -----------
     config_path : str or Path
-        配置文件路径
+        Path to config file
         
     Returns:
     --------
     dict
-        配置内容
+        Parsed config
     """
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
@@ -91,32 +103,32 @@ def load_config(config_path):
 
 def find_available_years(results_dir, base_version):
     """
-    查找可用的年份数据
+    Find available years with postnetwork cost data.
     
     Parameters:
     -----------
     results_dir : str
-        结果目录
+        Results directory
     base_version : str
-        基础版本号
+        Base version string
         
     Returns:
     --------
     list
-        可用的年份列表
+        Sorted list of available years
     """
     available_years = []
     results_path = Path(results_dir)
     run_tags = ["FCG", "Neighbor"]  # prefer new convention, fallback to legacy
     
-    # 查找所有可能的年份目录
+    # Scan for possible years
     for year in [2030, 2040, 2050]:
-        # 查找包含该年份的版本目录
+        # Find version directories containing this year
         year_pattern = f"version-{base_version}-*{year}*"
         version_dirs = list(results_path.glob(year_pattern))
         
         for version_dir in version_dirs:
-            # 检查是否有该年份的数据
+            # Check if data exists for this year
             summary_dir = version_dir / 'summary' / 'postnetworks' / 'positive'
             if summary_dir.exists():
                 for tag in run_tags:
@@ -128,7 +140,7 @@ def find_available_years(results_dir, base_version):
                 if year in available_years:
                     break
     
-    # 如果没有找到任何年份，默认使用2050
+    # If nothing found, default to 2050
     if not available_years:
         available_years = [2050]
         logger.warning("No year data found, defaulting to 2050")
@@ -137,24 +149,24 @@ def find_available_years(results_dir, base_version):
 
 def load_costs_data(version_name, year, results_dir='results'):
     """
-    加载指定版本的成本数据
+    Load cost data for a given version.
     
     Parameters:
     -----------
     version_name : str
-        版本名称，如 '0814.4H.2-MMMU-2050-100p'
+        Version name, e.g. '0814.4H.2-MMMU-2050-100p'
     year : int
-        年份
+        Year
     results_dir : str
-        结果目录
+        Results directory
         
     Returns:
     --------
     pd.DataFrame or None
-        成本数据
+        Cost data (or None if missing)
     """
     try:
-        # 构建文件路径（优先 FCG，其次 Neighbor）
+        # Build file paths (prefer FCG, then Neighbor)
         candidates = [
             Path(
                 f"{results_dir}/version-{version_name}/summary/postnetworks/positive/"
@@ -171,19 +183,19 @@ def load_costs_data(version_name, year, results_dir='results'):
             logger.warning(f"File does not exist: {file_path}")
             return None
         
-        # 读取CSV文件
+        # Read CSV file
         df = pd.read_csv(file_path, header=None)
         
-        # 处理多级索引结构
+        # Handle multi-level index structure
         if len(df.columns) >= 4:
-            # 设置多级索引：前两列作为索引，第三列作为技术名称
+            # First two columns as index, third column as technology name
             df.set_index([0, 1, 2], inplace=True)
-            # 重命名最后一列为数值列名
+            # Rename last column to a numeric column name
             df.columns = [df.columns[0]]
-            # 将数值列转换为数值类型
+            # Ensure numeric type
             df[df.columns[0]] = pd.to_numeric(df[df.columns[0]], errors='coerce')
         else:
-            # 如果列数不足，使用默认的多级索引
+            # Fallback: simple multi-index with two columns
             df = pd.read_csv(file_path, index_col=[0, 1])
             numeric_col = df.columns[0]
             df[numeric_col] = pd.to_numeric(df[numeric_col], errors='coerce')
@@ -196,24 +208,24 @@ def load_costs_data(version_name, year, results_dir='results'):
 
 def calculate_cost_categories(costs_data):
     """
-    计算成本分类
+    Aggregate costs into high-level categories.
     
     Parameters:
     -----------
     costs_data : pd.DataFrame
-        成本数据
+        Raw cost data
         
     Returns:
     --------
     dict
-        按分类组织的成本数据
+        Mapping from category name to aggregated cost
     """
     if costs_data is None or costs_data.empty:
         return {}
     
-    # 定义成本类型和资源组合的分类映射
+    # Mapping from (cost_type, carrier) to aggregate category
     cost_category_mapping = {
-        # variable cost-non-renewable - 非可再生能源可变成本
+        # variable cost-non-renewable
         ('marginal', 'coal'): 'variable cost-non-renewable',
         ('marginal', 'coal power plant'): 'variable cost-non-renewable',
         ('marginal', 'coal cc'): 'variable cost-non-renewable',
@@ -225,7 +237,7 @@ def calculate_cost_categories(costs_data):
         ('marginal', 'coal boiler'): 'variable cost-non-renewable',
         ('marginal', 'gas boiler'): 'variable cost-non-renewable',
         
-        # capital-non-renewable - 非可再生能源资本成本
+        # capital-non-renewable
         ('capital', 'coal'): 'capital-non-renewable',
         ('capital', 'coal power plant'): 'capital-non-renewable',
         ('capital', 'coal cc'): 'capital-non-renewable',
@@ -237,11 +249,11 @@ def calculate_cost_categories(costs_data):
         ('capital', 'coal boiler'): 'capital-non-renewable',
         ('capital', 'gas boiler'): 'capital-non-renewable',
         
-        # capital-demand side - 需求侧资本成本
+        # capital-demand side
         ('capital', 'heat pump'): 'heating-electrification',
         ('capital', 'resistive heater'): 'heating-electrification',
         
-        # capital-renewable - 可再生能源资本成本
+        # capital-renewable
         ('capital', 'hydro_inflow'): 'capital-renewable',
         ('capital', 'hydroelectricity'): 'capital-renewable',
         ('capital', 'offwind'): 'capital-renewable',
@@ -251,17 +263,17 @@ def calculate_cost_categories(costs_data):
         ('capital', 'biomass'): 'capital-renewable',
         ('capital', 'biogas'): 'capital-renewable',
         
-        # transmission lines - 输电线路
+        # transmission lines
         ('capital', 'AC'): 'transmission lines',
         ('capital', 'stations'): 'transmission lines',
         
-        # batteries - 电池储能
+        # batteries
         ('capital', 'battery'): 'batteries',
         ('capital', 'battery discharger'): 'batteries',
         ('marginal', 'battery'): 'batteries',
         ('marginal', 'battery discharger'): 'batteries',
         
-        # long-duration storages - 长时储能
+        # long-duration storages
         ('capital', 'PHS'): 'long-duration storages',
         ('capital', 'water tanks'): 'long-duration storages',
         ('capital', 'H2'): 'long-duration storages',
@@ -271,7 +283,7 @@ def calculate_cost_categories(costs_data):
         ('marginal', 'H2'): 'long-duration storages',
         ('marginal', 'H2 CHP'): 'long-duration storages',
         
-        # 其他分类
+        # other categories
         ('capital', 'CO2 capture'): 'capital-non-renewable',
         ('marginal', 'CO2 capture'): 'variable cost-non-renewable',
         ('capital', 'Sabatier'): 'capital-non-renewable',
@@ -282,7 +294,7 @@ def calculate_cost_categories(costs_data):
         ('marginal', 'DAC'): 'variable cost-non-renewable',
     }
     
-    # 按成本分类组织数据
+    # Aggregate by category
     category_costs = {}
     
     for idx in costs_data.index:
@@ -304,17 +316,17 @@ def calculate_cost_categories(costs_data):
 
 def calculate_total_emissions_from_costs(costs_data):
     """
-    从成本数据中计算总碳排放（通过coal和gas的marginal成本估算）
+    Approximate total emissions from cost data (via coal/gas marginal costs).
     
     Parameters:
     -----------
     costs_data : pd.DataFrame
-        成本数据
+        Raw cost data
         
     Returns:
     --------
     float
-        总碳排放量（吨CO2）
+        Total emissions (tonnes CO2)
     """
     if costs_data is None or costs_data.empty:
         return 0
@@ -337,18 +349,18 @@ def calculate_total_emissions_from_costs(costs_data):
 
 def save_plot_data_to_csv(plot_data, output_dir, year, market, scenario_code):
     """
-    将画图数据保存为CSV文件
+    Save all plot data to CSV files (detailed, summary, placeholder breakdown).
     
     Parameters:
     -----------
     plot_data : dict
-        包含所有计算结果的字典
+        Dictionary with all computed results
     output_dir : str or Path
-        输出目录路径
+        Output directory path
     year : int
-        年份
+        Year
     market : str
-        市场机会级别
+        Market level
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -424,42 +436,42 @@ def plot_single_year_market(
     employment="U",
 ):
     """
-    绘制单个年份-市场组合的图表
+    Plot costs and emissions for a single (year, market) combination.
     
     Parameters:
     -----------
     year : int
-        年份
+        Year
     market : str
-        市场机会级别 (L, M, H)
+        Market level (L, M, H)
     flexibility : str
-        灵活性级别 (L, M, H, N). Default: M (core scenario)
+        Flexibility level (L, M, H, N). Default: M (core scenario)
     demand : str
-        需求级别 (L, M, H). Default: M (core scenario)
+        Demand level (L, M, H). Default: M (core scenario)
     employment : str
-        就业转移级别 (U/F). Default: U (core scenario)
+        Employment transfer level (U/F). Default: U (core scenario)
     base_version : str
-        基础版本号
+        Base version string
     capacity_ratios : list
-        容量比例列表
+        Capacity ratio labels, e.g. ['5p', '10p', ...]
     results_dir : str
-        结果目录
+        Results directory
     ax : matplotlib.axes.Axes
-        子图对象
+        Matplotlib axis
     save_data : bool
-        是否保存数据到CSV文件
+        Whether to save data to CSV
     output_dir : str or Path
-        输出目录路径
+        Output directory path
         
     Returns:
     --------
     dict
-        包含所有计算结果的字典
+        Dictionary with all computed results
     """
-    # 欧元到人民币转换率
+    # EUR → CNY conversion rate
     EUR_TO_CNY = 7.868
     
-    # 构建版本名称 - 使用正确的格式
+    # Build version names with the agreed pattern
     version_names = []
     config_versions = {}
 
@@ -471,19 +483,20 @@ def plot_single_year_market(
         version_names.append(version)
         config_versions[ratio] = version
     
-    # 基准版本
+    # Baseline versions
     aluminum_baseline_version = f"{base_version}-{scenario_code}-{year}-5p"
 
-    # 电力系统基准：始终使用 U 就业情景的 non_flexible 版本
-    # 就业转移主要影响社会经济，不改变电力系统本身，因此这里统一用 U 作为 power baseline
+    # Power-system baseline: always use U-employment non_flexible version.
+    # Employment transfer mainly affects socio-economic impacts, so we keep
+    # the power-system baseline fixed at U.
     power_baseline_scenario = f"{flexibility}{demand}{market}U"
     power_baseline_version = f"{base_version}-{power_baseline_scenario}-{year}-non_flexible"
     
-    # 收集数据
+    # Data containers
     costs_data = {}
     baseline_data = {}
     
-    # 加载基准版本数据
+    # Load baseline data
     aluminum_baseline = load_costs_data(aluminum_baseline_version, year, results_dir)
     if aluminum_baseline is not None:
         baseline_data['aluminum'] = aluminum_baseline
@@ -492,7 +505,7 @@ def plot_single_year_market(
     if power_baseline is not None:
         baseline_data['power'] = power_baseline
     
-    # 加载各容量比例的数据
+    # Load data for each capacity ratio
     for ratio in capacity_ratios:
         version_name = config_versions[ratio]
         costs = load_costs_data(version_name, year, results_dir)
@@ -500,39 +513,39 @@ def plot_single_year_market(
             costs_data[ratio] = costs
     
     if not costs_data or not baseline_data:
-        ax.text(0.5, 0.5, f'No data for {year}-{market}', ha='center', va='center', 
+        ax.text(0.5, 0.5, f'No data for {year}-{market}', ha='center', va='center',
                transform=ax.transAxes, fontsize=12)
         return
     
-    # 计算成本变化（成本减少为正方向）
+    # Cost changes (cost reduction as positive)
     power_cost_changes = []
     aluminum_cost_changes = []
-    aluminum_maintenance_cny = []   # 细分：维护成本 (capital×比例)，人民币
-    aluminum_labor_cny = []         # 细分：人工 (capital×比例+standby×比例)，人民币
-    aluminum_restart_cny = []       # 细分：重启成本 (startup+shutdown)，人民币
+    aluminum_maintenance_cny = []   # breakdown: maintenance (capital×ratio), CNY
+    aluminum_labor_cny = []         # breakdown: labor (capital×ratio + standby×ratio), CNY
+    aluminum_restart_cny = []       # breakdown: restart (startup+shutdown), CNY
     emissions_changes = []
     capacity_values = []
     
     for ratio in capacity_ratios:
         if ratio in costs_data and 'power' in baseline_data:
-            # 计算电力系统成本变化（成本减少为正方向）
+            # Power-system cost change (reduction as positive)
             current_costs = calculate_cost_categories(costs_data[ratio])
             baseline_costs = calculate_cost_categories(baseline_data['power'])
             
-            # 计算总成本变化（排除aluminum相关）
+            # Aggregate all categories except aluminum-related ones
             total_change = 0
             for category, value in current_costs.items():
                 if 'aluminum' not in category.lower():
                     baseline_value = baseline_costs.get(category, 0)
                     total_change += (value - baseline_value)
             
-            # 成本减少为正方向，所以取负值
-            power_cost_changes.append(-total_change * EUR_TO_CNY)  # 转换为人民币，成本减少为正
+            # Cost reduction as positive → take negative value; convert to CNY
+            power_cost_changes.append(-total_change * EUR_TO_CNY)
         else:
             power_cost_changes.append(0)
         
         if ratio in costs_data and 'aluminum' in baseline_data:
-            # 计算电解铝成本变化（成本减少为正方向），不同情景下按类型加权
+            # Aluminum cost change (reduction as positive), weighted by type
             current_costs = calculate_cost_categories(costs_data[ratio])
             baseline_costs = calculate_cost_categories(baseline_data['aluminum'])
 
@@ -543,7 +556,7 @@ def plot_single_year_market(
             aluminum_shutdown_change = 0
             has_startup = False
             has_shutdown = False
-            # 加权后的变化量（先乘就业情景系数 method，再用于细分 maintenance / labor / restart）
+            # Weighted deltas (apply method weights first, then use for maintenance/labor/restart split)
             capital_delta_weighted = 0.0
             standby_delta_weighted = 0.0
 
@@ -555,7 +568,7 @@ def plot_single_year_market(
                 baseline_value = baseline_costs.get(category, 0)
                 delta_raw = value - baseline_value
 
-                # 根据类别前缀判断成本类型
+                # Cost type by name prefix
                 if name.startswith('capital'):
                     weight = method.get("capital", 1.0)
                 elif name.startswith('marginal'):
@@ -570,13 +583,13 @@ def plot_single_year_market(
 
                 delta = weight * delta_raw
 
-                # 用加权后的 delta 作为细分口径（与 aluminum_change 口径一致）
+                # Use weighted delta for cost breakdown, consistent with aluminum_change
                 if name.startswith('capital'):
                     capital_delta_weighted += delta
                 elif name.startswith('standby'):
                     standby_delta_weighted += delta
 
-                # startup/shutdown 可能存在统计异常：两者都出现时只取绝对值较小的一项
+                # startup/shutdown: if both appear, only keep the smaller in absolute value
                 if "startup" in name:
                     aluminum_startup_change += delta
                     has_startup = True
@@ -586,7 +599,7 @@ def plot_single_year_market(
                 else:
                     aluminum_change += delta
 
-            # 合并 startup/shutdown → restart_cost（两者都存在则取绝对值更小者×2）
+            # Merge startup/shutdown → restart_cost (if both exist, 2×min(|startup|, |shutdown|))
             if has_startup and has_shutdown:
                 chosen = (
                     aluminum_startup_change
@@ -604,38 +617,39 @@ def plot_single_year_market(
             else:
                 restart_eur = 0.0
 
-            # 细分：维护成本 = capital×比例；人工 = capital×比例 + standby×比例（EUR）
+            # Breakdown in EUR:
+            # maintenance = capital×ratio
+            # labor      = capital×ratio + standby×ratio
             maintenance_eur = capital_delta_weighted * ratios.get("maintenance_ratio", 0.0)
             labor_eur = (
                 capital_delta_weighted * ratios.get("labor_capital_ratio", 0.0)
                 + standby_delta_weighted * ratios.get("labor_standby_ratio", 0.0)
             )
-            # 转为人民币并记录（正值表示成本增加）
+            # Convert to CNY; positive means cost increase
             aluminum_maintenance_cny.append(maintenance_eur * EUR_TO_CNY)
             aluminum_labor_cny.append(labor_eur * EUR_TO_CNY)
             aluminum_restart_cny.append(restart_eur * EUR_TO_CNY)
 
-            # 成本减少为正方向，所以取负值
-            aluminum_cost_changes.append(-aluminum_change * EUR_TO_CNY)  # 转换为人民币，成本减少为正
+            # Cost reduction as positive → take negative; convert to CNY
+            aluminum_cost_changes.append(-aluminum_change * EUR_TO_CNY)
         else:
             aluminum_cost_changes.append(0)
             aluminum_maintenance_cny.append(0.0)
             aluminum_labor_cny.append(0.0)
             aluminum_restart_cny.append(0.0)
         
-        # 计算碳排放变化（碳排放减少为正方向）
+        # Emissions change (reduction as positive)
         if ratio in costs_data and 'power' in baseline_data:
             current_emissions = calculate_total_emissions_from_costs(costs_data[ratio])
             baseline_emissions_total = calculate_total_emissions_from_costs(baseline_data['power'])
             
-            # 碳排放减少为正方向，所以取负值
-            emissions_change = -(current_emissions - baseline_emissions_total)  # 碳排放减少为正
-            # 转换为百万吨CO2
+            # Emissions reduction as positive → take negative; convert to Mt CO2
+            emissions_change = -(current_emissions - baseline_emissions_total)
             emissions_changes.append(emissions_change / 1e6)
         else:
             emissions_changes.append(0)
         
-        # 读取容量比例值
+        # Read capacity ratio from config
         config_file = f"configs/config_{scenario_code}_{year}_{ratio}.yaml"
         config = load_config(config_file)
         if config is None:
@@ -648,45 +662,45 @@ def plot_single_year_market(
         if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
             capacity_ratio = config['aluminum']['capacity_ratio']
         
-        # 计算实际容量 (4500 * capacity ratio)
+        # Actual capacity (4500 * capacity_ratio)
         actual_capacity = 4500 * capacity_ratio
         capacity_values.append(actual_capacity)
     
-    # 创建双y轴图表
+    # Secondary y-axis (emissions)
     ax2 = ax.twinx()
     
-    # 创建图表
+    # X positions and bar width
     x = capacity_values
     bar_width = 150  # 减少柱子宽度
     
-    # 为电力系统成本和电解铝成本创建稍微错开的位置
-    x_power = [pos - bar_width/6 for pos in x]  # 电力系统成本稍微向左
-    x_aluminum = [pos + bar_width/6 for pos in x]  # 电解铝成本稍微向右
+    # Slightly offset positions for power vs aluminum bars
+    x_power = [pos - bar_width/6 for pos in x]   # power-system costs: slight left shift
+    x_aluminum = [pos + bar_width/6 for pos in x]  # aluminum costs: slight right shift
     
-    # 绘制电力系统成本节约（底部）
+    # Power-system cost savings (bottom)
     bars1 = ax.bar(x_power, power_cost_changes, bar_width*0.8, color='#1f77b4', alpha=0.8, 
                    label='Power System Cost Savings')
     
-    # 绘制电解铝运行成本节约（从电力系统成本顶部往上堆叠，稍微错开）
+    # Aluminum operational cost change, stacked on top of power-system costs
     bars2 = ax.bar(x_aluminum, aluminum_cost_changes, bar_width*0.8, bottom=power_cost_changes, 
                    color='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Increase')
     
-    # 计算净值（总成本节约）
+    # Net cost savings
     net_cost_savings = [power_cost_changes[i] + aluminum_cost_changes[i] for i in range(len(capacity_values))]
     
-    # 绘制净值曲线（黑色线，使用原始x轴位置）
+    # Net savings curve (black line, original x positions)
     ax.plot(x, net_cost_savings, 'k-', linewidth=3, label='Net Cost Savings', marker='o', markersize=8, zorder=20)
     
-    # 找出净值最大的位置
+    # Find maximum net savings
     max_saving_index = np.argmax(net_cost_savings)
     max_saving_value = net_cost_savings[max_saving_index]
     max_saving_capacity = capacity_values[max_saving_index]
     
-    # 用星号标出净值最大处
+    # Mark maximum with a star
     ax.plot(max_saving_capacity, max_saving_value, 'r*', markersize=15, 
             label=f'Highest Net Savings: {max_saving_value/1e9:.0f}B CNY', zorder=30)
     
-    # 为净值最大点添加数值标签
+    # Annotate the maximum net savings
     ax.annotate(f'{max_saving_value/1e9:.0f}B',
                 xy=(max_saving_capacity, max_saving_value),
                 xytext=(0, 20),
@@ -695,40 +709,40 @@ def plot_single_year_market(
                 fontsize=12, weight='bold', color='red',
                 bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
     
-    # 绘制碳排放变化（右y轴，使用原始x轴位置）
+    # Emissions reduction (right y-axis, original x positions)
     line1 = ax2.plot(x, emissions_changes, linewidth=2, marker='o', 
                      markersize=6, label='Emissions Reduction', color='red')
     
-    # 设置标签
+    # Axis labels
     ax.set_xlabel('Aluminum Smelting Capacity (Mt)', fontsize=12)
     ax.set_ylabel('Cost Savings (Billion CNY)', fontsize=12, color='blue')
     ax2.set_ylabel('Emissions Reduction (Million Tonnes CO2)', fontsize=12, color='red')
     # ax.set_title(f'Year {year}, Market {market}', fontsize=14, fontweight='bold')
     
-    # 添加零线
+    # Zero lines
     ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=1)
     ax2.axhline(y=0, color='red', linestyle='--', alpha=0.5, linewidth=1)
     
-    # 添加网格
+    # Grid on primary y-axis
     ax.grid(True, alpha=0.3, axis='y')
     
-    # 设置x轴刻度和标签
+    # X ticks and labels
     ax.set_xticks(x)
     ax.set_xticklabels([f'{cap/100:.0f}' for cap in capacity_values], fontsize=12)
     
-    # 设置y轴标签为十亿人民币单位
+    # Left y-axis ticks in Billion CNY
     y_ticks = ax.get_yticks()
     y_tick_labels = [f'{tick/1e9:.0f}' for tick in y_ticks]
     ax.set_yticks(y_ticks)
     ax.set_yticklabels(y_tick_labels, fontsize=12, color='blue')
     
-    # 设置右y轴标签为百万吨CO2单位
+    # Right y-axis ticks in Million tonnes CO2
     y2_ticks = ax2.get_yticks()
     y2_tick_labels = [f'{tick:.0f}' for tick in y2_ticks]
     ax2.set_yticks(y2_ticks)
     ax2.set_yticklabels(y2_tick_labels, fontsize=12, color='red')
     
-    # 不在这里添加图例，只在总图上添加一个统一的图例
+    # Do not add legend here; a single shared legend is added at figure level
     
     # 准备返回的数据
     plot_data = {
@@ -757,9 +771,9 @@ def plot_single_year_market(
 
 def plot_mmm_2050_analysis(employment="U"):
     """
-    绘制 MMMU/MMMF-2050 情景下的成本分析图表
+    Plot cost analysis for MMMU/MMMF-2050 scenarios for a given employment case.
     """
-    # 从主配置文件读取基础版本号
+    # Base version from main config
     main_config = load_config('config.yaml')
     if main_config is None:
         logger.error("Unable to load main config file config.yaml")
@@ -768,27 +782,27 @@ def plot_mmm_2050_analysis(employment="U"):
     base_version = main_config.get('version', '0815.1H.1')
     logger.info(f"Base version read from main config file: {base_version}")
     
-    # 定义容量比例
+    # Capacity ratios
     capacity_ratios = ['5p', '10p', '15p', '20p', '30p', '40p', '50p', '60p', '70p', '80p', '90p', '100p']
     
-    # 固定为 MMM*-2050 情景（M demand, M flexibility, M market，employment 由参数决定）
+    # Fixed MMM*-2050 setting (M demand, M flexibility, M market; employment set by argument)
     year = 2050
     market = 'M'
     flexibility = "M"
     demand = "M"
     
-    # 创建单个图表
+    # Single subplot
     fig, ax = plt.subplots(1, 1, figsize=(10, 8.5))
     
     scenario_code = f"{flexibility}{demand}{market}{employment}"
     logger.info(f"Plotting {scenario_code}-2050 scenario chart...")
     
-    # 设置输出目录：根据 scenario_code 区分 MMMU 和 MMMF 等
-    scenario_tag = f"mmm{employment.lower()}"  # e.g. U->mmmu, F->mmmf
+    # Output directory: distinguish MMMU vs MMMF by scenario_tag
+    scenario_tag = f"mmm{employment.lower()}"  # e.g. U→mmmu, F→mmmf
     output_dir = Path(f"results/{scenario_tag}_2050_analysis")
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # 调用绘图函数并保存数据
+    # Generate plot and save data
     plot_data = plot_single_year_market(
         year,
         market,
@@ -803,7 +817,7 @@ def plot_mmm_2050_analysis(employment="U"):
         employment=employment,
     )
     
-    # 创建图例
+    # Legend entries
     legend_elements = [
         plt.Rectangle((0,0),1,1, facecolor='#1f77b4', alpha=0.8, label='Power System Cost Savings'),
         plt.Rectangle((0,0),1,1, facecolor='#ff7f0e', alpha=0.8, label='Aluminum Operation Cost Increase'),
@@ -812,21 +826,21 @@ def plot_mmm_2050_analysis(employment="U"):
         plt.Line2D([0], [0], color='red', linewidth=2, marker='o', markersize=6, label='Emissions Reduction')
     ]
     
-    # 添加图例
+    # Add legend
     ax.legend(handles=legend_elements, loc='lower left', fontsize=15)
     
-    # # 添加总标题
+    # Optional: overall title
     # fig.suptitle('MMM-2050 Scenario Analysis\n(Demand: M, Flexibility: M)\nCost Savings (Positive) & Emissions Reduction (Positive)', 
     #              fontsize=16, fontweight='bold', y=0.95)
     
     plt.tight_layout()
     
-    # 保存图表（输出目录已在前面创建）
+    # Save figure (output directory already created)
     plot_file = output_dir / f"{scenario_tag}_2050_analysis.png"
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     logger.info(f"{scenario_code}-2050 scenario analysis chart saved to: {plot_file}")
     
-    # 打印数据保存信息
+    # Log saved data filenames
     logger.info(f"Data files saved to: {output_dir}")
     logger.info(f"- Detailed data: {scenario_tag}_{year}_{market}_detailed_data.csv")
     logger.info(f"- Summary data: {scenario_tag}_{year}_{market}_summary.csv")
@@ -835,20 +849,24 @@ def plot_mmm_2050_analysis(employment="U"):
     # plt.show()
 
 def main():
-    """主函数"""
+    """CLI entry point."""
     parser = argparse.ArgumentParser(description='Plot cost analysis chart for MMMU/MMMF-2050 scenario')
     parser.add_argument('--results-dir', default='results', help='Results directory path (default: results)')
-    parser.add_argument('--output', default=None, help='(Deprecated, kept for backward compatibility; output dir is derived from scenario)')
+    parser.add_argument(
+        '--output',
+        default=None,
+        help='(Deprecated; kept for backward compatibility. Output dir is derived from scenario.)',
+    )
     parser.add_argument(
         '--employment',
         default='U',
         choices=['U', 'F'],
-        help='Employment transfer level: U (core MMMU) or F (MMMF). Default: U',
+        help='Employment transfer level: U (core MMMU) or F (MMMF). Default: U.',
     )
     
     args = parser.parse_args()
     
-    logger.info("Starting MMMU-2050 scenario analysis")
+    logger.info("Starting MMM*-2050 scenario analysis")
     logger.info(f"Results directory: {args.results_dir}")
     logger.info(f"Employment level: {args.employment}")
     
