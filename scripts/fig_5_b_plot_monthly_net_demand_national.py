@@ -413,7 +413,7 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
         net_load,
         's--',
         color=colors["Net Load"],
-        label="Net Load",
+        label="Net Demand",
         markersize=10,
         linewidth=4,
     )
@@ -433,7 +433,16 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
     ax.tick_params(axis='y', labelsize=30)
     ax.grid(True, alpha=0.3)
     
-    ax.legend(fontsize=40, loc='upper left', bbox_to_anchor=(1, 1))
+    # Legend: show heat load (Electric Heating) first, then electricity (Other Electricity Load)
+    handles, labels = ax.get_legend_handles_labels()
+    heat_label = "Electric Heating"
+    elec_label = "Other Electricity Load"
+    if heat_label in labels and elec_label in labels:
+        idx_heat = labels.index(heat_label)
+        idx_elec = labels.index(elec_label)
+        handles = [handles[idx_heat], handles[idx_elec]] + [h for i, h in enumerate(handles) if i not in (idx_heat, idx_elec)]
+        labels = [heat_label, elec_label] + [l for i, l in enumerate(labels) if i not in (idx_heat, idx_elec)]
+    ax.legend(handles=handles, labels=labels, fontsize=40, loc='upper left', bbox_to_anchor=(1, 1))
     
     plt.tight_layout()
     plt.subplots_adjust(right=2)

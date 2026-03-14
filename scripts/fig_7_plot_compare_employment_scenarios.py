@@ -1,6 +1,8 @@
 """
-对比两个场景的就业人数情况脚本
-支持_20p和_non_flexible后缀的CSV文件输入，生成上下对比的图表
+Compare employment between two scenarios: MMMU and MMMU_non_flexible.
+
+Reads CSV files with _15p (MMMU) and _non_flexible (MMMU_non_flexible) suffixes
+from results/monthly_capacity_factors and produces a two-panel comparison plot.
 """
 
 import pandas as pd
@@ -150,20 +152,20 @@ def get_default_employment_parameters():
 
 def get_scenario_specific_parameters(scenario_type):
     """
-    获取特定场景的参数
-    
-    Parameters:
-    -----------
+    Get employment parameters for a given scenario.
+
+    Parameters
+    ----------
     scenario_type : str
-        场景类型 ('20p' 或 'non_flexible')
-    
-    Returns:
-    --------
+        One of 'MMMU' or 'MMMU_non_flexible'.
+
+    Returns
+    -------
     dict
-        包含各行业参数的字典
+        Industry parameters (installed_capacity, employment_per_GW, display_name).
     """
-    if scenario_type == 'non_flexible':
-        # non_flexible场景的特殊参数
+    if scenario_type == 'MMMU_non_flexible':
+        # MMMU_non_flexible (decommission all overcapacity)
         employment_params = {
             'Aluminum': {
                 'installed_capacity': 11.7,  # GW - 铝冶炼厂装机容量
@@ -182,9 +184,9 @@ def get_scenario_specific_parameters(scenario_type):
             }
         }
     else:
-        # 20p场景使用默认参数
+        # MMMU (flexible, e.g. 15p overcapacity) uses default parameters
         employment_params = get_default_employment_parameters()
-    
+
     return employment_params
 
 def calculate_monthly_employment(capacity_factors, employment_params):
@@ -216,17 +218,17 @@ def calculate_monthly_employment(capacity_factors, employment_params):
     
     return pd.DataFrame(employment_data, index=capacity_factors.index)
 
-def plot_employment_comparison(employment_data_20p, employment_data_non_flexible, 
+def plot_employment_comparison(employment_data_15p, employment_data_non_flexible,
                              output_file=None, config=None, differences=None):
     """
-    绘制两个场景的就业人数对比图（上下布局）
+    Plot employment comparison for MMMU vs MMMU_non_flexible (two panels).
     
-    Parameters:
-    -----------
-    employment_data_20p : pd.DataFrame
-        20p场景的就业人数数据
+    Parameters
+    ----------
+    employment_data_15p : pd.DataFrame
+        Monthly employment for MMMU scenario.
     employment_data_non_flexible : pd.DataFrame
-        non_flexible场景的就业人数数据
+        Monthly employment for MMMU_non_flexible scenario.
     output_file : str, optional
         输出图片文件路径
     config : dict, optional
@@ -234,7 +236,7 @@ def plot_employment_comparison(employment_data_20p, employment_data_non_flexible
     differences : dict, optional
         包含统计信息的字典，用于在图表上显示总人数的均值和方差
     """
-    if employment_data_20p.empty or employment_data_non_flexible.empty:
+    if employment_data_15p.empty or employment_data_non_flexible.empty:
         print("Warning: No employment data to plot")
         return
     
@@ -270,34 +272,34 @@ def plot_employment_comparison(employment_data_20p, employment_data_non_flexible
         'Gas Power': 'Gas power plants'
     }
     
-    # 绘制20p场景（上图）
-    plot_single_scenario(ax1, employment_data_20p, colors, "Maintaining 36% Overcapacity", 
+    # Upper panel: MMMU
+    plot_single_scenario(ax1, employment_data_15p, colors, "MMMU", 
                         font_size, legend_font_size, axis_font_size, show_legend=False,
                         legend_labels=legend_labels)
     
-    # 绘制non_flexible场景（下图）
-    plot_single_scenario(ax2, employment_data_non_flexible, colors, "Decommissioning All Overcapacity", 
+    # Lower panel: MMMU_non_flexible
+    plot_single_scenario(ax2, employment_data_non_flexible, colors, "MMMU (non-flexible)", 
                         font_size, legend_font_size, axis_font_size, show_legend=False,
                         legend_labels=legend_labels)
     
     # 在图表上添加总就业人数的均值和方差信息
     if differences is not None:
         # 计算总就业人数
-        total_20p = employment_data_20p.sum(axis=1)
+        total_15p = employment_data_15p.sum(axis=1)
         total_non_flexible = employment_data_non_flexible.sum(axis=1)
         
         # 计算总人数的均值和方差
-        mean_total_20p = total_20p.mean()
-        var_total_20p = total_20p.var()
-        std_total_20p = total_20p.std()
+        mean_total_15p = total_15p.mean()
+        var_total_15p = total_15p.var()
+        std_total_15p = total_15p.std()
         
         mean_total_non_flexible = total_non_flexible.mean()
         var_total_non_flexible = total_non_flexible.var()
         std_total_non_flexible = total_non_flexible.std()
         
-        # Add total employment statistics for 20p scenario to upper plot
-        stats_text_20p = f'Mean: {mean_total_20p:.0f}k  Std Dev: {std_total_20p:.0f}k'
-        ax1.text(0.5, 0.98, stats_text_20p, transform=ax1.transAxes,
+        # Add total employment statistics for MMMU to upper plot
+        stats_text_15p = f'Mean: {mean_total_15p:.0f}k  Std Dev: {std_total_15p:.0f}k'
+        ax1.text(0.5, 0.98, stats_text_15p, transform=ax1.transAxes,
                 fontsize=title_font_size, verticalalignment='top', horizontalalignment='center')
 
         # Add total employment statistics for non_flexible scenario to lower plot  
@@ -432,9 +434,9 @@ def plot_mean_variance_comparison(differences, output_file=None):
     
     # 准备数据
     industries = list(differences.keys())
-    means_20p = [differences[industry]['avg_20p'] for industry in industries]
+    means_15p = [differences[industry]['avg_15p'] for industry in industries]
     means_non_flexible = [differences[industry]['avg_non_flexible'] for industry in industries]
-    vars_20p = [differences[industry]['var_20p'] for industry in industries]
+    vars_15p = [differences[industry]['var_15p'] for industry in industries]
     vars_non_flexible = [differences[industry]['var_non_flexible'] for industry in industries]
     
     # 创建子图
@@ -444,8 +446,8 @@ def plot_mean_variance_comparison(differences, output_file=None):
     x = np.arange(len(industries))
     width = 0.35
     
-    bars1 = ax1.bar(x - width/2, means_20p, width, label='20p场景', alpha=0.8, color='#FF69B4')
-    bars2 = ax1.bar(x + width/2, means_non_flexible, width, label='Non-flexible场景', alpha=0.8, color='#000000')
+    bars1 = ax1.bar(x - width/2, means_15p, width, label='MMMU', alpha=0.8, color='#FF69B4')
+    bars2 = ax1.bar(x + width/2, means_non_flexible, width, label='MMMU (non-flexible)', alpha=0.8, color='#000000')
     
     ax1.set_xlabel('Industry', fontsize=14)
     ax1.set_ylabel('Average Employment (k)', fontsize=14)
@@ -467,8 +469,8 @@ def plot_mean_variance_comparison(differences, output_file=None):
                 f'{height:.1f}', ha='center', va='bottom', fontsize=10)
     
     # 绘制方差对比
-    bars3 = ax2.bar(x - width/2, vars_20p, width, label='20p Scenario', alpha=0.8, color='#FF69B4')
-    bars4 = ax2.bar(x + width/2, vars_non_flexible, width, label='Non-flexible Scenario', alpha=0.8, color='#000000')
+    bars3 = ax2.bar(x - width/2, vars_15p, width, label='MMMU', alpha=0.8, color='#FF69B4')
+    bars4 = ax2.bar(x + width/2, vars_non_flexible, width, label='MMMU (non-flexible)', alpha=0.8, color='#000000')
     
     ax2.set_xlabel('Industry', fontsize=14)
     ax2.set_ylabel('Variance', fontsize=14)
@@ -500,41 +502,41 @@ def plot_mean_variance_comparison(differences, output_file=None):
     
     print(f"Mean and variance comparison plot saved to: {output_file}")
 
-def calculate_scenario_differences(employment_data_20p, employment_data_non_flexible):
+def calculate_scenario_differences(employment_data_15p, employment_data_non_flexible):
     """
-    计算两个场景的差异统计
+    Compute difference statistics between MMMU and MMMU_non_flexible.
     
-    Parameters:
-    -----------
-    employment_data_20p : pd.DataFrame
-        20p场景的就业人数数据
+    Parameters
+    ----------
+    employment_data_15p : pd.DataFrame
+        Monthly employment for MMMU scenario.
     employment_data_non_flexible : pd.DataFrame
-        non_flexible场景的就业人数数据
+        Monthly employment for MMMU_non_flexible scenario.
     
-    Returns:
-    --------
+    Returns
+    -------
     dict
-        包含差异统计的字典
+        Per-industry stats (avg_15p, avg_non_flexible, var_*, std_*, etc.).
     """
     differences = {}
     
     # 确保两个数据框有相同的列
-    common_columns = set(employment_data_20p.columns) & set(employment_data_non_flexible.columns)
+    common_columns = set(employment_data_15p.columns) & set(employment_data_non_flexible.columns)
     
     for industry in common_columns:
-        data_20p = employment_data_20p[industry]
+        data_15p = employment_data_15p[industry]
         data_non_flexible = employment_data_non_flexible[industry]
         
         # 计算差异
-        diff = data_20p - data_non_flexible
+        diff = data_15p - data_non_flexible
         diff_percent = (diff / data_non_flexible) * 100
         
         # 计算均值和方差
-        mean_20p = data_20p.mean()
+        mean_15p = data_15p.mean()
         mean_non_flexible = data_non_flexible.mean()
-        var_20p = data_20p.var()
+        var_15p = data_15p.var()
         var_non_flexible = data_non_flexible.var()
-        std_20p = data_20p.std()
+        std_15p = data_15p.std()
         std_non_flexible = data_non_flexible.std()
         
         # 计算差异的均值和方差
@@ -545,13 +547,13 @@ def calculate_scenario_differences(employment_data_20p, employment_data_non_flex
         differences[industry] = {
             'absolute_diff': diff,
             'percent_diff': diff_percent,
-            'avg_20p': mean_20p,
+            'avg_15p': mean_15p,
             'avg_non_flexible': mean_non_flexible,
-            'var_20p': var_20p,
+            'var_15p': var_15p,
             'var_non_flexible': var_non_flexible,
-            'std_20p': std_20p,
+            'std_15p': std_15p,
             'std_non_flexible': std_non_flexible,
-            'total_20p': data_20p.sum(),
+            'total_15p': data_15p.sum(),
             'total_non_flexible': data_non_flexible.sum(),
             'max_diff': diff.max(),
             'min_diff': diff.min(),
@@ -577,11 +579,11 @@ def print_mean_variance_summary(differences):
     
     for industry, stats in differences.items():
         print(f"\n{industry}:")
-        print(f"  20p scenario:")
-        print(f"    Mean: {stats['avg_20p']:.1f}k")
-        print(f"    Variance: {stats['var_20p']:.2f}")
-        print(f"    Std dev: {stats['std_20p']:.1f}k")
-        print(f"  Non-flexible scenario:")
+        print(f"  MMMU scenario:")
+        print(f"    Mean: {stats['avg_15p']:.1f}k")
+        print(f"    Variance: {stats['var_15p']:.2f}")
+        print(f"    Std dev: {stats['std_15p']:.1f}k")
+        print(f"  MMMU (non-flexible) scenario:")
         print(f"    Mean: {stats['avg_non_flexible']:.1f}k")
         print(f"    Variance: {stats['var_non_flexible']:.2f}")
         print(f"    Std dev: {stats['std_non_flexible']:.1f}k")
@@ -590,7 +592,7 @@ def print_mean_variance_summary(differences):
         print(f"    Variance of difference: {stats['var_diff']:.2f}")
         print(f"    Std dev of difference: {stats['std_diff']:.1f}k")
 
-def print_comparison_statistics(differences, employment_params_20p, employment_params_non_flexible):
+def print_comparison_statistics(differences, employment_params_15p, employment_params_non_flexible):
     """
     打印对比统计信息
     
@@ -598,174 +600,169 @@ def print_comparison_statistics(differences, employment_params_20p, employment_p
     -----------
     differences : dict
         包含差异统计的字典
-    employment_params_20p : dict
-        20p场景的就业参数
+    employment_params_15p : dict
+        MMMU scenario employment parameters.
     employment_params_non_flexible : dict
-        non_flexible场景的就业参数
+        MMMU_non_flexible scenario employment parameters.
     """
     print(f"\nEmployment Scenario Comparison Statistics")
     print("=" * 80)
     
     # 打印场景参数信息
     print(f"\nScenario Parameters:")
-    print(f"20p Scenario:")
-    for tech, params in employment_params_20p.items():
+    print(f"MMMU scenario:")
+    for tech, params in employment_params_15p.items():
         print(f"  {params['display_name']}: {params['installed_capacity']} GW")
     
-    print(f"Non_flexible Scenario:")
+    print(f"MMMU (non-flexible) scenario:")
     for tech, params in employment_params_non_flexible.items():
         print(f"  {params['display_name']}: {params['installed_capacity']} GW")
     
-    # 打印均值和方差摘要
+    # Print mean/variance summary
     print_mean_variance_summary(differences)
     
     print(f"\nDetailed statistics:")
     for industry, stats in differences.items():
         print(f"\n{industry}:")
-        print(f"  Average Employment - 20p: {stats['avg_20p']:.1f}k")
-        print(f"  Average Employment - Non-flexible: {stats['avg_non_flexible']:.1f}k")
-        print(f"  Variance - 20p: {stats['var_20p']:.2f}")
-        print(f"  Variance - Non-flexible: {stats['var_non_flexible']:.2f}")
-        print(f"  Standard Deviation - 20p: {stats['std_20p']:.1f}k")
-        print(f"  Standard Deviation - Non-flexible: {stats['std_non_flexible']:.1f}k")
+        print(f"  Average Employment - MMMU: {stats['avg_15p']:.1f}k")
+        print(f"  Average Employment - MMMU (non-flexible): {stats['avg_non_flexible']:.1f}k")
+        print(f"  Variance - MMMU: {stats['var_15p']:.2f}")
+        print(f"  Variance - MMMU (non-flexible): {stats['var_non_flexible']:.2f}")
+        print(f"  Standard Deviation - MMMU: {stats['std_15p']:.1f}k")
+        print(f"  Standard Deviation - MMMU (non-flexible): {stats['std_non_flexible']:.1f}k")
         print(f"  Average Difference: {stats['avg_diff']:.1f}k ({stats['avg_percent_diff']:.1f}%)")
         print(f"  Variance of Difference: {stats['var_diff']:.2f}")
         print(f"  Standard Deviation of Difference: {stats['std_diff']:.1f}k")
-        print(f"  Total Annual - 20p: {stats['total_20p']:.1f}k")
-        print(f"  Total Annual - Non-flexible: {stats['total_non_flexible']:.1f}k")
+        print(f"  Total Annual - MMMU: {stats['total_15p']:.1f}k")
+        print(f"  Total Annual - MMMU (non-flexible): {stats['total_non_flexible']:.1f}k")
         print(f"  Max Monthly Difference: {stats['max_diff']:.1f}k")
         print(f"  Min Monthly Difference: {stats['min_diff']:.1f}k")
 
-def save_comparison_data(employment_data_20p, employment_data_non_flexible, 
+def save_comparison_data(employment_data_15p, employment_data_non_flexible,
                         differences, output_file=None):
     """
-    保存对比数据到CSV文件
+    Save MMMU vs MMMU_non_flexible comparison to CSV.
     
-    Parameters:
-    -----------
-    employment_data_20p : pd.DataFrame
-        20p场景的就业人数数据
+    Parameters
+    ----------
+    employment_data_15p : pd.DataFrame
+        Monthly employment for MMMU scenario.
     employment_data_non_flexible : pd.DataFrame
-        non_flexible场景的就业人数数据
+        Monthly employment for MMMU_non_flexible scenario.
     differences : dict
-        差异统计字典
+        Per-industry difference statistics.
     output_file : str, optional
-        输出CSV文件路径
+        Output CSV path.
     """
     if output_file is None:
         output_file = "employment_scenario_comparison.csv"
-    
-    # 创建对比数据框
+
     comparison_data = {}
-    
-    # 添加20p场景数据
-    for industry in employment_data_20p.columns:
-        comparison_data[f"{industry}_20p"] = employment_data_20p[industry]
-    
-    # 添加non_flexible场景数据
+    for industry in employment_data_15p.columns:
+        comparison_data[f"{industry}_15p"] = employment_data_15p[industry]
     for industry in employment_data_non_flexible.columns:
         comparison_data[f"{industry}_non_flexible"] = employment_data_non_flexible[industry]
-    
-    # 添加差异数据
     for industry, stats in differences.items():
         comparison_data[f"{industry}_difference"] = stats['absolute_diff']
         comparison_data[f"{industry}_percent_diff"] = stats['percent_diff']
     
-    comparison_df = pd.DataFrame(comparison_data, index=employment_data_20p.index)
+    comparison_df = pd.DataFrame(comparison_data, index=employment_data_15p.index)
     comparison_df.to_csv(output_file, encoding='utf-8-sig')
     print(f"Comparison data saved to: {output_file}")
 
 def find_scenario_files(base_dir="results/monthly_capacity_factors"):
     """
-    查找包含_20p和_non_flexible后缀的CSV文件
-    
-    Parameters:
-    -----------
+    Find CSV files for MMMU and MMMU_non_flexible scenarios.
+
+    Looks for files with _15p (MMMU) and _non_flexible (MMMU_non_flexible) in the name.
+
+    Parameters
+    ----------
     base_dir : str
-        基础目录路径
-    
-    Returns:
-    --------
-    tuple
-        (file_20p, file_non_flexible) 两个文件路径
+        Directory containing monthly capacity factor CSVs.
+
+    Returns
+    -------
+    tuple of str
+        (path_to_mmmu_csv, path_to_mmmu_non_flexible_csv)
     """
     if not os.path.exists(base_dir):
         raise FileNotFoundError(f"Directory not found: {base_dir}")
-    
-    csv_files = [f for f in os.listdir(base_dir) if f.endswith('.csv')]
-    
-    file_20p = None
-    file_non_flexible = None
-    
-    for csv_file in csv_files:
-        if '_20p.csv' in csv_file:
-            file_20p = os.path.join(base_dir, csv_file)
-        elif '_non_flexible.csv' in csv_file:
-            file_non_flexible = os.path.join(base_dir, csv_file)
-    
-    if file_20p is None:
-        raise FileNotFoundError("No _20p.csv file found")
-    if file_non_flexible is None:
-        raise FileNotFoundError("No _non_flexible.csv file found")
-    
-    return file_20p, file_non_flexible
 
-def compare_employment_scenarios(file_20p=None, file_non_flexible=None, 
-                               output_dir=None, config_file=None):
+    csv_files = [f for f in os.listdir(base_dir) if f.endswith('.csv')]
+
+    file_mmmu = None
+    file_mmmu_non_flexible = None
+
+    for csv_file in csv_files:
+        if '_15p.csv' in csv_file:
+            file_mmmu = os.path.join(base_dir, csv_file)
+        elif '_non_flexible.csv' in csv_file:
+            file_mmmu_non_flexible = os.path.join(base_dir, csv_file)
+
+    if file_mmmu is None:
+        raise FileNotFoundError("No MMMU scenario file (_15p.csv) found")
+    if file_mmmu_non_flexible is None:
+        raise FileNotFoundError("No MMMU_non_flexible scenario file (_non_flexible.csv) found")
+
+    return file_mmmu, file_mmmu_non_flexible
+
+def compare_employment_scenarios(file_mmmu=None, file_mmmu_non_flexible=None,
+                                output_dir=None, config_file=None):
     """
-    对比两个场景的就业人数情况的主函数
-    
-    Parameters:
-    -----------
-    file_20p : str, optional
-        20p场景的CSV文件路径
-    file_non_flexible : str, optional
-        non_flexible场景的CSV文件路径
+    Compare employment between MMMU and MMMU_non_flexible scenarios.
+
+    Parameters
+    ----------
+    file_mmmu : str, optional
+        Path to MMMU scenario CSV (e.g. *_15p.csv).
+    file_mmmu_non_flexible : str, optional
+        Path to MMMU_non_flexible scenario CSV (e.g. *_non_flexible.csv).
     output_dir : str, optional
-        输出目录
+        Output directory for plots and CSV.
     config_file : str, optional
-        配置文件路径
+        Path to employment config YAML.
     """
-    # 如果没有指定文件，自动查找
-    if file_20p is None or file_non_flexible is None:
+    if file_mmmu is None or file_mmmu_non_flexible is None:
         try:
-            file_20p, file_non_flexible = find_scenario_files()
-            print(f"Found 20p file: {os.path.basename(file_20p)}")
-            print(f"Found non_flexible file: {os.path.basename(file_non_flexible)}")
+            file_mmmu, file_mmmu_non_flexible = find_scenario_files()
+            print(f"Found MMMU file: {os.path.basename(file_mmmu)}")
+            print(f"Found MMMU_non_flexible file: {os.path.basename(file_mmmu_non_flexible)}")
         except FileNotFoundError as e:
             print(f"Error: {e}")
             return
-    
-    # 加载数据
+
     print("\nLoading data...")
-    capacity_factors_20p, _ = load_csv_data(file_20p)
-    capacity_factors_non_flexible, _ = load_csv_data(file_non_flexible)
-    
-    if capacity_factors_20p.empty or capacity_factors_non_flexible.empty:
+    capacity_factors_mmmu, _ = load_csv_data(file_mmmu)
+    capacity_factors_non_flexible, _ = load_csv_data(file_mmmu_non_flexible)
+
+    if capacity_factors_mmmu.empty or capacity_factors_non_flexible.empty:
         print("Warning: No capacity factor data found in CSV files")
         return
-    
-    # 获取就业参数和配置
+
+    # non_flexible 情景下铝冶炼为不可调节，容量因子恒为 1
+    if 'Aluminum' in capacity_factors_non_flexible.columns:
+        capacity_factors_non_flexible = capacity_factors_non_flexible.copy()
+        capacity_factors_non_flexible['Aluminum'] = 1.0
+
     _, config = load_employment_config(config_file)
-    
-    # 获取场景特定的参数
-    employment_params_20p = get_scenario_specific_parameters('20p')
-    employment_params_non_flexible = get_scenario_specific_parameters('non_flexible')
-    
-    # 计算就业人数
+
+    employment_params_mmmu = get_scenario_specific_parameters('MMMU')
+    employment_params_non_flexible = get_scenario_specific_parameters('MMMU_non_flexible')
+
     print("Calculating employment...")
-    print("20p scenario parameters:")
-    for tech, params in employment_params_20p.items():
+    print("MMMU scenario parameters:")
+    for tech, params in employment_params_mmmu.items():
         print(f"  {params['display_name']}: {params['installed_capacity']} GW")
-    
-    print("Non_flexible scenario parameters:")
+
+    print("MMMU_non_flexible scenario parameters:")
     for tech, params in employment_params_non_flexible.items():
         print(f"  {params['display_name']}: {params['installed_capacity']} GW")
-    
-    employment_data_20p = calculate_monthly_employment(capacity_factors_20p, employment_params_20p)
+
+    employment_data_15p = calculate_monthly_employment(capacity_factors_mmmu, employment_params_mmmu)
     employment_data_non_flexible = calculate_monthly_employment(capacity_factors_non_flexible, employment_params_non_flexible)
     
-    if employment_data_20p.empty or employment_data_non_flexible.empty:
+    if employment_data_15p.empty or employment_data_non_flexible.empty:
         print("Warning: No employment data calculated")
         return
     
@@ -785,11 +782,11 @@ def compare_employment_scenarios(file_20p=None, file_non_flexible=None,
     
     # 计算差异统计
     print("Calculating differences...")
-    differences = calculate_scenario_differences(employment_data_20p, employment_data_non_flexible)
+    differences = calculate_scenario_differences(employment_data_15p, employment_data_non_flexible)
     
     # 绘制对比图表
     print("Creating comparison plot...")
-    plot_employment_comparison(employment_data_20p, employment_data_non_flexible, 
+    plot_employment_comparison(employment_data_15p, employment_data_non_flexible, 
                              plot_file, config, differences)
     
     # 绘制均值和方差对比图表
@@ -797,27 +794,25 @@ def compare_employment_scenarios(file_20p=None, file_non_flexible=None,
     plot_mean_variance_comparison(differences, mean_var_plot_file)
     
     # 保存对比数据
-    save_comparison_data(employment_data_20p, employment_data_non_flexible, 
+    save_comparison_data(employment_data_15p, employment_data_non_flexible, 
                         differences, csv_file)
     
-    # 打印统计信息
-    print_comparison_statistics(differences, employment_params_20p, employment_params_non_flexible)
+    # Print statistics
+    print_comparison_statistics(differences, employment_params_mmmu, employment_params_non_flexible)
 
 def main():
-    """
-    主函数，处理命令行参数
-    """
-    parser = argparse.ArgumentParser(description='Compare employment between 20p and non_flexible scenarios')
-    parser.add_argument('--file_20p', help='20p scenario CSV file path')
-    parser.add_argument('--file_non_flexible', help='Non_flexible scenario CSV file path')
+    """CLI: compare employment for MMMU vs MMMU_non_flexible."""
+    parser = argparse.ArgumentParser(description='Compare employment between MMMU and MMMU_non_flexible scenarios')
+    parser.add_argument('--file-mmmu', '--file_15p', dest='file_mmmu', help='MMMU scenario CSV path (e.g. *_15p.csv)')
+    parser.add_argument('--file-mmmu-non-flexible', '--file_non_flexible', dest='file_mmmu_non_flexible', help='MMMU_non_flexible scenario CSV path (e.g. *_non_flexible.csv)')
     parser.add_argument('-o', '--output', help='Output directory')
-    parser.add_argument('-c', '--config', help='Config file path')
+    parser.add_argument('-c', '--config', help='Employment config YAML path')
     
     args = parser.parse_args()
     
     try:
-        compare_employment_scenarios(args.file_20p, args.file_non_flexible, 
-                                   args.output, args.config)
+        compare_employment_scenarios(args.file_mmmu, args.file_mmmu_non_flexible,
+                                     args.output, args.config)
     except Exception as e:
         print(f"Error: {e}")
         return 1
