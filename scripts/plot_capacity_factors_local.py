@@ -29,6 +29,44 @@ import pypsa
 import matplotlib.pyplot as plt
 import numpy as np
 
+# -----------------------------------------------------------------------------
+# Half-month aggregation: for each month, aggregate over first half (days 1-15)
+# and second half (day 16 to end), then average to get the monthly value.
+# Used for capacity factors (coal, gas, aluminum, etc.) and load factors.
+# -----------------------------------------------------------------------------
+
+def _add_month_half(df):
+    """Add month and half columns to a DataFrame with a time index. half=1 first half (day<=15), half=2 second half. If no day attribute, half is 1 for all."""
+    idx = df.index
+    df = df.copy()
+    df['month'] = idx.month
+    if hasattr(idx, 'day'):
+        df['half'] = (idx.day <= 15).astype(int) + 1
+    else:
+        df['half'] = 1
+    return df
+
+
+def monthly_from_half_month(series, agg='mean'):
+    """
+    Aggregate by half-month then average to get monthly values. Used for capacity factors, load factors, etc.
+    series : pd.Series
+        Time series with DatetimeIndex (e.g. power or capacity factor)
+    agg : str
+        Aggregation within each half-month: 'mean' or 'max'
+    Returns
+    -------
+    pd.Series
+        Index is month 1..12, values are the average of first-half and second-half aggregates for that month
+    """
+    if series.empty:
+        return pd.Series(dtype=float)
+    df = series.to_frame('x')
+    df = _add_month_half(df)
+    half_agg = df.groupby(['month', 'half'])['x'].agg(agg)
+    return half_agg.groupby(level='month').mean()
+
+
 def set_plot_style():
     """
     Sets up the plotting style for all matplotlib plots in this script.
@@ -124,10 +162,11 @@ def filter_network_by_province(n, target_province=None):
     
     return n_filtered
 
+
 def calculate_monthly_capacity_factors(n):
     """
     Calculate monthly average capacity factors for all generators and power-producing links in the network.
-    Uses actual maximum power output as denominator instead of installed capacity.
+    Uses half-month stats (first/second half of month) then averages to get monthly; denominator = actual max power.
     
     Parameters:
     -----------
@@ -352,16 +391,15 @@ def calculate_monthly_capacity_factors(n):
             total_max_power += link_max_power[group_links].sum()
         
         if total_max_power > 0:
-            # Calculate capacity factor using actual maximum power as denominator
-            cf = total_power / total_max_power
-            
-            # Add month information
-            cf_df = cf.to_frame('cf')
-            cf_df['month'] = cf_df.index.month
-            
-            # Calculate monthly average
-            monthly_avg = cf_df.groupby('month')['cf'].mean()
-            monthly_cf[group_name] = monthly_avg
+            # Same half-month-then-average logic for all (coal, gas, aluminum, etc.)
+            if group_name in ('Coal', 'Gas'):
+                annual_max_power = total_power.max()
+                if annual_max_power > 0:
+                    monthly_max_power = monthly_from_half_month(total_power, agg='max')
+                    monthly_cf[group_name] = monthly_max_power / annual_max_power
+            else:
+                cf = total_power / total_max_power
+                monthly_cf[group_name] = monthly_from_half_month(cf, agg='mean')
             
             # Debug print
             print(f"Debug - {group_name}: {len(group_generators)} generators, {len(group_links)} links, max power: {total_max_power:.2f} MW, actual max power: {total_power.max():.2f} MW")
@@ -520,16 +558,15 @@ def calculate_monthly_max_capacity_factors(n):
             total_max_power += link_max_power[group_links].sum()
         
         if total_max_power > 0:
-            # Calculate capacity factor using actual maximum power as denominator
-            cf = total_power / total_max_power
-            
-            # Add month information
-            cf_df = cf.to_frame('cf')
-            cf_df['month'] = cf_df.index.month
-            
-            # Calculate monthly maximum (not average)
-            monthly_max = cf_df.groupby('month')['cf'].max()
-            monthly_max_cf[group_name] = monthly_max
+            # Same half-month-then-average logic
+            if group_name in ('Coal', 'Gas'):
+                annual_max_power = total_power.max()
+                if annual_max_power > 0:
+                    monthly_max_power = monthly_from_half_month(total_power, agg='max')
+                    monthly_max_cf[group_name] = monthly_max_power / annual_max_power
+            else:
+                cf = total_power / total_max_power
+                monthly_max_cf[group_name] = monthly_from_half_month(cf, agg='max')
     
     return monthly_max_cf
 
@@ -560,16 +597,8 @@ def calculate_monthly_load_factors(n):
             max_elec_load = total_elec_load.max()
             
             if max_elec_load > 0:
-                # Calculate load factor (normalized by maximum load)
                 elec_load_factor = total_elec_load / max_elec_load
-                
-                # Add month information
-                load_df = elec_load_factor.to_frame('load_factor')
-                load_df['month'] = load_df.index.month
-                
-                # Calculate monthly average
-                monthly_avg = load_df.groupby('month')['load_factor'].mean()
-                monthly_load['Electricity Load'] = monthly_avg
+                monthly_load['Electricity Load'] = monthly_from_half_month(elec_load_factor, agg='mean')
     
     # Calculate heating load factors
     if hasattr(n, 'loads_t') and hasattr(n.loads_t, 'p_set'):
@@ -582,16 +611,8 @@ def calculate_monthly_load_factors(n):
             max_heat_load = total_heat_load.max()
             
             if max_heat_load > 0:
-                # Calculate load factor (normalized by maximum load)
                 heat_load_factor = total_heat_load / max_heat_load
-                
-                # Add month information
-                load_df = heat_load_factor.to_frame('load_factor')
-                load_df['month'] = load_df.index.month
-                
-                # Calculate monthly average
-                monthly_avg = load_df.groupby('month')['load_factor'].mean()
-                monthly_load['Heating Load'] = monthly_avg
+                monthly_load['Heating Load'] = monthly_from_half_month(heat_load_factor, agg='mean')
     
     # Calculate aluminum load factors if available
     if hasattr(n, 'loads_t') and hasattr(n.loads_t, 'p_set'):
@@ -604,16 +625,8 @@ def calculate_monthly_load_factors(n):
             max_aluminum_load = total_aluminum_load.max()
             
             if max_aluminum_load > 0:
-                # Calculate load factor (normalized by maximum load)
                 aluminum_load_factor = total_aluminum_load / max_aluminum_load
-                
-                # Add month information
-                load_df = aluminum_load_factor.to_frame('load_factor')
-                load_df['month'] = load_df.index.month
-                
-                # Calculate monthly average
-                monthly_avg = load_df.groupby('month')['load_factor'].mean()
-                monthly_load['Aluminum Load'] = monthly_avg
+                monthly_load['Aluminum Load'] = monthly_from_half_month(aluminum_load_factor, agg='mean')
     
     return monthly_load
 
@@ -751,6 +764,12 @@ def run_one_scenario_to_csv(network_path, planning_horizon="2050", target_provin
     monthly_cf = calculate_monthly_capacity_factors(n)
     monthly_max_cf = calculate_monthly_max_capacity_factors(n)
     monthly_load = calculate_monthly_load_factors(n)
+    # In non_flexible scenario aluminum is non-dispatchable: capacity factor = 1 (add key if missing so CSV is consistent)
+    if scenario_suffix == "non_flexible":
+        month_index = pd.RangeIndex(1, 13, name="month")
+        ones = pd.Series(1.0, index=month_index)
+        monthly_cf["Aluminum"] = ones
+        monthly_max_cf["Aluminum"] = ones
     if not monthly_cf and not monthly_load:
         print(f"Warning: No capacity/load data for {scenario_suffix or 'scenario'}")
         return None

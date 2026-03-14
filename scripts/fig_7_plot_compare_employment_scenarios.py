@@ -16,9 +16,9 @@ from pathlib import Path
 
 def set_plot_style():
     """
-    设置绘图样式
+    Set plotting style.
     """
-    # 设置英文字体
+    # Use Latin fonts
     plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'sans-serif']
     plt.rcParams['axes.unicode_minus'] = False
     
@@ -34,61 +34,57 @@ def set_plot_style():
 
 def load_csv_data(csv_file):
     """
-    从CSV文件加载容量因子数据，全部使用平均因子
-    
+    Load capacity factor data from CSV; use average factors only.
+
     Parameters:
     -----------
     csv_file : str
-        CSV文件路径
-    
+        Path to CSV file
+
     Returns:
     --------
     tuple
-        (capacity_factors, load_factors) 两个DataFrame
+        (capacity_factors, load_factors) two DataFrames
     """
     if not os.path.exists(csv_file):
         raise FileNotFoundError(f"CSV file not found: {csv_file}")
-    
-    # 读取CSV文件
+
     df = pd.read_csv(csv_file, index_col='Month')
-    
-    # 分离平均容量因子和负荷因子数据
+
+    # Split average capacity factor and load factor columns
     avg_capacity_cols = [col for col in df.columns if 'Capacity_Factor_Avg' in col]
     load_cols = [col for col in df.columns if 'Load_Factor' in col]
-    
-    # 优先使用平均容量因子数据
+
     if avg_capacity_cols:
-        # 使用平均容量因子数据
         capacity_factors = df[avg_capacity_cols]
         capacity_factors.columns = [col.replace('_Capacity_Factor_Avg', '') for col in capacity_factors.columns]
         print(f"Using monthly average capacity factor data for employment: {os.path.basename(csv_file)}")
         
     else:
-        # 兼容旧格式：只有Capacity_Factor列
+        # Legacy format: only Capacity_Factor columns
         capacity_cols = [col for col in df.columns if 'Capacity_Factor' in col and 'Max' not in col and 'Avg' not in col]
         capacity_factors = df[capacity_cols] if capacity_cols else pd.DataFrame()
         capacity_factors.columns = [col.replace('_Capacity_Factor', '') for col in capacity_factors.columns]
         print(f"Using legacy capacity factor data for employment: {os.path.basename(csv_file)}")
     
     load_factors = df[load_cols] if load_cols else pd.DataFrame()
-    # 重命名负荷因子列
     load_factors.columns = [col.replace('_Load_Factor', '') for col in load_factors.columns]
     
     return capacity_factors, load_factors
 
 def load_employment_config(config_file=None):
     """
-    加载就业参数配置文件
-    
+    Load employment parameters from config file.
+
     Parameters:
     -----------
     config_file : str, optional
-        配置文件路径，默认为 employment_config.yaml
-    
+        Config file path; default employment_config.yaml
+
     Returns:
     --------
     tuple
-        (employment_params, config) 就业参数字典和配置字典
+        (employment_params, config) employment params dict and config dict
     """
     if config_file is None:
         config_file = os.path.join(os.path.dirname(__file__), 'employment_config.yaml')
@@ -101,14 +97,11 @@ def load_employment_config(config_file=None):
         with open(config_file, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
-        # 转换配置格式
         employment_params = {}
         for tech, params in config['industries'].items():
-            # 处理不同的单位系统
-
             employment_params[tech] = {
-                'installed_capacity': params['installed_capacity'],  # 直接使用GW
-                'employment_per_gw': params['employment_per_GW'],     # 直接使用千人/GW
+                'installed_capacity': params['installed_capacity'],
+                'employment_per_gw': params['employment_per_GW'],
                 'display_name': params['display_name'],
                 'unit_system': 'GW'
             }
@@ -121,29 +114,27 @@ def load_employment_config(config_file=None):
 
 def get_default_employment_parameters():
     """
-    获取默认的各行业参数
-    
+    Return default employment parameters per industry.
+
     Returns:
     --------
     dict
-        包含各行业参数的字典
+        Industry parameters (installed capacity GW, employment per GW).
     """
-    # 默认参数值
-    # 单位：装机容量(GW)，单位就业人数(人/GW)
     employment_params = {
         'Aluminum': {
-            'installed_capacity': 18.8,  # GW - 铝冶炼厂装机容量
-            'employment_per_GW': 15.4,      # 人/GW - 每GW装机对应的就业人数
+            'installed_capacity': 16.5,   # GW - aluminum smelter
+            'employment_per_GW': 15.4,    # persons per GW
             'display_name': 'Aluminum Smelter'
         },
         'Coal': {
-            'installed_capacity': 328.0,  # GW - 煤电装机容量
-            'employment_per_GW': 0.8,      # 人/GW - 每GW装机对应的就业人数
+            'installed_capacity': 343.0,  # GW - coal power
+            'employment_per_GW': 0.8,     # persons per GW
             'display_name': 'Coal Power'
         },
         'Gas': {
-            'installed_capacity': 100.80,  # GW - 天然气发电装机容量
-            'employment_per_GW': 0.2,      # 人/GW - 每GW装机对应的就业人数
+            'installed_capacity': 100.80, # GW - gas power
+            'employment_per_GW': 0.2,     # persons per GW
             'display_name': 'Gas Power'
         }
     }
@@ -168,18 +159,18 @@ def get_scenario_specific_parameters(scenario_type):
         # MMMU_non_flexible (decommission all overcapacity)
         employment_params = {
             'Aluminum': {
-                'installed_capacity': 11.7,  # GW - 铝冶炼厂装机容量
-                'employment_per_GW': 15.4,      # 人/GW - 每GW装机对应的就业人数
+                'installed_capacity': 11.7,   # GW - aluminum smelter
+                'employment_per_GW': 15.4,     # persons per GW
                 'display_name': 'Aluminum Smelter'
             },
             'Coal': {
-                'installed_capacity': 343.7,  # GW - 煤电装机容量
-                'employment_per_GW': 0.8,      # 人/GW - 每GW装机对应的就业人数
+                'installed_capacity': 343.7,  # GW - coal power
+                'employment_per_GW': 0.8,     # persons per GW
                 'display_name': 'Coal Power'
             },
             'Gas': {
-                'installed_capacity': 100.80,  # GW - 天然气发电装机容量
-                'employment_per_GW': 0.2,      # 人/GW - 每GW装机对应的就业人数
+                'installed_capacity': 100.80, # GW - gas power
+                'employment_per_GW': 0.2,     # persons per GW
                 'display_name': 'Gas Power'
             }
         }
@@ -191,25 +182,25 @@ def get_scenario_specific_parameters(scenario_type):
 
 def calculate_monthly_employment(capacity_factors, employment_params):
     """
-    基于平均容量因子计算逐月就业人数
-    
+    Compute monthly employment from average capacity factors.
+
     Parameters:
     -----------
     capacity_factors : pd.DataFrame
-        平均容量因子数据，行为月份，列为技术类型
+        Average capacity factors, rows=months, columns=technology
     employment_params : dict
-        各行业的装机容量和单位就业人数参数
-    
+        Installed capacity and employment per GW per industry
+
     Returns:
     --------
     pd.DataFrame
-        逐月就业人数数据
+        Monthly employment by industry
     """
     employment_data = {}
-    
+
     for tech, params in employment_params.items():
         if tech in capacity_factors.columns:
-            # 计算就业人数：平均容量因子 × 装机容量 × 单位就业人数 * 90% + 最大值的10%
+            # Employment = (0.1 + 0.9 * capacity_factor) * installed_capacity * employment_per_GW
             monthly_employment = (0.10 + 0.90 * capacity_factors[tech]) * (
                                 params['installed_capacity'] * 
                                 params['employment_per_GW'])
@@ -230,20 +221,17 @@ def plot_employment_comparison(employment_data_15p, employment_data_non_flexible
     employment_data_non_flexible : pd.DataFrame
         Monthly employment for MMMU_non_flexible scenario.
     output_file : str, optional
-        输出图片文件路径
+        Output plot file path
     config : dict, optional
-        配置字典，包含颜色等设置
+        Config dict (e.g. colors)
     differences : dict, optional
-        包含统计信息的字典，用于在图表上显示总人数的均值和方差
+        Stats dict for mean/variance of total employment on the plot
     """
     if employment_data_15p.empty or employment_data_non_flexible.empty:
         print("Warning: No employment data to plot")
         return
-    
-    # 设置绘图样式
+
     set_plot_style()
-    
-    # 直接设置图表参数
     figsize = [12, 9]
     dpi = 150
     font_size = 30
@@ -251,21 +239,17 @@ def plot_employment_comparison(employment_data_15p, employment_data_non_flexible
     title_font_size = 30
     axis_font_size = 30
     
-    # 创建上下两个子图
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[12, 9], sharex=False)
-    
-    # 从配置获取颜色设置
+
     if config and 'colors' in config:
         colors = config['colors']
     else:
-        # 默认颜色
         colors = {
             'Aluminum Smelter': '#FF69B4',    # Hot pink
             'Coal Power': '#000000',          # Black
             'Gas Power': '#FF0000'            # Red
         }
     
-    # 图例标签映射（无论是否使用配置文件都定义）
     legend_labels = {
         'Aluminum Smelter': 'Aluminum smelters',
         'Coal Power': 'Coal power plants',
@@ -282,50 +266,19 @@ def plot_employment_comparison(employment_data_15p, employment_data_non_flexible
                         font_size, legend_font_size, axis_font_size, show_legend=False,
                         legend_labels=legend_labels)
     
-    # 在图表上添加总就业人数的均值和方差信息
-    if differences is not None:
-        # 计算总就业人数
-        total_15p = employment_data_15p.sum(axis=1)
-        total_non_flexible = employment_data_non_flexible.sum(axis=1)
-        
-        # 计算总人数的均值和方差
-        mean_total_15p = total_15p.mean()
-        var_total_15p = total_15p.var()
-        std_total_15p = total_15p.std()
-        
-        mean_total_non_flexible = total_non_flexible.mean()
-        var_total_non_flexible = total_non_flexible.var()
-        std_total_non_flexible = total_non_flexible.std()
-        
-        # Add total employment statistics for MMMU to upper plot
-        stats_text_15p = f'Mean: {mean_total_15p:.0f}k  Std Dev: {std_total_15p:.0f}k'
-        ax1.text(0.5, 0.98, stats_text_15p, transform=ax1.transAxes,
-                fontsize=title_font_size, verticalalignment='top', horizontalalignment='center')
+    ax1.set_ylim(0, 500)
+    ax2.set_ylim(0, 500)
 
-        # Add total employment statistics for non_flexible scenario to lower plot  
-        stats_text_non_flexible = f'Mean: {mean_total_non_flexible:.0f}k  Std Dev: {std_total_non_flexible:.0f}k'
-        ax2.text(0.5, 0.98, stats_text_non_flexible, transform=ax2.transAxes,
-                fontsize=title_font_size, verticalalignment='top', horizontalalignment='center')
-    
-    # 设置统一的y轴范围
-    ax1.set_ylim(0, 400)
-    ax2.set_ylim(0, 400)
-    
-    # 设置子图标题
-    ax1.set_title('Maintaining 36% Overcapacity', fontsize=title_font_size, pad=20)
+    ax1.set_title('Maintaining 30% Overcapacity', fontsize=title_font_size, pad=20)
     ax2.set_title('Decommissioning All Overcapacity', fontsize=title_font_size, pad=20)
-    
-    # 创建统一的图例（放在外面下方，不带框）
-    # 获取第一个子图的图例元素
+
     handles, labels = ax1.get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(1, -0.1), 
+    fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(1, -0.1),
               ncol=len(handles), fontsize=legend_font_size, frameon=False)
-    
-    # 调整布局，为底部图例留出空间
+
     plt.tight_layout()
     plt.subplots_adjust(right=2)
-    
-    # 保存图表
+
     if output_file is None:
         output_file = "employment_scenario_comparison.png"
     
@@ -335,32 +288,28 @@ def plot_employment_comparison(employment_data_15p, employment_data_non_flexible
     
     print(f"Employment comparison plot saved to: {output_file}")
 
-def plot_single_scenario(ax, employment_data, colors, scenario_name, 
-                        font_size, legend_font_size, axis_font_size, show_legend=True, 
+def plot_single_scenario(ax, employment_data, colors, scenario_name,
+                        font_size, legend_font_size, axis_font_size, show_legend=True,
                         legend_labels=None):
     """
-    绘制单个场景的就业数据
-    
+    Plot employment for a single scenario.
+
     Parameters:
     -----------
     ax : matplotlib.axes.Axes
-        绘图轴
+        Axes to draw on
     employment_data : pd.DataFrame
-        就业人数数据
+        Monthly employment by industry
     colors : dict
-        颜色字典
+        Color map for industries
     scenario_name : str
-        场景名称
-    font_size : int
-        字体大小
-    legend_font_size : int
-        图例字体大小
-    axis_font_size : int
-        坐标轴字体大小
+        Scenario label
+    font_size, legend_font_size, axis_font_size : int
+        Font sizes
     show_legend : bool
-        是否显示图例
+        Whether to show legend
     """
-    # 重新排序列，将Aluminum Smelter放在最上面
+    # Put Aluminum Smelter on top in stacking order
     column_order = []
     if 'Aluminum Smelter' in employment_data.columns:
         column_order.append('Aluminum Smelter')
@@ -368,81 +317,67 @@ def plot_single_scenario(ax, employment_data, colors, scenario_name,
         if col != 'Aluminum Smelter':
             column_order.append(col)
     
-    # 按新顺序重新排列数据
     employment_data_ordered = employment_data[column_order]
-    
-    # 计算累积值用于叠加面积图
+
     cumulative_data = employment_data_ordered.cumsum(axis=1)
-    
-    # 绘制叠加面积图
+
     for i, industry in enumerate(employment_data_ordered.columns):
         months = employment_data_ordered.index
-        # 使用图例标签映射，如果没有映射则使用原名称
         label = legend_labels.get(industry, industry) if legend_labels else industry
-        
+
         if i == 0:
-            # 第一个行业：从0开始绘制
             values = cumulative_data[industry].values
             ax.fill_between(months, 0, values, color=colors.get(industry, '#808080'), 
                            alpha=0.7, label=label)
         else:
-            # 后续行业：从上一个行业的累积值开始绘制
             prev_industry = employment_data_ordered.columns[i-1]
             prev_values = cumulative_data[prev_industry].values
             values = cumulative_data[industry].values
             ax.fill_between(months, prev_values, values, color=colors.get(industry, '#808080'), 
                            alpha=0.7, label=label)
     
-    # 设置图表属性
     ax.set_ylabel('Needed workforce', fontsize=axis_font_size)
     ax.set_xlim(1.0, 12.0)
     ax.set_xticks(range(1, 13))
-    ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+    ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=font_size)
-    
-    # 设置y轴刻度标签，添加"k"后缀
+
     ax.set_yticks(range(0, 401, 100))
     ax.set_yticklabels([f'{i}k' for i in range(0, 401, 100)], fontsize=font_size)
-    
-    # 确保x轴刻度标签可见
+
     ax.tick_params(axis='x', labelsize=font_size)
     ax.tick_params(axis='y', labelsize=font_size)
-    
+
     ax.grid(True, alpha=0.3)
-    
-    # 根据参数决定是否显示图例
+
     if show_legend:
         ax.legend(loc='best', fontsize=legend_font_size)
 
 def plot_mean_variance_comparison(differences, output_file=None):
     """
-    绘制均值和方差的对比图表
-    
+    Plot mean and variance comparison between scenarios.
+
     Parameters:
     -----------
     differences : dict
-        包含差异统计的字典
+        Per-industry difference statistics
     output_file : str, optional
-        输出图片文件路径
+        Output plot file path
     """
     if not differences:
         print("Warning: No data to plot")
         return
-    
-    # 设置绘图样式
+
     set_plot_style()
-    
-    # 准备数据
+
     industries = list(differences.keys())
     means_15p = [differences[industry]['avg_15p'] for industry in industries]
     means_non_flexible = [differences[industry]['avg_non_flexible'] for industry in industries]
     vars_15p = [differences[industry]['var_15p'] for industry in industries]
     vars_non_flexible = [differences[industry]['var_non_flexible'] for industry in industries]
     
-    # 创建子图
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-    
-    # 绘制均值对比
+
     x = np.arange(len(industries))
     width = 0.35
     
@@ -456,8 +391,7 @@ def plot_mean_variance_comparison(differences, output_file=None):
     ax1.set_xticklabels(industries, rotation=45, ha='right')
     ax1.legend()
     ax1.grid(True, alpha=0.3)
-    
-    # 添加数值标签
+
     for bar in bars1:
         height = bar.get_height()
         ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
@@ -467,8 +401,7 @@ def plot_mean_variance_comparison(differences, output_file=None):
         height = bar.get_height()
         ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
                 f'{height:.1f}', ha='center', va='bottom', fontsize=10)
-    
-    # 绘制方差对比
+
     bars3 = ax2.bar(x - width/2, vars_15p, width, label='MMMU', alpha=0.8, color='#FF69B4')
     bars4 = ax2.bar(x + width/2, vars_non_flexible, width, label='MMMU (non-flexible)', alpha=0.8, color='#000000')
     
@@ -479,8 +412,7 @@ def plot_mean_variance_comparison(differences, output_file=None):
     ax2.set_xticklabels(industries, rotation=45, ha='right')
     ax2.legend()
     ax2.grid(True, alpha=0.3)
-    
-    # 添加数值标签
+
     for bar in bars3:
         height = bar.get_height()
         ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
@@ -492,8 +424,7 @@ def plot_mean_variance_comparison(differences, output_file=None):
                 f'{height:.2f}', ha='center', va='bottom', fontsize=10)
     
     plt.tight_layout()
-    
-    # 保存图表
+
     if output_file is None:
         output_file = "mean_variance_comparison.png"
     
@@ -519,27 +450,23 @@ def calculate_scenario_differences(employment_data_15p, employment_data_non_flex
         Per-industry stats (avg_15p, avg_non_flexible, var_*, std_*, etc.).
     """
     differences = {}
-    
-    # 确保两个数据框有相同的列
+
     common_columns = set(employment_data_15p.columns) & set(employment_data_non_flexible.columns)
-    
+
     for industry in common_columns:
         data_15p = employment_data_15p[industry]
         data_non_flexible = employment_data_non_flexible[industry]
-        
-        # 计算差异
+
         diff = data_15p - data_non_flexible
         diff_percent = (diff / data_non_flexible) * 100
-        
-        # 计算均值和方差
+
         mean_15p = data_15p.mean()
         mean_non_flexible = data_non_flexible.mean()
         var_15p = data_15p.var()
         var_non_flexible = data_non_flexible.var()
         std_15p = data_15p.std()
         std_non_flexible = data_non_flexible.std()
-        
-        # 计算差异的均值和方差
+
         mean_diff = diff.mean()
         var_diff = diff.var()
         std_diff = diff.std()
@@ -567,12 +494,12 @@ def calculate_scenario_differences(employment_data_15p, employment_data_non_flex
 
 def print_mean_variance_summary(differences):
     """
-    打印均值和方差摘要统计
-    
+    Print mean and variance summary statistics.
+
     Parameters:
     -----------
     differences : dict
-        包含差异统计的字典
+        Per-industry difference statistics
     """
     print(f"\nMean and variance statistics summary")
     print("=" * 60)
@@ -594,21 +521,20 @@ def print_mean_variance_summary(differences):
 
 def print_comparison_statistics(differences, employment_params_15p, employment_params_non_flexible):
     """
-    打印对比统计信息
-    
+    Print comparison statistics.
+
     Parameters:
     -----------
     differences : dict
-        包含差异统计的字典
+        Per-industry difference statistics
     employment_params_15p : dict
-        MMMU scenario employment parameters.
+        MMMU scenario employment parameters
     employment_params_non_flexible : dict
-        MMMU_non_flexible scenario employment parameters.
+        MMMU_non_flexible scenario employment parameters
     """
     print(f"\nEmployment Scenario Comparison Statistics")
     print("=" * 80)
-    
-    # 打印场景参数信息
+
     print(f"\nScenario Parameters:")
     print(f"MMMU scenario:")
     for tech, params in employment_params_15p.items():
@@ -740,10 +666,9 @@ def compare_employment_scenarios(file_mmmu=None, file_mmmu_non_flexible=None,
         print("Warning: No capacity factor data found in CSV files")
         return
 
-    # non_flexible 情景下铝冶炼为不可调节，容量因子恒为 1
-    if 'Aluminum' in capacity_factors_non_flexible.columns:
-        capacity_factors_non_flexible = capacity_factors_non_flexible.copy()
-        capacity_factors_non_flexible['Aluminum'] = 1.0
+    # In non_flexible scenario aluminum is non-dispatchable: capacity factor = 1 (add column if missing)
+    capacity_factors_non_flexible = capacity_factors_non_flexible.copy()
+    capacity_factors_non_flexible['Aluminum'] = 1.0
 
     _, config = load_employment_config(config_file)
 
@@ -765,8 +690,7 @@ def compare_employment_scenarios(file_mmmu=None, file_mmmu_non_flexible=None,
     if employment_data_15p.empty or employment_data_non_flexible.empty:
         print("Warning: No employment data calculated")
         return
-    
-    # 设置输出目录
+
     if output_dir is None:
         if config and 'output' in config:
             output_dir = config['output'].get('directory', 'results/employment_analysis')
@@ -774,30 +698,24 @@ def compare_employment_scenarios(file_mmmu=None, file_mmmu_non_flexible=None,
             output_dir = "results/employment_analysis"
     
     os.makedirs(output_dir, exist_ok=True)
-    
-    # 生成输出文件名
+
     plot_file = os.path.join(output_dir, "employment_scenario_comparison.png")
     mean_var_plot_file = os.path.join(output_dir, "mean_variance_comparison.png")
     csv_file = os.path.join(output_dir, "employment_scenario_comparison.csv")
-    
-    # 计算差异统计
+
     print("Calculating differences...")
     differences = calculate_scenario_differences(employment_data_15p, employment_data_non_flexible)
-    
-    # 绘制对比图表
+
     print("Creating comparison plot...")
-    plot_employment_comparison(employment_data_15p, employment_data_non_flexible, 
+    plot_employment_comparison(employment_data_15p, employment_data_non_flexible,
                              plot_file, config, differences)
-    
-    # 绘制均值和方差对比图表
+
     print("Creating mean and variance comparison plot...")
     plot_mean_variance_comparison(differences, mean_var_plot_file)
-    
-    # 保存对比数据
-    save_comparison_data(employment_data_15p, employment_data_non_flexible, 
+
+    save_comparison_data(employment_data_15p, employment_data_non_flexible,
                         differences, csv_file)
-    
-    # Print statistics
+
     print_comparison_statistics(differences, employment_params_mmmu, employment_params_non_flexible)
 
 def main():
