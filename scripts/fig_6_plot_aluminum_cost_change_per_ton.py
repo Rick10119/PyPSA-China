@@ -26,7 +26,7 @@ COS_IDX = {
     'Restart': 3,
     'Depreciation': 4,
     'Retirement loss': 5,
-    'Storage & Capital': 6,
+    'Storage & capital': 6,
     'Electricity': 7,
 }
 _COSTS_2020_FULL = [8451.2, 150, 400, 0.01, 300, 0, 1, 6250, 1500]

@@ -50,7 +50,7 @@ def create_aluminum_cost_bar_chart(scenario_type='F', output_dir='results'):
 
     print(f"  [{scenario_type}] Total 2020: {scenario_totals[0]:.2f}  2050_0p: {scenario_totals[1]:.2f}  2050_15p: {scenario_totals[2]:.2f}  2050_100p: {scenario_totals[3]:.2f} CNY/tonne")
 
-    fig, ax = plt.subplots(1, 1, figsize=(12, 9))
+    fig, ax = plt.subplots(1, 1, figsize=(12, 11))
     x = np.arange(len(scenarios))
     width = 0.6
     bottom = np.zeros(len(scenarios))
@@ -58,8 +58,7 @@ def create_aluminum_cost_bar_chart(scenario_type='F', output_dir='results'):
     for i, (category, color) in enumerate(zip(CATEGORIES, COLORS)):
         category_costs = [costs[i] for costs in scenario_costs]
         bars = ax.bar(x, category_costs, width, bottom=bottom,
-                      label=category, color=color, alpha=0.8,
-                      edgecolor='black', linewidth=0.5)
+                      label=category, color=color, alpha=0.8)
         for j, (bar, cost) in enumerate(zip(bars, category_costs)):
             if cost > 1 and cost < 8000:
                 height = bar.get_height()
@@ -73,12 +72,12 @@ def create_aluminum_cost_bar_chart(scenario_type='F', output_dir='results'):
     ax.set_ylabel('Levelized cost (CNY/tonne)', fontsize=20, fontweight='bold')
     ax.set_xticks(x)
     ax.set_xticklabels(scenarios, fontsize=20)
-    ax.set_ylim(0, 20000)
-    ax.set_yticks(np.arange(0, 20001, 2000))
-    ax.set_yticklabels([f'{int(tick)}' for tick in np.arange(0, 20001, 2000)], fontsize=20)
+    ax.set_ylim(0, 18000)
+    ax.set_yticks(np.arange(0, 18001, 2000))
+    ax.set_yticklabels([f'{int(tick)}' for tick in np.arange(0, 18001, 2000)], fontsize=20)
 
     for i, total in enumerate(scenario_totals):
-        ax.text(i, total + 200, f'Total: {total:.0f}',
+        ax.text(i, total + 400, f'Total: {total:.0f}',
                 ha='center', va='bottom', fontsize=20, fontweight='bold')
 
     handles, labels = ax.get_legend_handles_labels()
