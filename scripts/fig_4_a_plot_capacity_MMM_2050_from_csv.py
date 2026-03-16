@@ -90,15 +90,15 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     
     # Plot electricity-system cost savings (bottom bars)
     bars1 = ax.bar(x_power, power_savings, bar_width*0.8, color='#1f77b4', alpha=0.8, 
-                   label='Power System Cost Savings')
+                   label='Power system cost savings')
     
     # 电解铝成本：从 power_savings 位置“向下”扣减（画负方向），
     # 这样堆叠后的终点会对齐净节省 net_savings（黑线数值正确时）。
     breakdown_cols = [
         # warm monochrome palette (colorbrewer-like), distinct from power-system blue
-        ('Aluminum_Maintenance_Billion_CNY', '#b35806', 'Aluminum: Maintenance Cost Increase'),
-        ('Aluminum_Labor_Billion_CNY', '#f1a340', 'Aluminum: Labor Cost Increase'),
-        ('Aluminum_Restart_Billion_CNY', '#fee0b6', 'Aluminum: Restart Cost Increase'),
+        ('Aluminum_Maintenance_Billion_CNY', '#b35806', 'Aluminum smelter: maintenance cost increase'),
+        ('Aluminum_Labor_Billion_CNY', '#f1a340', 'Aluminum smelter: labor cost increase'),
+        ('Aluminum_Restart_Billion_CNY', '#fee0b6', 'Aluminum smelter: restart cost increase'),
     ]
     has_breakdown = all(col in df.columns for col, _, _ in breakdown_cols)
 
@@ -132,11 +132,11 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
             alpha=0.8,
             edgecolor="white",
             linewidth=0.6,
-            label='Aluminum Operation Cost Increase',
+            label='Aluminum smelter: Operation Cost Increase',
         )
     
     # Plot net cost savings curve (black line at original x positions)
-    ax.plot(x, net_savings, 'k-', linewidth=3, label='Net Cost Savings', marker='o', markersize=8, zorder=20)
+    ax.plot(x, net_savings, 'k-', linewidth=3, label='Net cost savings', marker='o', markersize=8, zorder=20)
     
     # Find the point with maximum net savings
     max_saving_index = np.argmax(net_savings)
@@ -145,7 +145,7 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     
     # Mark the maximum net-savings point with a star
     ax.plot(max_saving_capacity, max_saving_value, 'r*', markersize=15, 
-            label=f'Highest Net Savings: {max_saving_value:.0f}B CNY', zorder=30)
+            label=f'Highest net cost savings: {max_saving_value:.0f}B CNY', zorder=30)
     
     # Add numeric label for the maximum net-savings point
     ax.annotate(f'{max_saving_value:.0f}B',
@@ -157,8 +157,8 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
                 bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
     
     # Axis labels
-    ax.set_xlabel('Aluminum Smelting Capacity (Mt/Year)', fontsize=20)
-    ax.set_ylabel('Cost Savings/Increase (Billion CNY)', fontsize=20, color='blue')
+    ax.set_xlabel('Aluminum smelting capacity (Mt/Year)', fontsize=20)
+    ax.set_ylabel('Cost savings/increase (Billion CNY)', fontsize=20, color='blue')
     
     # Add light grid
     ax.grid(True, alpha=0.3, axis='y')

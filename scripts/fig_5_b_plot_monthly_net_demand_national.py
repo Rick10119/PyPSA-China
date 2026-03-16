@@ -373,7 +373,7 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
     Plot the monthly net load curve.
     """
     fig, ax = plt.subplots(figsize=(14, 14))
-    
+
     colors = {
         "Other Electricity Load": "#1f77b4",
         "Electric Heating": "#ff7f0e",
@@ -381,6 +381,16 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
         "Solar Generation": "#FFD700",
         "Hydro Generation": "#0000FF",
         "Net Load": "blue",
+    }
+
+    # Display labels: only first word capitalized
+    label_map = {
+        "Other Electricity Load": "Other electricity load",
+        "Electric Heating": "Electric heating",
+        "Wind Generation": "Wind generation",
+        "Solar Generation": "Solar generation",
+        "Hydro Generation": "Hydro generation",
+        "Net Load": "Net demand",
     }
 
     # Plot components as stacked areas (positive)
@@ -391,7 +401,7 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
     ax.stackplot(
         monthly_data.index,
         [monthly_data[label].values for label in positive_components],
-        labels=positive_components,
+        labels=[label_map[label] for label in positive_components],
         colors=[colors.get(label, "#808080") for label in positive_components],
         alpha=0.6,
     )
@@ -401,7 +411,7 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
     ax.stackplot(
         monthly_data.index,
         [-monthly_data[label].values for label in renewables],
-        labels=renewables,
+        labels=[label_map[label] for label in renewables],
         colors=[colors.get(label, "#17becf") for label in renewables],
         alpha=0.5,
     )
@@ -413,18 +423,20 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
         net_load,
         's--',
         color=colors["Net Load"],
-        label="Net Demand",
+        label=label_map["Net Load"],
         markersize=10,
         linewidth=4,
     )
     
     ax.set_xlabel('Month', fontsize=40)
-    ax.set_ylabel('Electricity Demand / Generation (TWh)', fontsize=40)
+    ax.set_ylabel('Electricity demand / generation (TWh)', fontsize=40)
     title_province = target_province or "National"
-    ax.set_title(
-        f'Monthly Net Demand & Components - {planning_horizon} ({title_province})',
-        fontsize=40
-    )
+    # For the national case, omit the figure title; keep it for provincial plots.
+    if title_province != "National":
+        ax.set_title(
+            f'Monthly net demand and components - {planning_horizon} ({title_province})',
+            fontsize=40
+        )
     
     ax.set_xlim(1.0, 12.0)
     ax.set_xticks(range(1, 13))
@@ -433,10 +445,10 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
     ax.tick_params(axis='y', labelsize=30)
     ax.grid(True, alpha=0.3)
     
-    # Legend: show heat load (Electric Heating) first, then electricity (Other Electricity Load)
+    # Legend: show heat load (Electric heating) first, then electricity (Other electricity load)
     handles, labels = ax.get_legend_handles_labels()
-    heat_label = "Electric Heating"
-    elec_label = "Other Electricity Load"
+    heat_label = label_map["Electric Heating"]
+    elec_label = label_map["Other Electricity Load"]
     if heat_label in labels and elec_label in labels:
         idx_heat = labels.index(heat_label)
         idx_elec = labels.index(elec_label)

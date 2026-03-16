@@ -87,9 +87,9 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     for patch, year in zip(bp1['boxes'], years):
         patch.set_facecolor(year_colors[year])
     
-    ax1.set_title('Distribution of Optimal Smelting Capacity by Year', fontsize=18, fontweight='bold', pad=15)
+    ax1.set_title('Distribution of optimal smelting capacity by year', fontsize=18, fontweight='bold', pad=15)
     # ax1.set_xlabel('Year', fontsize=18, fontweight='bold')
-    ax1.set_ylabel('Smelting Capacity (Mt/year)', fontsize=18, fontweight='bold')
+    ax1.set_ylabel('Smelting capacity (Mt/year)', fontsize=18, fontweight='bold')
     ax1.grid(True, alpha=0.3)
     ax1.tick_params(axis='both', which='major', labelsize=18)
     ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
@@ -132,7 +132,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         # 将年份转换为x轴位置（1, 2, 3...）
         demand_x_positions = [years.index(year) + 1 for year in demand_years]
         ax1.plot(demand_x_positions, demand_values, 'k--', linewidth=2, alpha=0.6, 
-                label='Demand Trend')
+                label='Demand trend')
     
     # Connect mean capacities with a dashed line
     if len(year_capacity_means) > 1:
@@ -141,7 +141,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         # 将年份转换为x轴位置（1, 2, 3...）
         capacity_x_positions = [years.index(year) + 1 for year in capacity_years]
         ax1.plot(capacity_x_positions, capacity_values, 'b--', linewidth=2, alpha=0.6, 
-                label='Average Capacity Trend')
+                label='Average capacity trend')
     
     # Annotate mean overcapacity ratio above each box
     for i, year in enumerate(years, 1):
@@ -164,9 +164,9 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     for patch, year in zip(bp2['boxes'], years):
         patch.set_facecolor(year_colors[year])
     
-    ax2.set_title('Distribution of Optimal Net Benefit by Year', fontsize=18, fontweight='bold', pad=15)
+    ax2.set_title('Distribution of optimal net benefit by year', fontsize=18, fontweight='bold', pad=15)
     ax2.set_xlabel('Year', fontsize=18, fontweight='bold')
-    ax2.set_ylabel('Net Benefit (Billion CNY)', fontsize=18, fontweight='bold')
+    ax2.set_ylabel('Net benefit (billion CNY)', fontsize=18, fontweight='bold')
     ax2.grid(True, alpha=0.3)
     ax2.tick_params(axis='both', which='major', labelsize=18)
     ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
@@ -199,7 +199,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         from matplotlib.patches import Rectangle
         legend_elements_2 = [Rectangle((0.1, 0.1), 1, 1, facecolor='white', 
                                       edgecolor='black', alpha=0.8,
-                                      label='Mean Optimal Net Benefit')]
+                                      label='Mean optimal net benefit')]
         ax2.legend(handles=legend_elements_2, loc='upper left', 
                   frameon=False, fontsize=18)
     
@@ -209,11 +209,11 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     # Add trend lines to legend
     if len(demand_years) > 1:
         legend_elements.append(plt.Line2D([0], [0], color='k', linestyle='--', linewidth=2, 
-                                        label='Primary Aluminum Demand'))
+                                        label='Primary aluminum demand'))
     
     if len(year_capacity_means) > 1:
         legend_elements.append(plt.Line2D([0], [0], color='b', linestyle='-.', linewidth=2, 
-                                        label='Mean Optimal Capacity'))
+                                        label='Mean optimal capacity'))
     
     # Add mean overcapacity annotation to legend
     if year_capacity_means or year_net_value_means:
@@ -221,7 +221,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
         from matplotlib.patches import Rectangle
         legend_elements.append(Rectangle((0, 0), 1, 1, facecolor='white', 
                                        edgecolor='black', alpha=0.8,
-                                       label='Mean Overcapacity Ratio'))
+                                       label='Mean overcapacity ratio'))
     
     # Add legend to the first subplot without frame
     if legend_elements:

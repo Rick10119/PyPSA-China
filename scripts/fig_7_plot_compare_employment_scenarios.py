@@ -269,8 +269,8 @@ def plot_employment_comparison(employment_data_15p, employment_data_non_flexible
     ax1.set_ylim(0, 500)
     ax2.set_ylim(0, 500)
 
-    ax1.set_title('Maintaining 30% Overcapacity', fontsize=title_font_size, pad=20)
-    ax2.set_title('Decommissioning All Overcapacity', fontsize=title_font_size, pad=20)
+    ax1.set_title('Retaining 30% overcapacity', fontsize=title_font_size, pad=20)
+    ax2.set_title('Retaining 0% overcapacity', fontsize=title_font_size, pad=20)
 
     handles, labels = ax1.get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(1, -0.1),
@@ -375,6 +375,8 @@ def plot_mean_variance_comparison(differences, output_file=None):
     means_non_flexible = [differences[industry]['avg_non_flexible'] for industry in industries]
     vars_15p = [differences[industry]['var_15p'] for industry in industries]
     vars_non_flexible = [differences[industry]['var_non_flexible'] for industry in industries]
+    stds_15p = [differences[industry]['std_15p'] for industry in industries]
+    stds_non_flexible = [differences[industry]['std_non_flexible'] for industry in industries]
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
@@ -413,15 +415,30 @@ def plot_mean_variance_comparison(differences, output_file=None):
     ax2.legend()
     ax2.grid(True, alpha=0.3)
 
-    for bar in bars3:
-        height = bar.get_height()
-        ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                f'{height:.2f}', ha='center', va='bottom', fontsize=10)
-    
-    for bar in bars4:
-        height = bar.get_height()
-        ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                f'{height:.2f}', ha='center', va='bottom', fontsize=10)
+    # Annotate each variance bar with its variance and standard deviation
+    for i, bar in enumerate(bars3):
+        var_val = bar.get_height()
+        std_val = stds_15p[i]
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            var_val + max(var_val * 0.01, 0.05),
+            f'{var_val:.2f}\nσ={std_val:.2f}',
+            ha='center',
+            va='bottom',
+            fontsize=10,
+        )
+
+    for i, bar in enumerate(bars4):
+        var_val = bar.get_height()
+        std_val = stds_non_flexible[i]
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            var_val + max(var_val * 0.01, 0.05),
+            f'{var_val:.2f}\nσ={std_val:.2f}',
+            ha='center',
+            va='bottom',
+            fontsize=10,
+        )
     
     plt.tight_layout()
 
