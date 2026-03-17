@@ -71,7 +71,7 @@ def create_aluminum_cost_bar_chart(scenario_type='F', output_dir='results'):
         costs_100p = COSTS_2050_100P_U
 
     # Only show 2050 scenarios; 2020 is the zero baseline and not drawn
-    scenarios = ['2050 Retain \nno overcapacity', '2050 Retain \n30% overcapacity', '2050 Retain \nall overcapacity']
+    scenarios = ['No overcapacity', '30% overcapacity', 'All overcapacity']
     scenario_costs_2050 = [COSTS_2050_0P, costs_15p, costs_100p]
     # Compute per-category deltas vs 2020 for each 2050 scenario
     deltas_2050 = [[c - b for c, b in zip(costs, COSTS_2020)] for costs in scenario_costs_2050]
@@ -211,7 +211,7 @@ def create_aluminum_cost_bar_chart(scenario_type='F', output_dir='results'):
     plt.tight_layout()
 
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f'aluminum_cost_composition_2020_2050_stacked_bar_s_{scenario_type.upper()}.png')
+    output_path = os.path.join(output_dir, f'aluminum_cost_change_2020_2050_stacked_bar_s_{scenario_type.upper()}.png')
     plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     print(f"  Saved: {output_path}")

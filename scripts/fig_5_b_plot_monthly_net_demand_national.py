@@ -372,7 +372,8 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
     """
     Plot the monthly net load curve.
     """
-    fig, ax = plt.subplots(figsize=(14, 14))
+    # Wider canvas to accommodate large fonts and bottom legend
+    fig, ax = plt.subplots(figsize=(22, 20))
 
     colors = {
         "Other Electricity Load": "#1f77b4",
@@ -424,25 +425,25 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
         's--',
         color=colors["Net Load"],
         label=label_map["Net Load"],
-        markersize=10,
-        linewidth=4,
+        markersize=14,
+        linewidth=7,
     )
     
-    ax.set_xlabel('Month', fontsize=40)
-    ax.set_ylabel('Electricity demand / generation (TWh)', fontsize=40)
+    ax.set_xlabel('Month', fontsize=60)
+    ax.set_ylabel('Demand / generation (TWh)', fontsize=60)
     title_province = target_province or "National"
     # For the national case, omit the figure title; keep it for provincial plots.
     if title_province != "National":
         ax.set_title(
             f'Monthly net demand and components - {planning_horizon} ({title_province})',
-            fontsize=40
+            fontsize=60
         )
     
     ax.set_xlim(1.0, 12.0)
     ax.set_xticks(range(1, 13))
     ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=40)
-    ax.tick_params(axis='y', labelsize=30)
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=60)
+    ax.tick_params(axis='y', labelsize=60)
     ax.grid(True, alpha=0.3)
     
     # Legend: show heat load (Electric heating) first, then electricity (Other electricity load)
@@ -454,10 +455,19 @@ def plot_monthly_net_demand(monthly_data, scenario, planning_horizon, target_pro
         idx_elec = labels.index(elec_label)
         handles = [handles[idx_heat], handles[idx_elec]] + [h for i, h in enumerate(handles) if i not in (idx_heat, idx_elec)]
         labels = [heat_label, elec_label] + [l for i, l in enumerate(labels) if i not in (idx_heat, idx_elec)]
-    ax.legend(handles=handles, labels=labels, fontsize=40, loc='upper left', bbox_to_anchor=(1, 1))
+    ax.legend(
+        handles=handles,
+        labels=labels,
+        fontsize=60,
+        loc='upper center',
+        bbox_to_anchor=(0.5, -0.12),
+        ncol=len(labels)/2,
+        frameon=False,
+    )
     
+    # Leave space for the bottom legend and expand right margin for a wider output
     plt.tight_layout()
-    plt.subplots_adjust(right=2)
+    plt.subplots_adjust(bottom=0.25, right=2)
     
     output_dir = "results/monthly_net_demand"
     os.makedirs(output_dir, exist_ok=True)
