@@ -1175,7 +1175,7 @@ def main():
     )
     parser.add_argument(
         '--output',
-        default='results/scenario_analysis',
+        default='results/scenario_analysis_f',
         help='Output directory for plots and tables.',
     )
     parser.add_argument(

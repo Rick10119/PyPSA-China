@@ -7,6 +7,9 @@ conda activate pypsa-china
 git restore .
 git pull
 # snakemake --unlock
+
+
+sbatch jobs_plot/job_plot_value_scenario_comparison.slurm
 sbatch jobs_plot/job_plot_optimal_point.slurm
 
 sbatch jobs_plot/job_plot_capacity.slurm
