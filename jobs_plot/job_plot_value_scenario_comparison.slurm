@@ -39,6 +39,11 @@ python scripts/plot_value_scenario_comparison.py \
     --output results/scenario_analysis \
     --file-type costs
 
+python scripts/plot_value_scenario_comparison_f.py \
+    --config config.yaml \
+    --output results/scenario_analysis_f \
+    --file-type costs
+
 if [ $? -eq 0 ]; then
     echo "✅ Scenario cost-change analysis script finished successfully"
 else

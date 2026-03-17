@@ -486,7 +486,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
     }
     
     # EUR-to-CNY conversion rate
-    EUR_TO_CNY = 7.8
+    EUR_TO_CNY = 7.868
     
     # Step 1: collect all scenario data and write an intermediate CSV
     all_plot_data = []
@@ -946,7 +946,7 @@ def generate_summary_table(scenarios, output_dir, file_type='costs'):
     tables_dir.mkdir(parents=True, exist_ok=True)
     
     # EUR-to-CNY conversion rate
-    EUR_TO_CNY = 7.8
+    EUR_TO_CNY = 7.868
     
     # Collect row data
     table_data = []

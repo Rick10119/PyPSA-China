@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-生成分省铝需求和装机数据（单位：吨/小时）
+Generate provincial aluminum demand and capacity data (units: ton/hour).
 
-输出文件：
-1. aluminum_demand_by_province.csv - 分省需求（按年份和情景），单位：吨/小时
-2. aluminum_capacity_by_province.csv - 分省装机，单位：吨/小时
+Output files:
+1. aluminum_demand_by_province.csv - Provincial demand (by year and scenario), ton/hour
+2. aluminum_capacity_by_province.csv - Provincial capacity, ton/hour
 """
 
 import pandas as pd
@@ -12,35 +12,35 @@ import json
 import numpy as np
 from pathlib import Path
 
-# 文件路径
+# File paths
 BASE_DIR = Path(__file__).parent.parent
 DEMAND_JSON = BASE_DIR / "data" / "aluminum_demand" / "aluminum_demand_all_scenarios.json"
 CAPACITY_CSV = BASE_DIR / "data" / "p_nom" / "al_smelter_p_max.csv"
 OUTPUT_DIR = BASE_DIR / "data" / "aluminum_demand"
 
-# 转换常数
-HOURS_PER_YEAR = 8760  # 一年的小时数
-TONS_PER_10KT = 10000  # 1万吨 = 10000吨
+# Conversion constants
+HOURS_PER_YEAR = 8760  # hours per year
+TONS_PER_10KT = 10000  # 10 kt = 10,000 tons
 
 
 def load_demand_data():
-    """加载需求数据"""
+    """Load national aluminum demand scenarios from JSON."""
     with open(DEMAND_JSON, 'r', encoding='utf-8') as f:
         data = json.load(f)
     return data['primary_aluminum_demand']
 
 
 def load_capacity_data():
-    """加载装机容量数据"""
+    """Load provincial smelter capacity data."""
     df = pd.read_csv(CAPACITY_CSV)
     df = df.set_index('Province')
-    # 过滤掉产量为0或很小的省份
+    # Filter out provinces with zero/negligible capacity
     df = df[df['p_nom'] > 0.01]
     return df
 
 
 def calculate_production_ratio(capacity_df):
-    """计算各省份的生产比例"""
+    """Compute each province's production share based on installed capacity."""
     total_capacity = capacity_df['p_nom'].sum()
     production_ratio = capacity_df['p_nom'] / total_capacity
     return production_ratio
@@ -48,57 +48,65 @@ def calculate_production_ratio(capacity_df):
 
 def convert_demand_to_tons_per_hour(demand_10kt):
     """
-    将需求从10kt转换为吨/小时
+    Convert demand from 10 kt to ton/hour.
     
-    参数:
-        demand_10kt: 需求（10kt，万吨）
+    Parameters
+    ----------
+    demand_10kt : float
+        Demand in 10 kt (ten thousand tons).
     
-    返回:
-        需求（吨/小时）
+    Returns
+    -------
+    float
+        Demand in ton/hour.
     """
-    demand_tons = demand_10kt * TONS_PER_10KT  # 转换为吨
-    demand_tons_per_hour = demand_tons / HOURS_PER_YEAR  # 转换为吨/小时
+    demand_tons = demand_10kt * TONS_PER_10KT  # to tons
+    demand_tons_per_hour = demand_tons / HOURS_PER_YEAR  # to ton/hour
     return demand_tons_per_hour
 
 
 def convert_capacity_to_tons_per_hour(capacity_10kt_per_year):
     """
-    将装机容量从10kt/year转换为吨/小时
+    Convert annual capacity from 10 kt/year to ton/hour.
     
-    参数:
-        capacity_10kt_per_year: 年产量（10kt/year，万吨/年）
+    Parameters
+    ----------
+    capacity_10kt_per_year : float or pd.Series
+        Annual output in 10 kt/year.
     
-    返回:
-        产能（吨/小时）
+    Returns
+    -------
+    float or pd.Series
+        Capacity in ton/hour.
     """
-    capacity_tons_per_year = capacity_10kt_per_year * TONS_PER_10KT  # 转换为吨/年
-    capacity_tons_per_hour = capacity_tons_per_year / HOURS_PER_YEAR  # 转换为吨/小时
+    capacity_tons_per_year = capacity_10kt_per_year * TONS_PER_10KT  # to tons/year
+    capacity_tons_per_hour = capacity_tons_per_year / HOURS_PER_YEAR  # to ton/hour
     return capacity_tons_per_hour
 
 
 def generate_demand_by_province():
-    """生成分省需求数据"""
-    # 加载数据
+    """Generate provincial demand data."""
+    # Load data
     demand_data = load_demand_data()
     capacity_df = load_capacity_data()
     production_ratio = calculate_production_ratio(capacity_df)
     
-    # 准备输出数据
+    # Prepare output rows
     results = []
     
-    # 遍历所有情景和年份
+    # Iterate over all scenarios and years
     for scenario in ['low', 'mid', 'high']:
         if scenario not in demand_data:
             continue
         
-        # 添加2025年数据（所有情景都是4000万吨）
+        # Add 2025 demand (all scenarios are 40 Mt = 4000 * 10 kt)
         demand_data[scenario]['2025'] = 4000.0
         
         for year, demand_10kt in demand_data[scenario].items():
-            # 转换为吨/小时
+            # Convert to ton/hour
             national_demand_tons_per_hour = convert_demand_to_tons_per_hour(demand_10kt)
             
-            # 按省份分配
+            # Allocate by province
             for province in production_ratio.index:
                 province_demand = national_demand_tons_per_hour * production_ratio[province]
                 results.append({
@@ -108,39 +116,39 @@ def generate_demand_by_province():
                     'Demand_ton_per_h': province_demand
                 })
     
-    # 转换为DataFrame
+    # Convert to DataFrame
     df = pd.DataFrame(results)
     
-    # 重新排列列顺序
+    # Reorder columns
     df = df[['Province', 'Year', 'Scenario', 'Demand_ton_per_h']]
     
     return df
 
 
 def generate_capacity_by_province():
-    """生成分省装机数据"""
-    # 加载数据
+    """Generate provincial capacity data."""
+    # Load data
     capacity_df = load_capacity_data()
     
-    # 转换为吨/小时
+    # Convert to ton/hour
     capacity_tons_per_hour = convert_capacity_to_tons_per_hour(capacity_df['p_nom'])
     
-    # 创建输出DataFrame，重置索引避免冲突
+    # Create output DataFrame (reset index to avoid conflicts)
     df = pd.DataFrame({
         'Province': capacity_df.index,
         'Capacity_10kt_per_year': capacity_df['p_nom'].values,
         'Capacity_ton_per_h': capacity_tons_per_hour.values
     })
     
-    # 按省份排序
+    # Sort by province
     df = df.sort_values('Province').reset_index(drop=True)
     
     return df
 
 
 def main():
-    """主函数"""
-    # 创建输出目录
+    """Main entry point."""
+    # Create output directory
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     print("Generating provincial aluminum demand data...")
@@ -161,14 +169,14 @@ def main():
     print(f"  {len(capacity_df)} provinces")
     print(f"  Total capacity: {capacity_df['Capacity_ton_per_h'].sum():.6f} ton/h")
     
-    # 显示一些统计信息
+    # Print some quick stats
     print("\n=== Demand data preview ===")
     print(demand_df.head(10))
     
     print("\n=== Capacity data preview ===")
     print(capacity_df.head(10))
     
-    # 按年份汇总需求
+    # Summarize demand by year
     print("\n=== National demand summary (ton/h) ===")
     demand_summary = demand_df.groupby(['Year', 'Scenario'])['Demand_ton_per_h'].sum()
     print(demand_summary)

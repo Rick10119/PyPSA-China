@@ -52,7 +52,7 @@ COLORS = [
     '#4169E1',  # Fixed o&m
     '#FFA500',  # Restart (brighter orange)
     '#696969',  # Depreciation
-    '#8B0000',  # Retirement loss (dark red)
+    '#FF69B4',  # Retirement loss (pink)
     '#9370DB',  # Storage & Capital
     '#FFD700',  # Electricity
 ]
