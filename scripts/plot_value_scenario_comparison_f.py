@@ -107,6 +107,27 @@ def find_scenario_results(results_dir, base_version):
     
     scenarios = {}
     
+    def _resolve_version_dir_with_u_fallback(version_name_f):
+        """
+        Prefer F-version directory; if missing, fall back to the corresponding U-version
+        directory (same flex/demand/market/year/config suffix).
+        """
+        version_dir_f = results_path / f"version-{version_name_f}"
+        if version_dir_f.exists():
+            return version_name_f, version_dir_f, 'F'
+
+        version_name_u = version_name_f.replace('F-', 'U-', 1)
+        version_dir_u = results_path / f"version-{version_name_u}"
+        if version_dir_u.exists():
+            logger.warning(
+                "Scenario folder for %s is missing; fallback to %s",
+                version_name_f,
+                version_name_u,
+            )
+            return version_name_u, version_dir_u, 'U'
+
+        return version_name_f, version_dir_f, 'F'
+
     # Create a 100p (100% capacity) configuration for every flexibility–demand–market combination
     for flexibility in flexibility_levels:
         for demand in demand_levels:
@@ -116,16 +137,17 @@ def find_scenario_results(results_dir, base_version):
                 
                 # Create metadata for the 100p (100% capacity) configuration
                 version_name_100p = f"{base_version}-{scenario_code}-{year}-100p"
-                version_dir_100p = results_path / f"version-{version_name_100p}"
+                resolved_name_100p, resolved_dir_100p, source_employment_100p = _resolve_version_dir_with_u_fallback(version_name_100p)
                 
                 scenarios[scenario_code]['100p'] = {
-                    'version_name': version_name_100p,
-                    'version_dir': version_dir_100p,
+                    'version_name': resolved_name_100p,
+                    'version_dir': resolved_dir_100p,
                     'year': year,
                     'flexibility': flexibility,
                     'demand': demand,
                     'market': market,
-                    'config_type': '100p'
+                    'config_type': '100p',
+                    'source_employment': source_employment_100p,
                 }
     
     # For the non-flexible reference, create a single baseline config per market
@@ -147,16 +169,17 @@ def find_scenario_results(results_dir, base_version):
                     
                     # Define the non-flexible baseline version associated with this market
                     version_name_non_flex = f"{base_version}-{baseline_scenario_code}-{year}-non_flexible"
-                    version_dir_non_flex = results_path / f"version-{version_name_non_flex}"
+                    resolved_name_non_flex, resolved_dir_non_flex, source_employment_non_flex = _resolve_version_dir_with_u_fallback(version_name_non_flex)
                     
                     scenarios[full_scenario_code]['non_flexible'] = {
-                        'version_name': version_name_non_flex,
-                        'version_dir': version_dir_non_flex,
+                        'version_name': resolved_name_non_flex,
+                        'version_dir': resolved_dir_non_flex,
                         'year': year,
                         'flexibility': baseline_flexibility,  # baseline uses mid flexibility
                         'demand': baseline_demand,            # baseline uses mid demand
                         'market': baseline_market,            # baseline keeps the same market level
-                        'config_type': 'non_flexible'
+                        'config_type': 'non_flexible',
+                        'source_employment': source_employment_non_flex,
                     }
     
     # Note: scenarios sharing the same market level also share the same non-flexible baseline.
