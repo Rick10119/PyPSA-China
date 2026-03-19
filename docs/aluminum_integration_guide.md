@@ -1,26 +1,26 @@
-# 电解铝需求与装机容量融合到模型说明文档
+# Aluminum Demand and Capacity Integration Guide
 
-## 1. 概述
+## 1. Overview
 
-本文档详细说明电解铝（Aluminum）的需求数据和装机容量如何融合到PyPSA-China模型中。电解铝作为高耗能工业负荷，在模型中通过以下方式集成：
+This document details how aluminum smelting demand data and installed capacity are integrated into the PyPSA-China model. As a highly energy-intensive industrial load, aluminum smelting is represented through the following mechanisms:
 
-- **需求数据**：从情景数据文件中读取各年份的原铝需求
-- **装机容量**：从现有电解铝厂数据中读取各省份的装机容量
-- **模型组件**：通过Link、Store、Load等组件在PyPSA网络中表示
-- **优化算法**：使用迭代优化算法处理电解铝的启停约束和灵活性
+- **Demand data**: primary aluminum demand by year is read from scenario data files.
+- **Installed capacity**: provincial smelter capacity is read from the existing smelter dataset.
+- **Model components**: Links, Stores, and Loads represent aluminum in the PyPSA network.
+- **Optimization algorithm**: an iterative algorithm handles unit-commitment constraints and flexibility.
 
-## 2. 数据来源
+## 2. Data Sources
 
-### 2.1 需求数据
+### 2.1 Demand Data
 
-**文件路径**：`data/aluminum_demand/aluminum_demand_all_scenarios.json`
+**File path**: `data/aluminum_demand/aluminum_demand_all_scenarios.json`
 
-**数据结构**：
+**Data structure**:
 ```json
 {
   "primary_aluminum_demand": {
     "low": {
-      "2030": 1909.875997700051,  // 单位：10kt (万吨)
+      "2030": 1909.875997700051,
       "2050": 628.2308472342488,
       ...
     },
@@ -30,17 +30,17 @@
 }
 ```
 
-**数据说明**：
-- 包含三个需求情景：`low`、`mid`、`high`
-- 覆盖年份：2030-2060
-- 单位：10kt（万吨）
-- 数据来源：EP模型计算结果
+**Notes**:
+- Three demand scenarios: `low`, `mid`, `high`.
+- Years covered: 2030–2060.
+- Unit: 10 kt (10,000 tonnes).
+- Source: EP model outputs.
 
-### 2.2 装机容量数据
+### 2.2 Capacity Data
 
-**文件路径**：`data/p_nom/al_smelter_p_max.csv`
+**File path**: `data/p_nom/al_smelter_p_max.csv`
 
-**数据结构**：
+**Data structure**:
 ```csv
 Province,p_nom
 Anhui,161.492652
@@ -49,155 +49,150 @@ Shandong,505.749267
 ...
 ```
 
-**数据说明**：
-- 单位：10kt/年（万吨/年）
-- 包含各省份的电解铝年产量数据
-- 用于计算各省份的装机容量和 production ratio
+**Notes**:
+- Unit: 10 kt/yr.
+- Contains annual aluminum production by province.
+- Used to compute provincial capacity and production ratio.
 
-## 3. 需求数据处理流程
+## 3. Demand Data Processing
 
-### 3.1 需求数据读取
+### 3.1 Reading Demand Data
 
-需求数据通过 `scripts/scenario_utils.py` 中的函数读取：
+Demand data is read via functions in `scripts/scenario_utils.py`:
 
 ```python
-def get_aluminum_demand_for_year(config, year, primary_demand_scenario=None, 
+def get_aluminum_demand_for_year(config, year, primary_demand_scenario=None,
                                   aluminum_demand_json_path=...):
     """
-    获取指定年份和情景的原铝需求
-    
-    返回：原铝需求（吨）
+    Retrieve primary aluminum demand for a given year and scenario.
+
+    Returns: primary aluminum demand in tonnes.
     """
-    # 1. 从config获取需求情景（如未指定，使用current_scenario）
-    # 2. 从JSON文件读取对应年份和情景的需求数据（10kt）
-    # 3. 转换为吨：primary_demand_tons = primary_demand_10kt * 10000
+    # 1. Obtain demand scenario from config (or use current_scenario).
+    # 2. Read the corresponding year and scenario from the JSON file (10 kt).
+    # 3. Convert to tonnes: primary_demand_tons = primary_demand_10kt * 10000.
     return primary_demand_tons
 ```
 
-**关键代码位置**：`scripts/scenario_utils.py:195-224`
+**Key code location**: `scripts/scenario_utils.py:195-224`
 
-### 3.2 需求转换为负荷
+### 3.2 Converting Demand to Load
 
-需求数据转换为网络负荷通过 `get_aluminum_load_for_network()` 函数：
+Demand is converted to network load via `get_aluminum_load_for_network()`:
 
 ```python
-def get_aluminum_load_for_network(config, year, network_snapshots, nodes, 
+def get_aluminum_load_for_network(config, year, network_snapshots, nodes,
                                   production_ratio, ...):
     """
-    将原铝需求转换为网络负荷
-    
-    流程：
-    1. 获取原铝需求（吨）
-    2. 计算全国平均铝负荷：national_al_load = primary_demand_tons / 8760 (MW)
-    3. 根据各省份production_ratio分配负荷
-    4. 创建时间序列负荷数据
+    Convert primary aluminum demand to network load.
+
+    Steps:
+    1. Retrieve primary demand (tonnes).
+    2. Compute national average aluminum load: national_al_load = primary_demand_tons / 8760 (MW).
+    3. Distribute across provinces by production_ratio.
+    4. Create time-series load data.
     """
-    # 计算全国铝负荷 (MW)
     hours_per_year = 8760
     national_al_load = primary_demand_tons / hours_per_year
-    
-    # 按省份比例分配
+
     al_load_values = np.tile(
         national_al_load * production_ratio.values,
         (len(network_snapshots), 1)
     )
-    
+
     return {
-        'aluminum_load': aluminum_load,  # DataFrame，时间序列×省份
+        'aluminum_load': aluminum_load,       # DataFrame: snapshots × provinces
         'national_al_load': national_al_load,
         'primary_demand_tons': primary_demand_tons
     }
 ```
 
-**关键代码位置**：`scripts/scenario_utils.py:227-274`
+**Key code location**: `scripts/scenario_utils.py:227-274`
 
-**转换公式**：
-- 全国平均负荷 (MW) = 原铝需求 (吨) / 8760 小时
-- 省份负荷 = 全国平均负荷 × 该省份的 production_ratio
+**Conversion formulas**:
+- National average load (MW) = primary demand (tonnes) / 8760 hours
+- Provincial load = national average load × provincial production_ratio
 
-## 4. 装机容量处理流程
+## 4. Capacity Data Processing
 
-### 4.1 容量数据读取
+### 4.1 Reading Capacity Data
 
-**代码位置**：`scripts/prepare_base_network.py:201-224`
+**Code location**: `scripts/prepare_base_network.py:201-224`
 
 ```python
-# 读取电解铝厂容量数据
 al_smelter_annual_production = pd.read_csv(snakemake.input.al_smelter_p_max)
 al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
 
-# 过滤：只保留年产量 > 0.01 10kt/year 的省份
+# Keep only provinces with annual production > 0.01 (10 kt/yr)
 al_smelter_annual_production = al_smelter_annual_production[
     al_smelter_annual_production > 0.01
 ]
 
-# 计算生产比例
+# Compute production ratio
 production_ratio = al_smelter_annual_production / al_smelter_annual_production.sum()
 ```
 
-### 4.2 容量转换公式
+### 4.2 Capacity Conversion
 
-**代码位置**：`scripts/prepare_base_network.py:210-219`
+**Code location**: `scripts/prepare_base_network.py:210-219`
 
 ```python
-# 转换为功率容量 (MW)
-# 转换公式：
-# 1. 年产量 (10kt/year) → 年产量 (吨/year) = 年产量 × 10000
-# 2. 年产量 (吨/year) → 年用电量 (MWh/year) = 年产量 × 13.3
-#    注：1吨铝需要约13.3 MWh电力
-# 3. 年用电量 (MWh/year) → 功率容量 (MW) = 年用电量 / 8760
+# Convert to power capacity (MW)
+# 1. Annual production (10 kt/yr) → tonnes/yr = production × 10000
+# 2. tonnes/yr → MWh/yr = tonnes × 13.3   (1 tonne Al ≈ 13.3 MWh)
+# 3. MWh/yr → MW = MWh / 8760
 
 base_capacity = al_smelter_annual_production * 10000 * 13.3 / 8760
 
-# 应用容量比例（可配置）
-capacity_ratio = config['aluminum']['capacity_ratio']  # 默认1.0
+# Apply configurable capacity ratio
+capacity_ratio = config['aluminum']['capacity_ratio']  # default 1.0
 al_smelter_p_nom = base_capacity * capacity_ratio
 ```
 
-**转换公式总结**：
+**Summary formula**:
 ```
-p_nom (MW) = 年产量(10kt/year) × 10000 × 13.3 / 8760 × capacity_ratio
+p_nom (MW) = annual_production (10 kt/yr) × 10000 × 13.3 / 8760 × capacity_ratio
 ```
 
-**参数说明**：
-- `13.3`：生产1吨铝所需的电力（MWh/吨）
-- `8760`：年小时数
-- `capacity_ratio`：容量比例配置（可在config.yaml中设置，默认1.0）
+**Parameter notes**:
+- `13.3`: electricity consumption per tonne of aluminum (MWh/t).
+- `8760`: hours per year.
+- `capacity_ratio`: configurable in `config.yaml` (default 1.0).
 
-## 5. 模型组件集成
+## 5. Model Component Integration
 
-### 5.1 网络组件添加
+### 5.1 Adding Network Components
 
-**代码位置**：`scripts/prepare_base_network.py:243-283`
+**Code location**: `scripts/prepare_base_network.py:243-283`
 
-#### 5.1.1 电解铝冶炼设备（Link）
+#### 5.1.1 Aluminum Smelter (Link)
 
 ```python
 network.madd("Link",
-            production_ratio.index,  # 省份名称列表
+            production_ratio.index,
             suffix=" aluminum smelter",
-            bus0=production_ratio.index,  # 电力节点（输入）
-            bus1=production_ratio.index + " aluminum",  # 铝节点（输出）
+            bus0=production_ratio.index,                   # electricity bus (input)
+            bus1=production_ratio.index + " aluminum",     # aluminum bus (output)
             carrier="aluminum",
-            p_nom=al_smelter_p_nom,  # 装机容量 (MW)
-            p_nom_extendable=False,  # 不可扩展
-            efficiency=1.0/13.3,  # 效率：1 MW电力 → 1/13.3 吨铝/小时
+            p_nom=al_smelter_p_nom,
+            p_nom_extendable=False,
+            efficiency=1.0/13.3,      # 1 MW electricity → 1/13.3 t Al/h
             capital_cost=operational_params['capital_cost'],
             stand_by_cost=operational_params['stand_by_cost'],
             marginal_cost=operational_params['marginal_cost'],
             start_up_cost=0.5*operational_params['start_up_cost'],
             shut_down_cost=0.5*operational_params['start_up_cost'],
-            committable=config['aluminum_commitment'],  # 是否启用启停约束
+            committable=config['aluminum_commitment'],
             p_min_pu=operational_params['p_min_pu'] if config['aluminum_commitment'] else 0,
 )
 ```
 
-**关键参数**：
-- `efficiency=1.0/13.3`：表示1 MW电力输入可产生 1/13.3 吨铝/小时
-- `p_nom`：装机容量，从数据文件计算得到
-- `committable`：是否启用启停约束（MILP问题）
+**Key parameters**:
+- `efficiency = 1.0/13.3`: 1 MW input produces 1/13.3 t Al/h.
+- `p_nom`: installed capacity computed from data.
+- `committable`: enables unit-commitment constraints (MILP).
 
-#### 5.1.2 铝存储（Store）
+#### 5.1.2 Aluminum Storage (Store)
 
 ```python
 network.madd("Store",
@@ -205,206 +200,200 @@ network.madd("Store",
             suffix=" aluminum storage",
             bus=production_ratio.index + " aluminum",
             carrier="aluminum",
-            e_nom_extendable=True,  # 存储容量可扩展
-            e_cyclic=True)  # 循环存储（年末=年初）
+            e_nom_extendable=True,
+            e_cyclic=True)
 ```
 
-**功能**：允许铝在时间上转移，提供运行灵活性
+**Purpose**: allows aluminum to be shifted in time, providing operational flexibility.
 
-#### 5.1.3 铝负荷（Load）
+#### 5.1.3 Aluminum Load (Load)
 
 ```python
 network.madd("Load",
             production_ratio.index,
             suffix=" aluminum",
             bus=production_ratio.index + " aluminum",
-            p_set=aluminum_load[production_ratio.index])  # 时间序列负荷
+            p_set=aluminum_load[production_ratio.index])
 ```
 
-**功能**：表示各省份的铝需求负荷
+**Purpose**: represents provincial aluminum demand.
 
-#### 5.1.4 电力负荷调整
+#### 5.1.4 Electricity Load Adjustment
 
 ```python
-# 从电力负荷中减去铝负荷（避免重复计算）
+# Subtract aluminum load from electricity load to avoid double-counting
 load_minus_al = load.copy()
 load_minus_al[production_ratio.index] = (
-    load[production_ratio.index] - 
+    load[production_ratio.index] -
     aluminum_load[production_ratio.index] * 10000 * 13.3 / 8760
 )
 network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
 ```
 
-**原因**：铝负荷已单独建模，需要从总电力负荷中减去
+**Rationale**: aluminum load is modeled separately and must be removed from the aggregate electricity load.
 
-#### 5.1.5 全国铝枢纽（China Aluminum Hub）
+#### 5.1.5 China Aluminum Hub
 
 ```python
-# 添加全国铝枢纽节点，支持省份间铝转移
+# National aluminum hub bus for inter-provincial aluminum transfer
 network.add("Bus", "China aluminum hub", carrier="aluminum transfer")
 
-# 添加双向转移链路
+# Bidirectional transfer links
 for province in production_ratio.index:
-    # 省份 → 全国枢纽
+    # Province → hub
     network.add("Link", f"{province} to China aluminum hub", ...)
-    # 全国枢纽 → 省份
+    # Hub → province
     network.add("Link", f"China aluminum hub to {province}", ...)
 ```
 
-**功能**：允许省份间铝的转移，满足全国总需求约束
+**Purpose**: enables inter-provincial aluminum transfer to satisfy the national demand constraint.
 
-### 5.2 运行参数设置
+### 5.2 Operational Parameters
 
-**代码位置**：`scripts/scenario_utils.py:153-192`
+**Code location**: `scripts/scenario_utils.py:153-192`
 
-运行参数根据配置的情景维度设置：
+Operational parameters are set according to the selected scenario dimension:
 
 ```python
-def get_aluminum_smelter_operational_params(config, smelter_flexibility=None, 
+def get_aluminum_smelter_operational_params(config, smelter_flexibility=None,
                                             al_smelter_p_nom=None):
     """
-    获取电解铝厂运行参数
-    
-    参数来源：config['aluminum']['scenario_dimensions']['smelter_flexibility']
+    Retrieve aluminum smelter operational parameters.
+
+    Source: config['aluminum']['scenario_dimensions']['smelter_flexibility']
     """
     smelter_params = get_smelter_params(config, smelter_flexibility)
-    
+
     return {
-        'p_min_pu': smelter_params['p_min_pu'],  # 最小出力比例
-        'capital_cost': 163432.8,  # 固定资本成本
+        'p_min_pu': smelter_params['p_min_pu'],
+        'capital_cost': 163432.8,
         'stand_by_cost': smelter_params['stand_by_cost'] * al_smelter_p_nom,  # $/h
-        'marginal_cost': 1,  # 边际成本
-        'start_up_cost': smelter_params['restart_cost'] * al_smelter_p_nom,  # 启动成本
+        'marginal_cost': 1,
+        'start_up_cost': smelter_params['restart_cost'] * al_smelter_p_nom,
     }
 ```
 
-**情景参数**（来自config.yaml）：
-- `low`：p_min_pu=0.9, restart_cost=110000 $/MW
-- `mid`：p_min_pu=0.7, restart_cost=16000 $/MW
-- `high`：p_min_pu=0.5, restart_cost=3200 $/MW
-- `non_constrained`：p_min_pu=0.0, restart_cost=0
+**Scenario parameters** (from `config.yaml`):
+- `low`: p_min_pu = 0.9, restart_cost = 110 000 $/MW
+- `mid`: p_min_pu = 0.7, restart_cost = 16 000 $/MW
+- `high`: p_min_pu = 0.5, restart_cost = 3 200 $/MW
+- `non_constrained`: p_min_pu = 0.0, restart_cost = 0
 
-## 6. 迭代优化算法
+## 6. Iterative Optimization Algorithm
 
-### 6.1 算法概述
+### 6.1 Algorithm Overview
 
-由于电解铝启停约束导致MILP问题，使用迭代优化算法：
+Because aluminum unit-commitment constraints introduce integer variables (MILP), an iterative optimization algorithm is used:
 
-**代码位置**：`scripts/solve_network_myopic.py:583-1163`
+**Code location**: `scripts/solve_network_myopic.py:583-1163`
 
-**算法流程**：
+**Algorithm flow**:
 
-1. **初始化**：设置电解铝用能模式为空
-2. **迭代求解**：
-   - **步骤1**：使用连续化电解铝模型（无启停约束）求解，获得节点电价和目标函数值
-   - **步骤2**：基于节点电价，运行电解铝最优运行问题（MILP），得到新的电解铝用能模式
-   - **步骤3**：使用`p_set`固定电解铝用能，重新求解网络
-   - **步骤4**：检查目标函数变化，判断是否收敛
-3. **收敛判断**：目标函数相对变化 < 收敛阈值（默认1%）
-4. **输出结果**：返回最终网络结果
+1. **Initialization**: aluminum power-consumption profile set to empty.
+2. **Iterative solve**:
+   - **Step 1**: Solve the relaxed (continuous) aluminum model to obtain nodal prices and the objective value.
+   - **Step 2**: Based on nodal prices, solve the aluminum optimal-dispatch MILP sub-problem to obtain a new consumption profile.
+   - **Step 3**: Fix aluminum consumption via `p_set` and re-solve the network.
+   - **Step 4**: Check objective convergence.
+3. **Convergence check**: relative change in the objective < threshold (default 1 %).
+4. **Output**: return the final network.
 
-### 6.2 关键实现细节
+### 6.2 Key Implementation Details
 
-#### 6.2.1 网络重新加载
+#### 6.2.1 Network Reload
 
-每次迭代重新加载网络，保持状态清洁：
+The network is reloaded from disk at each iteration to keep state clean:
 
 ```python
-# 重新加载网络
 if original_network_path:
     n_current = pypsa.Network(original_network_path, override_component_attrs=overrides)
 else:
     n_current = copy.deepcopy(original_network)
 
-# 重新应用网络准备
 n_current = prepare_network(n_current, ...)
 ```
 
-#### 6.2.2 电解铝用能固定
+#### 6.2.2 Fixing Aluminum Consumption
 
-使用`p_set`固定电解铝用能，而不是添加约束：
+Aluminum consumption is fixed via `p_set` rather than explicit constraints:
 
 ```python
-# 固定电解铝冶炼设备的出力
 for smelter in aluminum_usage.columns:
     if smelter in n_current.links.index:
         fixed_aluminum_power = aluminum_usage[smelter].values
         n_current.links_t.p_set[smelter] = fixed_aluminum_power
-        
-        # 同时固定对应的铝负荷
+
         for load in aluminum_loads:
             n_current.loads_t.p_set[load] = fixed_aluminum_power
 ```
 
-#### 6.2.3 节点电价提取
+#### 6.2.3 Nodal Price Extraction
 
-从连续化模型求解结果中提取节点电价：
+Nodal prices are extracted from the relaxed-model solution:
 
 ```python
-# 提取节点电价
 if hasattr(n_current, 'buses_t') and hasattr(n_current.buses_t, 'marginal_price'):
     electricity_buses = n_current.buses[n_current.buses.carrier != "aluminum"].index
     current_nodal_prices = n_current.buses_t.marginal_price[electricity_buses]
 ```
 
-#### 6.2.4 电解铝优化问题
+#### 6.2.4 Aluminum Optimization Sub-problem
 
-基于节点电价，求解电解铝最优运行问题：
+The aluminum optimal-dispatch sub-problem is solved based on nodal prices:
 
 ```python
-def solve_aluminum_optimization(n, config, solving, opts="", 
+def solve_aluminum_optimization(n, config, solving, opts="",
                                 nodal_prices=None, target_province=None, ...):
     """
-    电解铝最优运行问题求解
-    
-    目标：最小化总成本（电力成本 + 启停成本）
-    约束：
-    1. 满足铝需求
-    2. 容量约束
-    3. 启停约束（如果启用）
+    Aluminum optimal-dispatch sub-problem.
+
+    Objective: minimize total cost (electricity + start-up/shut-down).
+    Constraints:
+    1. Meet aluminum demand.
+    2. Capacity limits.
+    3. Unit-commitment constraints (if enabled).
     """
-    # 创建简化的电解铝优化网络
-    # 添加虚拟发电机（使用节点电价作为边际成本）
-    # 求解MILP问题
-    # 返回电解铝用能模式
+    # Build simplified aluminum optimization network.
+    # Add virtual generators (marginal cost = nodal price).
+    # Solve MILP.
+    # Return aluminum consumption profile.
 ```
 
-## 7. 配置参数说明
+## 7. Configuration Parameters
 
-### 7.1 基本配置
+### 7.1 Basic Configuration
 
-**文件位置**：`config.yaml`
+**File**: `config.yaml`
 
 ```yaml
 aluminum:
-  # 电网交互开关（按年份）
+  # Grid-interaction toggle (by year)
   grid_interaction:
     "2020": false
     "2030": true
     "2050": true
     ...
 
-  # 电解铝厂容量比例
-  capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, ...
+  # Smelter capacity ratio
+  capacity_ratio: 1.0  # 1.0 = 100 %, 0.9 = 90 %, ...
 
-  # 当前选择的情景组合
+  # Currently selected scenario
   current_scenario:
-    smelter_flexibility: "low"    # 电解铝厂灵活性
-    primary_demand: "high"        # 原铝需求情景
-    market_opportunity: "high"    # 市场机会情景
+    smelter_flexibility: "low"
+    primary_demand: "high"
+    market_opportunity: "high"
 ```
 
-### 7.2 情景维度参数
+### 7.2 Scenario Dimension Parameters
 
 ```yaml
 aluminum:
   scenario_dimensions:
-    # 电解铝厂运行灵活性
     smelter_flexibility:
       low:
-        p_min_pu: 0.9          # 最小出力比例
-        restart_cost: 110000   # 重启成本 ($/MW)
-        stand_by_cost: 1.5     # 待机成本 ($/MW/h)
+        p_min_pu: 0.9          # minimum output ratio
+        restart_cost: 110000   # restart cost ($/MW)
+        stand_by_cost: 1.5     # stand-by cost ($/MW/h)
       mid:
         p_min_pu: 0.7
         restart_cost: 16000
@@ -415,131 +404,131 @@ aluminum:
         stand_by_cost: 1.5
 ```
 
-### 7.3 迭代优化参数
+### 7.3 Iteration Parameters
 
 ```yaml
-# 在solve_opts中设置
-aluminum_max_iterations: 10              # 最大迭代次数
-aluminum_convergence_tolerance: 0.01     # 收敛阈值（1%）
-aluminum_commitment: false                # 是否启用启停约束
+# Set inside solve_opts
+aluminum_max_iterations: 10              # maximum iterations
+aluminum_convergence_tolerance: 0.01     # convergence threshold (1 %)
+aluminum_commitment: false                # enable unit-commitment constraints
 ```
 
-## 8. 数据流图
+## 8. Data Flow Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   数据输入                                    │
+│                        Data Input                           │
 ├─────────────────────────────────────────────────────────────┤
-│ 1. 需求数据: aluminum_demand_all_scenarios.json            │
-│    └─> 原铝需求 (10kt) × 情景 × 年份                        │
-│                                                              │
-│ 2. 容量数据: al_smelter_p_max.csv                           │
-│    └─> 各省份年产量 (10kt/year)                             │
+│ 1. Demand data: aluminum_demand_all_scenarios.json          │
+│    └─> primary demand (10 kt) × scenario × year            │
+│                                                             │
+│ 2. Capacity data: al_smelter_p_max.csv                     │
+│    └─> provincial annual production (10 kt/yr)              │
 └─────────────────────────────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   数据处理                                    │
+│                     Data Processing                         │
 ├─────────────────────────────────────────────────────────────┤
-│ 1. 需求处理:                                                │
-│    primary_demand (10kt)                                    │
-│    └─> primary_demand_tons (吨)                             │
+│ 1. Demand processing:                                       │
+│    primary_demand (10 kt)                                   │
+│    └─> primary_demand_tons (tonnes)                         │
 │        └─> national_al_load (MW)                            │
-│            └─> 按production_ratio分配到各省份                │
-│                └─> aluminum_load (时间序列 × 省份)          │
-│                                                              │
-│ 2. 容量处理:                                                │
-│    al_smelter_annual_production (10kt/year)                 │
-│    └─> base_capacity (MW) = 年产量 × 10000 × 13.3 / 8760   │
-│        └─> al_smelter_p_nom (MW) = base_capacity × ratio    │
-│                                                              │
-│ 3. 比例计算:                                                │
-│    production_ratio = 各省份产量 / 全国总产量                 │
+│            └─> distribute by production_ratio               │
+│                └─> aluminum_load (time series × province)   │
+│                                                             │
+│ 2. Capacity processing:                                     │
+│    al_smelter_annual_production (10 kt/yr)                  │
+│    └─> base_capacity (MW) = production × 10000 × 13.3/8760 │
+│        └─> al_smelter_p_nom (MW) = base_capacity × ratio   │
+│                                                             │
+│ 3. Ratio calculation:                                       │
+│    production_ratio = provincial / national total            │
 └─────────────────────────────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   网络组件添加                                │
+│                 Network Component Addition                   │
 ├─────────────────────────────────────────────────────────────┤
-│ 1. Link: 电解铝冶炼设备                                      │
-│    bus0: 电力节点 → bus1: 铝节点                            │
-│    p_nom: 装机容量, efficiency: 1/13.3                      │
-│                                                              │
-│ 2. Store: 铝存储                                             │
-│    bus: 铝节点, e_nom_extendable: True                      │
-│                                                              │
-│ 3. Load: 铝负荷                                             │
-│    bus: 铝节点, p_set: 时间序列负荷                          │
-│                                                              │
-│ 4. Load: 电力负荷（已减去铝负荷）                            │
-│                                                              │
-│ 5. Bus + Link: 全国铝枢纽（省份间转移）                      │
+│ 1. Link: aluminum smelter                                   │
+│    bus0: electricity bus → bus1: aluminum bus                │
+│    p_nom: installed capacity, efficiency: 1/13.3            │
+│                                                             │
+│ 2. Store: aluminum storage                                  │
+│    bus: aluminum bus, e_nom_extendable: True                │
+│                                                             │
+│ 3. Load: aluminum load                                      │
+│    bus: aluminum bus, p_set: time-series load               │
+│                                                             │
+│ 4. Load: electricity load (aluminum subtracted)             │
+│                                                             │
+│ 5. Bus + Link: China Aluminum Hub (inter-provincial)        │
 └─────────────────────────────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   迭代优化求解                                │
+│                   Iterative Optimization                    │
 ├─────────────────────────────────────────────────────────────┤
-│ 迭代1:                                                       │
-│   1. 连续化模型求解 → 节点电价                               │
-│   2. 基于节点电价求解MILP → 电解铝用能模式                   │
-│   3. 固定电解铝用能，重新求解                                 │
-│   4. 检查收敛性                                              │
-│                                                              │
-│ 迭代2-N:                                                     │
-│   重复上述步骤，直到收敛                                      │
+│ Iteration 1:                                                │
+│   1. Relaxed model solve → nodal prices                     │
+│   2. MILP solve on nodal prices → consumption profile       │
+│   3. Fix consumption, re-solve network                      │
+│   4. Check convergence                                      │
+│                                                             │
+│ Iterations 2–N:                                             │
+│   Repeat until converged                                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 9. 关键公式总结
+## 9. Key Formulas
 
-### 9.1 容量转换
-
-```
-p_nom (MW) = 年产量(10kt/year) × 10000 × 13.3 / 8760 × capacity_ratio
-```
-
-其中：
-- `10000`：10kt → 吨的转换
-- `13.3`：生产1吨铝所需的电力（MWh/吨）
-- `8760`：年小时数
-- `capacity_ratio`：容量比例（可配置）
-
-### 9.2 需求转换
+### 9.1 Capacity Conversion
 
 ```
-全国平均负荷 (MW) = 原铝需求 (吨) / 8760
-省份负荷 (MW) = 全国平均负荷 × 该省份的 production_ratio
+p_nom (MW) = annual_production (10 kt/yr) × 10000 × 13.3 / 8760 × capacity_ratio
 ```
 
-### 9.3 效率参数
+Where:
+- `10000`: converts 10 kt to tonnes.
+- `13.3`: electricity per tonne of aluminum (MWh/t).
+- `8760`: hours per year.
+- `capacity_ratio`: configurable (default 1.0).
+
+### 9.2 Demand Conversion
 
 ```
-Link效率 = 1.0 / 13.3
-含义：1 MW电力输入 → 1/13.3 吨铝/小时输出
+National average load (MW) = primary demand (tonnes) / 8760
+Provincial load (MW) = national average load × production_ratio
 ```
 
-## 10. 相关文件清单
+### 9.3 Efficiency Parameter
 
-### 10.1 数据文件
-- `data/aluminum_demand/aluminum_demand_all_scenarios.json`：需求数据
-- `data/p_nom/al_smelter_p_max.csv`：装机容量数据
+```
+Link efficiency = 1.0 / 13.3
+Meaning: 1 MW electricity input → 1/13.3 t Al/h output
+```
 
-### 10.2 代码文件
-- `scripts/prepare_base_network.py`：网络准备，添加电解铝组件
-- `scripts/scenario_utils.py`：情景工具函数，需求/容量处理
-- `scripts/solve_network_myopic.py`：迭代优化算法实现
-- `config.yaml`：配置文件
+## 10. Related Files
 
-### 10.3 文档文件
-- `docs/README_aluminum_iterative.md`：迭代算法说明
-- `docs/aluminum_integration_guide.md`：本文档
+### 10.1 Data Files
+- `data/aluminum_demand/aluminum_demand_all_scenarios.json` – demand data
+- `data/p_nom/al_smelter_p_max.csv` – capacity data
 
-## 11. 使用示例
+### 10.2 Code Files
+- `scripts/prepare_base_network.py` – network preparation, adds aluminum components
+- `scripts/scenario_utils.py` – scenario utilities, demand/capacity processing
+- `scripts/solve_network_myopic.py` – iterative optimization implementation
+- `config.yaml` – configuration file
 
-### 11.1 启用电解铝功能
+### 10.3 Documentation
+- `docs/README_aluminum_iterative.md` – iterative algorithm notes
+- `docs/aluminum_integration_guide.md` – this document
 
-在`config.yaml`中设置：
+## 11. Usage Examples
+
+### 11.1 Enable Aluminum
+
+In `config.yaml`:
 
 ```yaml
 add_aluminum: true
@@ -552,51 +541,50 @@ aluminum:
     primary_demand: "mid"
 ```
 
-### 11.2 调整容量比例
+### 11.2 Adjust Capacity Ratio
 
 ```yaml
 aluminum:
-  capacity_ratio: 0.8  # 使用80%的容量
+  capacity_ratio: 0.8  # use 80 % of capacity
 ```
 
-### 11.3 设置迭代参数
+### 11.3 Set Iteration Parameters
 
 ```yaml
 solve_opts:
   aluminum_max_iterations: 10
   aluminum_convergence_tolerance: 0.01
-  aluminum_commitment: true  # 启用启停约束
+  aluminum_commitment: true  # enable unit commitment
 ```
 
-## 12. 注意事项
+## 12. Notes
 
-1. **单位转换**：注意数据单位（10kt vs 吨，MW vs MWh）
-2. **时间序列**：铝负荷是恒定的时间序列（无波动）
-3. **省份过滤**：只对年产量 > 0.01 10kt/year 的省份添加组件
-4. **电力负荷调整**：需要从总电力负荷中减去铝负荷，避免重复计算
-5. **迭代收敛**：如果迭代不收敛，检查收敛阈值和最大迭代次数设置
-6. **MILP求解**：启用启停约束时，需要支持MILP的求解器（如Gurobi）
+1. **Unit conversion**: be careful with units (10 kt vs tonnes, MW vs MWh).
+2. **Time series**: the aluminum load is constant across all hours (no variation).
+3. **Province filtering**: components are only added for provinces with annual production > 0.01 (10 kt/yr).
+4. **Electricity load adjustment**: aluminum load must be subtracted from the aggregate electricity load to avoid double-counting.
+5. **Iteration convergence**: if the algorithm does not converge, check the threshold and maximum iteration count.
+6. **MILP solver**: when unit commitment is enabled, a MILP-capable solver (e.g., Gurobi) is required.
 
-## 13. 常见问题
+## 13. FAQ
 
-### Q1: 如何修改铝需求情景？
-A: 在`config.yaml`中修改`aluminum.current_scenario.primary_demand`，可选值：`low`、`mid`、`high`
+### Q1: How do I change the aluminum demand scenario?
+A: Set `aluminum.current_scenario.primary_demand` in `config.yaml` to `low`, `mid`, or `high`.
 
-### Q2: 如何调整电解铝厂容量？
-A: 修改`config.yaml`中的`aluminum.capacity_ratio`参数（0.0-1.0）
+### Q2: How do I adjust smelter capacity?
+A: Change `aluminum.capacity_ratio` in `config.yaml` (range 0.0–1.0).
 
-### Q3: 迭代不收敛怎么办？
-A: 检查：
-- 收敛阈值是否过小（建议0.01-0.05）
-- 最大迭代次数是否足够（建议10-20）
-- 求解器设置是否合理
+### Q3: What if the iteration does not converge?
+A: Check the following:
+- Convergence threshold (recommended 0.01–0.05).
+- Maximum iterations (recommended 10–20).
+- Solver settings.
 
-### Q4: 如何禁用电解铝功能？
-A: 设置`add_aluminum: false`或`aluminum.grid_interaction[年份]: false`
+### Q4: How do I disable the aluminum feature?
+A: Set `add_aluminum: false` or `aluminum.grid_interaction[year]: false`.
 
 ---
 
-**文档版本**：v1.0  
-**最后更新**：2025年  
-**维护者**：Ruike Lyu
-
+**Document version**: v1.0
+**Last updated**: 2025
+**Maintainer**: Ruike Lyu

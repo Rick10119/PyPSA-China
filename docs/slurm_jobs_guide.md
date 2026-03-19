@@ -1,176 +1,176 @@
-# PyPSA-China SLURM作业文件使用指南
+# PyPSA-China SLURM Job File Guide
 
-## 概述
+## Overview
 
-本指南介绍如何使用自动生成的SLURM作业文件来运行PyPSA-China的不同场景模拟。
+This guide explains how to use the auto-generated SLURM job files to run different scenario simulations of PyPSA-China.
 
-## 自动生成SLURM作业文件
+## Auto-generating SLURM Job Files
 
 ```bash
-# 在项目根目录下运行
+# Run from the project root directory
 python scripts/generate_slurm_jobs_advanced.py
 ```
 
-高级生成器会自动发现所有可用的配置文件，并生成对应的SLURM作业文件。
+The advanced generator automatically discovers all available configuration files and produces the corresponding SLURM job files.
 
-## 批量提交作业
+## Batch Submission
 
-### 提交所有场景
+### Submit all scenarios
 
 ```bash
 ./submit_multiple_jobs.sh
 ```
 
-这将按顺序提交所有场景的作业：
-1. 不包含电解铝厂的基准场景
-2. 100%容量比例
-3. 90%容量比例
-4. 80%容量比例
-5. 70%容量比例
-6. 60%容量比例
-7. 55%容量比例
+This submits all scenario jobs in order:
+1. Baseline scenario without aluminum smelters
+2. 100 % capacity ratio
+3. 90 % capacity ratio
+4. 80 % capacity ratio
+5. 70 % capacity ratio
+6. 60 % capacity ratio
+7. 55 % capacity ratio
 
-### 只提交容量比例作业
+### Submit capacity-ratio jobs only
 
 ```bash
 ./submit_capacity_jobs.sh
 ```
 
-这将只提交容量比例相关的作业（不包括不包含电解铝厂的场景）。
+This submits only the capacity-ratio jobs (excluding the no-aluminum baseline).
 
-### 手动提交单个作业
+### Submit a single job manually
 
 ```bash
-# 提交100%容量比例作业
+# Submit the 100 % capacity-ratio job
 sbatch job_100p.slurm
 
-# 提交不包含电解铝厂的作业
+# Submit the no-aluminum job
 sbatch job_no_aluminum.slurm
 ```
 
-## 监控作业状态
+## Monitoring Job Status
 
-### 查看所有作业状态
+### View all jobs
 
 ```bash
 squeue -u $USER
 ```
 
-### 实时监控作业状态
+### Real-time monitoring
 
 ```bash
 watch -n 10 'squeue -u $USER'
 ```
 
-### 查看特定作业输出
+### View output of a specific job
 
 ```bash
-# 查看标准输出
-tail -f slurm_100p_<作业ID>.out
+# Standard output
+tail -f slurm_100p_<JOB_ID>.out
 
-# 查看错误输出
-tail -f slurm_100p_<作业ID>.err
+# Standard error
+tail -f slurm_100p_<JOB_ID>.err
 ```
 
-## 作业管理
+## Job Management
 
-### 取消特定作业
+### Cancel a specific job
 
 ```bash
-scancel <作业ID>
+scancel <JOB_ID>
 ```
 
-### 取消所有用户作业
+### Cancel all jobs for the current user
 
 ```bash
 scancel $(squeue -u $USER -h -o %i)
 ```
 
-### 查看作业历史
+### View job history
 
 ```bash
 sacct -u $USER --format=JobID,JobName,State,Start,End,Elapsed
 ```
 
-## 自定义SLURM作业
+## Custom SLURM Jobs
 
-### 使用Python脚本生成自定义作业
+### Generate a custom job with Python
 
 ```python
 from scripts.generate_slurm_jobs_advanced import SlurmJobGenerator
 
-# 创建生成器实例
+# Create a generator instance
 generator = SlurmJobGenerator()
 
-# 生成自定义参数的作业文件
+# Generate a custom job file
 generator.generate_custom_job(
-    'test_scenario',           # 场景名称
-    'config_test.yaml',        # 配置文件
-    '测试场景描述',            # 描述
-    cpus_per_task=32,         # CPU核心数
-    time_limit='6:00:00',     # 时间限制
-    mem_per_cpu='20G'         # 内存设置
+    'test_scenario',           # Scenario name
+    'config_test.yaml',        # Config file
+    'Test scenario description',  # Description
+    cpus_per_task=32,         # CPU cores
+    time_limit='6:00:00',     # Time limit
+    mem_per_cpu='20G'         # Memory per CPU
 )
 ```
 
-### 修改现有作业文件
+### Editing existing job files
 
-每个生成的SLURM作业文件都可以手动编辑，常见的修改包括：
+Every generated SLURM job file can be edited manually. Common modifications include:
 
-- 调整CPU核心数：`#SBATCH --cpus-per-task=32`
-- 调整内存设置：`#SBATCH --mem-per-cpu=20G`
-- 调整时间限制：`#SBATCH --time=24:00:00`
-- 修改邮件通知：`#SBATCH --mail-user=your.email@example.com`
+- Adjust CPU cores: `#SBATCH --cpus-per-task=32`
+- Adjust memory: `#SBATCH --mem-per-cpu=20G`
+- Adjust time limit: `#SBATCH --time=24:00:00`
+- Set email notifications: `#SBATCH --mail-user=your.email@example.com`
 
-## 输出文件说明
+## Output Files
 
-### SLURM输出文件
+### SLURM output files
 
-- `slurm_<场景名>_<作业ID>.out` - 标准输出
-- `slurm_<场景名>_<作业ID>.err` - 标准错误
-- `job_<场景名>_<时间戳>.log` - 作业日志
+- `slurm_<scenario>_<JOB_ID>.out` – standard output
+- `slurm_<scenario>_<JOB_ID>.err` – standard error
+- `job_<scenario>_<timestamp>.log` – job log
 
-### 结果文件
+### Result files
 
-模拟完成后，结果文件将保存在：
+After a simulation completes, results are saved under:
 ```
-results/version-<版本号>-<场景名>/
+results/version-<version>-<scenario>/
 ```
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common issues
 
-1. **作业提交失败**
-   - 检查SLURM作业文件语法是否正确
-   - 确认配置文件存在且格式正确
-   - 检查用户权限和队列设置
+1. **Job submission fails**
+   - Check the SLURM file syntax.
+   - Verify that the config file exists and is well-formed.
+   - Check user permissions and queue settings.
 
-2. **作业运行失败**
-   - 查看错误输出文件：`slurm_<场景名>_<作业ID>.err`
-   - 检查配置文件中的参数设置
-   - 确认所有依赖模块已正确加载
+2. **Job run fails**
+   - Inspect the error file: `slurm_<scenario>_<JOB_ID>.err`
+   - Review parameters in the config file.
+   - Make sure all required modules are loaded.
 
-3. **内存不足**
-   - 增加内存设置：`#SBATCH --mem-per-cpu=20G`
-   - 减少CPU核心数：`#SBATCH --cpus-per-task=20`
+3. **Out of memory**
+   - Increase memory: `#SBATCH --mem-per-cpu=20G`
+   - Reduce CPU cores: `#SBATCH --cpus-per-task=20`
 
-4. **时间超限**
-   - 增加时间限制：`#SBATCH --time=24:00:00`
-   - 优化模拟参数以提高运行效率
+4. **Time limit exceeded**
+   - Increase the time limit: `#SBATCH --time=24:00:00`
+   - Tune simulation parameters for faster runs.
 
-### 获取帮助
+### Getting help
 
-如果遇到问题，可以：
+If you encounter problems:
 
-1. 查看SLURM文档：`man sbatch`
-2. 联系系统管理员
-3. 检查PyPSA-China项目文档
+1. Consult the SLURM documentation: `man sbatch`
+2. Contact the system administrator.
+3. Refer to the PyPSA-China project documentation.
 
-## 最佳实践
+## Best Practices
 
-1. **作业提交顺序**：建议先运行基准场景（不包含电解铝厂），再运行其他容量比例场景
-2. **资源管理**：根据实际需求调整CPU核心数和内存设置
-3. **监控**：定期检查作业状态，及时处理失败的作业
-4. **备份**：保存重要的配置文件和结果文件
-5. **日志**：保留作业日志以便问题排查 
+1. **Submission order**: run the baseline (no-aluminum) scenario first, then the capacity-ratio scenarios.
+2. **Resource management**: adjust CPU cores and memory to match actual requirements.
+3. **Monitoring**: check job status regularly and handle failures promptly.
+4. **Backups**: keep copies of important config files and results.
+5. **Logging**: retain job logs for debugging.

@@ -1,142 +1,136 @@
 # PyPSA-China: An Open Optimization Model of the Chinese Energy System
 
-PyPSA-China is an open-source optimization model for the Chinese energy system built on the [PyPSA](https://pypsa.org/) framework. The model enables capacity expansion planning and operational optimization of China's power system, with special focus on aluminum smelting integration and grid flexibility.
+PyPSA-China is an open-source capacity expansion and operational optimization model for the Chinese energy system, built on the [PyPSA](https://pypsa.org/) framework. It covers electricity, heating, gas, and hydrogen carriers at provincial resolution and features a dedicated module for modeling aluminum smelter flexibility as a demand-side resource in high-renewable grids.
 
-## Features
+## Motivation
 
-### Core Capabilities
+China's power system is undergoing a rapid transition toward variable renewable energy (VRE). At the same time, the country operates roughly 45 Mt of primary aluminum smelting capacity — one of the single largest electricity loads in any national grid. PyPSA-China brings these two dimensions together: it co-optimizes generation, storage, and transmission investment alongside aluminum smelter scheduling, showing how industrial overcapacity can provide seasonal flexibility and significantly reduce system costs.
 
-- **Multi-sector Energy System Modeling**: Integrated modeling of electricity, heat, gas, and other energy carriers
-- **Renewable Energy Integration**: Detailed modeling of onshore/offshore wind and solar PV with resource potential
-- **Transmission Network**: Provincial-level transmission network with multiple voltage levels
-- **Storage Technologies**: Battery storage, pumped hydro storage, and hydrogen storage
-- **Aluminum Smelting Integration**: Advanced iterative optimization algorithm for aluminum smelter operation
-- **Scenario Analysis**: Multi-dimensional scenario framework with 27 scenario combinations
-- **Visualization Tools**: Comprehensive plotting and analysis tools for results comparison
+## Key Features
 
-### Key Innovations
+- **Multi-sector energy system**: integrated modeling of electricity, centralized/decentralized heating, gas, coal, and hydrogen.
+- **Provincial resolution**: 30-province transmission network with inter-provincial transfer capacities.
+- **Myopic capacity expansion**: sequential planning across multiple horizons (e.g., 2020 → 2030 → 2040 → 2050), carrying forward brownfield capacity.
+- **Aluminum smelter integration**: potline-level unit-commitment sub-problem solved iteratively against the main dispatch/investment problem via nodal-price decomposition.
+- **Three-dimensional scenario framework**: smelter flexibility × primary demand × grid-interaction market opportunity, each at low / mid / high levels (27 combinations).
+- **Configurable capacity ratios**: aluminum smelter capacity can be scaled from 5 % to 100 % of the installed base to explore overcapacity effects.
+- **HPC support**: automated SLURM job generation for large-scale scenario sweeps across 1 000+ configurations.
 
-1. **Iterative Aluminum Optimization**: Novel algorithm that iteratively optimizes aluminum smelter operation based on nodal electricity prices
-2. **Three-Dimensional Scenario Framework**: 
-   - Smelter operational flexibility (low/mid/high)
-   - Primary aluminum demand (low/mid/high)
-   - Grid-interaction market opportunity (low/mid/high)
-3. **Flexible Capacity Ratios**: Configurable aluminum smelter capacity ratios (100%, 90%, 80%, 70%, 60%)
-4. **High-Performance Computing**: SLURM job management for large-scale scenario runs
+## Workflow
+
+The Snakemake pipeline proceeds in five stages:
+
+```
+prepare_base_networks_2020   (base-year network with existing infrastructure)
+        │
+        ▼
+prepare_base_networks        (future-year networks with updated costs and potentials)
+        │
+        ▼
+add_existing_baseyear        (attach existing generators, storage, transmission for 2020)
+        │
+        ▼
+add_brownfield               (carry forward solved capacity from previous horizon)
+        │
+        ▼
+solve_network_myopic         (optimize dispatch + investment; aluminum iterative loop)
+```
+
+Each stage reads from `config.yaml` and data files under `data/`, and writes intermediate or final networks to `results/`.
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.9+ (as specified in `envs/environment.yaml`)
+- Python 3.9+ (see `envs/environment.yaml`)
 - Gurobi Optimizer with a valid license (required to reproduce all scenarios in the paper)
-- Sufficient memory (20-100 GB depending on network size)
+- Sufficient memory (20–100 GB depending on network size)
 
 ### Environment Setup
 
-1. Clone the repository:
 ```bash
 git clone https://github.com/your-repo/PyPSA-China.git
 cd PyPSA-China
-```
 
-2. Create and activate conda environment:
-```bash
-conda env create -f envs/environment_linux.yaml
+conda env create -f envs/environment.yaml
 conda activate pypsa-china
 ```
 
-3. Install Gurobi Python bindings inside the environment (if not already installed by the environment file):
-```bash
-conda install -c gurobi gurobi
-```
+### Solver and Licensing
 
-4. Install additional dependencies if needed:
-```bash
-pip install -r requirements.txt
-```
-
-### Solver and licensing
-
-- **Default solver**: The model is configured to use **Gurobi** via PyPSA/linopy (`solving.solver.name: gurobi` in `config.yaml`).  
-- **Academic license**: Gurobi offers free academic licenses for university users; see the official instructions at the Gurobi website (e.g. the *Academic Program and Licenses* page) and follow their steps to activate a license on your machine.
-- **Alternative solvers (optional)**: In principle, other MILP solvers supported by PyPSA/linopy (e.g. HiGHS, CPLEX) can be used by changing `solving.solver.name` and the corresponding `solver_options` in `config.yaml`. We have not systematically benchmarked all scenarios with these alternative solvers; large-scale runs may be slower or fail to converge, so for exact reproduction of the published results we recommend Gurobi.
+- **Default solver**: Gurobi (`solving.solver.name: gurobi` in `config.yaml`).
+- **Academic license**: Gurobi offers free academic licenses; see the *Academic Program and Licenses* page on the Gurobi website for activation instructions.
+- **Alternative solvers**: other MILP solvers supported by PyPSA/linopy (e.g., HiGHS, CPLEX) can in principle be used by changing `solving.solver.name` and the corresponding `solver_options`. Large-scale runs may be slower or fail to converge, so Gurobi is recommended for exact reproduction of published results.
 
 ## Quick Start
 
-### Basic Usage
+1. **Edit** `config.yaml` — set planning horizons, scenario parameters, and solver options.
 
-1. **Configure the model** by editing `config.yaml`:
-   - Set planning horizon (default: 2050)
-   - Configure scenario parameters
-   - Adjust solver settings
-
-2. **Prepare base network**:
+2. **Run the full pipeline**:
 ```bash
-snakemake -j 1 prepare_base_networks
+snakemake -j 1 solve_all_networks
 ```
 
-3. **Run optimization**:
+3. **Generate summaries and plots**:
 ```bash
-snakemake -j 1 solve_networks
-```
-
-4. **Generate summary**:
-```bash
-snakemake -j 1 make_summary
+snakemake -j 1 plot_all
 ```
 
 ### Running with Aluminum Integration
 
-To enable aluminum smelting integration:
+Enable aluminum smelter co-optimization by setting the following in `config.yaml`:
 
-1. Set in `config.yaml`:
 ```yaml
 add_aluminum: True
-iterative_optimization: True
-aluminum_max_iterations: 10
+aluminum_commitment: False          # keep False for iterative mode
+aluminum_max_iterations: 10         # max power–aluminum iterations
 aluminum_convergence_tolerance: 0.01
+aluminum_capacity_ratio: 1.0        # 1.0 = 100 % of installed capacity
 ```
 
-2. Run the optimization workflow as above.
+Then run the pipeline as above. The solver will automatically enter the iterative aluminum loop inside `solve_network_myopic`.
 
-## Documentation
+### Running on HPC with SLURM
 
-Comprehensive documentation is available in the `docs/` folder:
+```bash
+python scripts/generate_slurm_jobs_advanced.py   # generate job files
+./submit_multiple_jobs.sh                         # submit all scenarios
+squeue -u $USER                                   # monitor
+```
 
-### Main Documentation Files
-
-- **[Aluminum Iterative Optimization Guide](docs/README_aluminum_iterative.md)**: Detailed explanation of the iterative optimization algorithm for aluminum smelters, including convergence criteria, network recreation methods, and virtual generator marginal cost settings.
-
-- **[Scenario Dimensions Guide](docs/scenario_dimensions_guide.md)**: Complete guide to configuring and using the three-dimensional scenario framework (smelter flexibility, primary demand, grid interaction).
-
-- **[Scenario Visualization Guide](docs/scenario_visualization_guide.md)**: Instructions for visualizing and comparing scenario results using `plot_scenario_comparison.py`.
-
-- **[SLURM Jobs Guide](docs/slurm_jobs_guide.md)**: Guide for generating and managing SLURM job files for running multiple scenarios on HPC clusters.
+See the [SLURM Jobs Guide](docs/slurm_jobs_guide.md) for details.
 
 ## Configuration
 
-### Key Configuration Parameters
+All parameters live in `config.yaml`. Scenario-specific overrides are stored in `configs/` (over 1 000 pre-generated files covering the full scenario matrix).
 
-#### Aluminum Settings
+### Core Switches
+
 ```yaml
-add_aluminum: True                    # Enable aluminum integration
-iterative_optimization: True          # Use iterative optimization
-aluminum_max_iterations: 10           # Maximum iterations
-aluminum_convergence_tolerance: 0.01  # Convergence threshold (1%)
-aluminum_capacity_ratio: 1.0          # Capacity ratio (1.0 = 100%)
+add_aluminum: True                       # enable aluminum module
+aluminum_commitment: False               # unit-commitment in main problem (keep False for iterative)
+aluminum_max_iterations: 10
+aluminum_convergence_tolerance: 0.01
+aluminum_capacity_ratio: 1.0             # scale smelter capacity
 ```
 
-#### Scenario Dimensions
+### Scenario Dimensions
+
 ```yaml
 aluminum:
+  current_scenario:
+    smelter_flexibility: "mid"           # low / mid / high
+    primary_demand: "mid"                # low / mid / high
   scenario_dimensions:
-    smelter_flexibility: "mid"    # low, mid, high
-    primary_demand: "mid"         # low, mid, high
-    grid_interaction: "mid"       # low, mid, high
+    smelter_flexibility:
+      low:  { p_min_pu: 0.99, restart_cost: 96594,  stand_by_cost: 1.2 }
+      mid:  { p_min_pu: 0.9,  restart_cost: 13981,  stand_by_cost: 1.2 }
+      high: { p_min_pu: 0.7,  restart_cost: 2796,   stand_by_cost: 1.2 }
+      non_constrained: { p_min_pu: 0.0, restart_cost: 0, stand_by_cost: 0 }
 ```
 
-#### Solver Settings
+### Solver Settings
+
 ```yaml
 solving:
   solver:
@@ -144,164 +138,126 @@ solving:
   solver_options:
     default:
       Threads: 192
-      Method: 2  # barrier method
+      Method: 2            # barrier
 ```
 
 ## Project Structure
 
 ```
 PyPSA-China/
-├── config.yaml              # Main configuration file
-├── configs/                 # Scenario-specific configs
-├── data/                    # Input data
-│   ├── costs/              # Technology costs
-│   ├── grids/              # Grid topology
-│   ├── load/               # Load profiles
-│   ├── resources/          # Renewable resource data
-│   └── ...
-├── scripts/                # Python scripts
+├── config.yaml                # main configuration
+├── configs/                   # 1 000+ scenario-specific configs
+├── Snakefile                  # Snakemake workflow
+├── data/
+│   ├── aluminum_demand/       # demand scenarios (JSON)
+│   ├── p_nom/                 # smelter capacity by province (CSV)
+│   ├── costs/                 # technology cost projections
+│   ├── grids/                 # grid topology
+│   ├── load/                  # provincial load profiles
+│   └── resources/             # renewable resource data
+├── scripts/
 │   ├── prepare_base_network*.py
-│   ├── solve_network*.py
+│   ├── add_existing_baseyear.py
+│   ├── add_brownfield.py
+│   ├── solve_network_myopic.py
+│   ├── scenario_utils.py
 │   ├── plot_*.py
-│   └── ...
-├── docs/                   # Documentation
-├── results/                # Output results
-├── Snakefile              # Snakemake workflow
-└── jobs/                  # SLURM job files
+│   └── generate_slurm_jobs_advanced.py
+├── docs/                      # documentation (see below)
+├── envs/                      # conda environment files
+├── results/                   # output networks, summaries, plots
+└── LICENSES/
 ```
 
-## Running Scenarios
+## Documentation
 
-### Using Snakemake
+Detailed documentation is provided in the `docs/` folder:
 
-Run a single scenario:
+| Document | Description |
+|----------|-------------|
+| [Aluminum Integration Guide](docs/aluminum_integration_guide.md) | End-to-end explanation of how aluminum demand data, smelter capacity, and model components (Link, Store, Load, Hub) are assembled, including unit-conversion formulas and the data-flow diagram. |
+| [Iterative Optimization Notes](docs/README_aluminum_iterative.md) | Refactoring notes for the aluminum iterative algorithm: convergence criterion, network reload strategy, `p_set` fixing, virtual-generator marginal costs, and the potline-based representative-line method. |
+| [Flexible Aluminum Smelting Intro](docs/Flexible%20Aluminum%20Smelting%20Intro.md) | Technical feasibility report on flexible aluminum smelting — EnPot/TRIMET evidence, historical curtailment events, the economic logic of seasonal batch operation, and potline-level modeling parameters for China. |
+| [Scenario Dimensions Guide](docs/scenario_dimensions_guide.md) | How to configure and use the three scenario dimensions (smelter flexibility, primary demand, grid-interaction market opportunity) and generate all 27 combinations. |
+| [Scenario Visualization Guide](docs/scenario_visualization_guide.md) | Instructions for `plot_scenario_comparison.py` — 9-panel comparison charts, summary tables, cost categorization, and CLI usage. |
+| [SLURM Jobs Guide](docs/slurm_jobs_guide.md) | Generating, submitting, monitoring, and troubleshooting SLURM batch jobs on HPC clusters. |
+
+## Iterative Aluminum Optimization Algorithm
+
+The aluminum module uses a price-based decomposition loop:
+
+1. **Relaxed solve**: solve the full network with continuous (non-committable) aluminum links to obtain nodal marginal electricity prices.
+2. **Aluminum sub-problem**: for each province in parallel, build a small MILP with a single representative potline (250 kt/yr, ~385 MW) scaled to the provincial total, using the nodal price as the virtual-generator marginal cost. Solve for optimal commitment and dispatch.
+3. **Fix and re-solve**: write the resulting provincial aluminum time series back into the main network via `links_t.p_set` and `loads_t.p_set`, then re-solve.
+4. **Convergence check**: stop when the relative change in the system objective falls below the threshold (default 1 %).
+
+This approach keeps the main problem as a tractable LP while capturing potline-level start-up/shut-down economics in the sub-problem.
+
+## Scenario Analysis and Visualization
+
+After completing scenario runs, generate comparison figures:
+
 ```bash
-snakemake -j 1 solve_networks
+# cost changes across all demand × market × flexibility scenarios
+python scripts/plot_scenario_comparison.py --file-type costs --verbose
+
+# capacity changes
+python scripts/plot_scenario_comparison.py --file-type capacities --verbose
 ```
 
-Run with specific config:
-```bash
-snakemake -j 1 solve_networks --configfile configs/config_HHH_2050_100p.yaml
-```
-
-### Using SLURM (HPC)
-
-1. Generate SLURM jobs:
-```bash
-python scripts/generate_slurm_jobs_advanced.py
-```
-
-2. Submit jobs:
-```bash
-./submit_multiple_jobs.sh
-```
-
-3. Monitor jobs:
-```bash
-squeue -u $USER
-```
-
-## Scenario Analysis
-
-### Generating Scenario Configurations
-
-The model supports generating multiple scenario combinations:
-- 3 smelter flexibility levels × 3 demand levels × 3 market opportunity levels = 27 combinations
-- Each combination can be run with different capacity ratios
-
-### Visualizing Results
-
-Use the scenario comparison tool:
-```bash
-python scripts/plot_scenario_comparison.py --file-type costs
-python scripts/plot_scenario_comparison.py --file-type capacities
-```
-
-This generates:
-- 9-panel comparison plots (one per demand-market combination)
-- Summary tables with key metrics
-- Detailed data files for further analysis
-
-## Key Algorithms
-
-### Iterative Aluminum Optimization
-
-The iterative optimization algorithm:
-
-1. **Initialization**: Start with empty aluminum usage pattern
-2. **Iteration Loop**:
-   - Step 1: Solve network with continuous aluminum model → get nodal prices
-   - Step 2: Solve aluminum optimal operation problem based on nodal prices
-   - Step 3: Check objective function change for convergence
-3. **Convergence**: Stop when relative objective change < threshold
-4. **Output**: Final network results and timing statistics
-
-Key improvements:
-- Convergence based on objective function change (not aluminum usage change)
-- Network recreation at each iteration for clean state
-- Virtual generators use nodal marginal prices
-- Fixed aluminum usage via `p_set` (not constraints)
+Output is saved to `results/scenario_analysis/` and includes 9-panel bar charts and CSV summary tables.
 
 ## Output Files
 
 Results are organized by version and scenario:
+
 ```
 results/
 └── version-<version>-<scenario>/
-    ├── networks/
-    ├── summary/
-    │   └── postnetworks/
-    │       └── costs.csv
-    │       └── capacities.csv
-    └── ...
+    ├── networks/                        # intermediate .nc files
+    ├── postnetworks/                    # solved networks
+    └── summary/
+        └── postnetworks/
+            └── costs.csv, capacities.csv
 ```
 
 ## Troubleshooting
 
-### Common Issues
-
-1. **Solver errors**: Check Gurobi license and solver options
-2. **Memory issues**: Reduce network size or increase `mem_per_thread`
-3. **Convergence issues**: Adjust `aluminum_convergence_tolerance` or `aluminum_max_iterations`
-4. **Missing data**: Verify all required data files are present in `data/` directory
-
-### Getting Help
-
-- Check the documentation in `docs/`
-- Review example configurations in `configs/`
-- Check log files in `logs/`
+| Problem | Suggestion |
+|---------|------------|
+| Solver license error | Verify Gurobi license with `gurobi_cl --license` |
+| Out of memory | Increase `--mem-per-cpu` in SLURM or reduce network scope |
+| Aluminum iteration does not converge | Raise `aluminum_convergence_tolerance` (e.g., 0.05) or increase `aluminum_max_iterations` |
+| Missing data files | Check that all required CSVs and JSONs exist under `data/` |
 
 ## License
 
-This project is licensed under multiple licenses:
-- Code: MIT License (see `LICENSES/MIT.txt`)
-- Data: CC0-1.0 (see `LICENSES/CC0-1.0.txt`)
-- Documentation: CC-BY-4.0 (see `LICENSES/CC-BY-4.0.txt`)
+- **Code**: MIT License (`LICENSES/MIT.txt`)
+- **Data**: CC0-1.0 (`LICENSES/CC0-1.0.txt`)
+- **Documentation**: CC-BY-4.0 (`LICENSES/CC-BY-4.0.txt`)
 
 ## Citation
 
-If you use PyPSA-China in your research, please cite:
+If you use PyPSA-China-aluminum in your research, please cite:
 
 ```bibtex
-@software{pypsa_china,
-  title = {PyPSA-China: An Open Optimization Model of the Chinese Energy System},
-  author = {PyPSA-China Authors},
-  year = {2022},
-  url = {https://github.com/your-repo/PyPSA-China}
+@article{lyu2025aluminum,
+  title   = {Can industrial overcapacity enable seasonal flexibility in
+             electricity use? {A} case study of aluminum smelting in {China}},
+  author  = {Lyu, Ruike and Jenkins, Jesse D. and others},
+  year    = {2025},
+  journal = {arXiv preprint arXiv:2511.22839},
+  url     = {https://arxiv.org/abs/2511.22839}
 }
 ```
 
 ## Contributing
 
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+Contributions are welcome. Please fork the repository, create a feature branch, and submit a pull request.
 
 ## Acknowledgments
 
-This project builds on the [PyPSA](https://pypsa.org/) framework and is inspired by [PyPSA-Eur](https://github.com/PyPSA/pypsa-eur).
+The codebase of PyPSA-China originates from the work of the [2022 PyPSA-China Authors](https://github.com/PyPSA/PyPSA-China) and builds on the [PyPSA](https://pypsa.org/) framework. Technology cost data and learning trajectories in the core (Mid) scenario are adopted from the [PyPSA-Eur](https://pypsa-eur.readthedocs.io/en/latest/) technology database and the [PyPSA-China-PIK](https://github.com/pik-piam/PyPSA-China-PIK) dataset for China-specific costs, both primarily based on the Danish Energy Agency technology catalogues. Low and High cost cases for flexibility-related technologies are constructed by scaling investment costs by −20 % and +50 % relative to the Mid case, consistent with the accuracy ranges recommended for Class 4 estimates in the AACE International Cost Estimate Classification System (Bates, 2005).
 
 ## Contact
 

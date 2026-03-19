@@ -1,120 +1,131 @@
-# 电解铝迭代优化算法改写说明
+# Aluminum Smelter Iterative Optimization – Refactoring Notes
 
-## 改写概述
+> **Potline-based modeling in one sentence:** Each province's aluminum smelter is represented by a single 250 kt/yr potline in a MILP sub-problem; the resulting commitment schedule is scaled back to the provincial total and fixed in the master problem via `p_set`, forming a closed-loop iteration.
 
-根据 `capacity_expansion_planning_aluminum_iterative.py` 的框架，对 `solve_network_aluminum_iterative.py` 进行了重构，主要改进包括：
+## Refactoring Overview
 
-## 主要改进
+`solve_network_aluminum_iterative.py` has been refactored following the framework of `capacity_expansion_planning_aluminum_iterative.py`. The key improvements are listed below.
 
-### 1. 迭代逻辑优化
-- **收敛判断方式**：从基于电解铝用能变化改为基于目标函数变化的相对值
-- **收敛阈值**：默认设置为 1%（0.01），比原来的电解铝用能变化阈值更合理
-- **时间统计**：添加了详细的迭代时间统计，包括总时间、平均时间、最快/最慢迭代时间
+## Key Improvements
 
-### 2. 网络重新创建方式 ⭐
-- **重新加载网络**：参考 `capacity_expansion_planning_aluminum_iterative.py` 的实现，每次迭代都重新加载网络，而不是复制
-- **保持网络状态清洁**：避免网络对象状态的累积和污染
-- **更稳定的求解**：每次迭代都从干净的网络状态开始
+### 1. Iteration Logic
 
-### 3. 电解铝用能固定方式改进 ⭐
-- **使用p_set固定**：参考 `capacity_expansion_planning_aluminum_iterative.py` 的实现，使用 `p_set` 来固定电解铝用能，而不是通过约束
-- **同时固定负荷**：不仅固定电解铝冶炼设备的出力，还同时固定对应的电解铝负荷
-- **更简洁的实现**：删除了复杂的约束添加逻辑，代码更简洁高效
+- **Convergence criterion**: switched from aluminum power-consumption change to relative change in the objective function.
+- **Convergence threshold**: defaults to 1 % (0.01), which is more robust than the previous energy-change metric.
+- **Timing statistics**: detailed per-iteration timing is now recorded, including total, mean, fastest, and slowest iteration times.
 
-### 4. 虚拟发电机边际成本改进 ⭐
-- **使用节点边际电价**：虚拟发电机的边际成本设置为节点边际电价，而不是零边际成本
-- **节点对应关系**：确保虚拟发电机与对应的电力节点正确关联
-- **更准确的优化**：基于真实的节点电价进行电解铝优化，提高优化精度
+### 2. Network Re-creation ⭐
 
-### 5. 电解铝优化网络简化
-- **组件识别**：简化了电解铝相关组件的识别和保留逻辑
-- **虚拟发电机**：改进了虚拟发电机的添加方式，确保为电力节点正确添加
-- **Carrier管理**：确保虚拟carrier存在，避免运行时错误
+- **Reload from file**: following `capacity_expansion_planning_aluminum_iterative.py`, the network is reloaded from disk at every iteration instead of deep-copied.
+- **Clean state**: avoids accumulated solver artifacts in the network object.
+- **More stable solves**: each iteration starts from a pristine network.
 
-### 6. 优化方法简化
-- **删除safe_optimize**：移除了复杂的 `safe_optimize` 函数，直接使用 PyPSA 的标准优化方法
-- **错误处理简化**：简化了错误处理逻辑，减少了代码复杂度
-- **状态检查简化**：移除了复杂的状态和条件检查
+### 3. Fixing Aluminum Power Consumption ⭐
 
-### 7. 配置参数支持
-- **迭代参数**：支持通过配置文件设置最大迭代次数和收敛阈值
-- **功能开关**：通过 `add_aluminum` 配置项控制是否启用电解铝迭代优化
+- **`p_set` approach**: aluminum power consumption is now fixed via `p_set` rather than explicit equality constraints, following `capacity_expansion_planning_aluminum_iterative.py`.
+- **Simultaneous load fixing**: both the smelter link output and the corresponding aluminum load are fixed together.
+- **Simpler code**: the complex constraint-injection logic has been removed.
 
-## 配置参数
+### 4. Virtual Generator Marginal Cost ⭐
 
-在配置文件中可以设置以下参数：
+- **Nodal marginal prices**: the marginal cost of virtual generators is set to the nodal electricity price instead of zero.
+- **Bus mapping**: virtual generators are correctly associated with the corresponding electricity bus.
+- **Higher accuracy**: aluminum optimization is driven by realistic nodal prices.
+
+### 5. Aluminum Optimization Network Simplification
+
+- **Component filtering**: simplified the logic for identifying and retaining aluminum-related components.
+- **Virtual generators**: improved the way virtual generators are added to electricity buses.
+- **Carrier management**: ensures the virtual carrier exists to prevent runtime errors.
+
+### 6. Optimization Method Simplification
+
+- **Removed `safe_optimize`**: the complex wrapper has been replaced by PyPSA's standard `optimize()` call.
+- **Simplified error handling**: reduced code complexity for error and status checks.
+
+### 7. Configuration Support
+
+- **Iteration parameters**: maximum iterations and convergence threshold can be set in the config file.
+- **Feature toggle**: the `add_aluminum` flag enables or disables the aluminum iterative optimization.
+
+## Configuration Parameters
+
+The following parameters can be set in the config file:
 
 ```yaml
-# 电解铝功能开关
+# Aluminum feature toggle
 add_aluminum: true
 
-# 迭代优化参数
-aluminum_max_iterations: 10          # 最大迭代次数
-aluminum_convergence_tolerance: 0.01 # 收敛阈值（1%）
+# Iteration parameters
+aluminum_max_iterations: 10          # Maximum number of iterations
+aluminum_convergence_tolerance: 0.01 # Convergence threshold (1 %)
 
-# 电解铝启停约束
-aluminum_commitment: false           # 是否启用启停约束
+# Unit-commitment toggle
+aluminum_commitment: false           # Enable unit-commitment constraints
 ```
 
-## 主要函数说明
+## Main Functions
 
 ### `solve_network_iterative()`
-- **功能**：电解铝迭代优化算法主函数
-- **收敛条件**：目标函数相对变化 < 收敛阈值
-- **网络处理**：每次迭代重新加载网络，保持状态清洁
-- **输出**：时间统计和最终网络结果
+- **Purpose**: main entry point for the aluminum iterative optimization.
+- **Convergence**: stops when the relative change in the objective falls below the threshold.
+- **Network handling**: reloads the network at each iteration to keep state clean.
+- **Output**: timing statistics and the final solved network.
 
 ### `solve_aluminum_optimization()`
-- **功能**：电解铝最优运行问题求解
-- **输入**：原始网络、配置、求解参数
-- **输出**：电解铝用能模式
+- **Purpose**: solves the aluminum optimal-dispatch sub-problem for a single province.
+- **Input**: original network, config, solver settings.
+- **Output**: aluminum power-consumption profile.
 
 ### `extra_functionality()`
-- **功能**：添加额外的约束条件
-- **包含**：CHP约束、传输约束、改造约束等
-- **注意**：不再包含电解铝用能约束，因为现在使用p_set固定
+- **Purpose**: injects supplementary constraints (CHP, transmission, retrofit, etc.).
+- **Note**: aluminum power-consumption constraints are no longer added here because `p_set` is used instead.
 
-## 使用方式
+## Usage
 
-1. **启用电解铝功能**：在配置文件中设置 `add_aluminum: true`
-2. **设置迭代参数**：根据需要调整 `aluminum_max_iterations` 和 `aluminum_convergence_tolerance`
-3. **运行求解**：使用标准的 PyPSA-China 工作流程运行
+1. **Enable aluminum**: set `add_aluminum: true` in the config file.
+2. **Set iteration parameters**: adjust `aluminum_max_iterations` and `aluminum_convergence_tolerance` as needed.
+3. **Run**: use the standard PyPSA-China workflow.
 
-## 算法流程
+## Algorithm Flow
 
-1. **初始化**：设置电解铝用能模式为空，目标函数值为空
-2. **迭代求解**：
-   - 步骤1：重新加载网络，使用连续化电解铝模型求解，获得节点电价
-   - 步骤2：基于节点电价，运行电解铝最优运行问题
-   - 步骤3：检查目标函数变化，判断是否收敛
-3. **收敛判断**：目标函数相对变化 < 收敛阈值时停止
-4. **输出结果**：返回最终网络结果和时间统计
+1. **Initialization**: aluminum power-consumption profile and objective value are set to empty/null.
+2. **Iterative solve**:
+   - Step 1: Reload the network and solve the relaxed (continuous) aluminum model to obtain nodal prices.
+   - Step 2: Based on nodal prices, solve the aluminum optimal-dispatch MILP sub-problem.
+   - Step 3: Check whether the objective has converged.
+3. **Convergence check**: stop when the relative change in the objective < threshold.
+4. **Output**: return the final network and timing statistics.
 
-## 网络重新创建方式
+## Potline-based Modeling (Representative Potline Method)
 
-### 旧方式（复制网络）
+The current implementation converts each province's aluminum smelter into a "representative potline + scaling factor" form inside the sub-problem, reducing the MILP size while preserving the effects of start-up/shut-down costs and minimum-output constraints. Specifically, `solve_aluminum_optimization()` reads the province's annual production (in 10 kt/yr) and uses **250 kt/yr (25.0 in 10 kt/yr units)** as the standard potline size: if the provincial capacity does not exceed this value, a single potline of equal size is used directly; otherwise a single 250 kt/yr representative potline is created and `scale_factor = provincial_production / 25` is recorded. The potline capacity is converted to MW via `line_cap_mw = line_cap_10kt * 10000 * 13.3 / 8760`, and operational parameters (`p_min_pu`, `stand_by_cost`, `start_up_cost`) are recomputed by `get_aluminum_smelter_operational_params()` for the representative potline capacity, with `committable=True` enforced to explicitly model unit commitment.
+
+At the solve level, the sub-problem strips all components outside the target province, keeping only the provincial aluminum link, load, and store. A virtual generator is added at the electricity bus with its marginal cost set to the nodal price extracted from the master problem (`nodal_prices`), so that the representative potline optimizes commitment and dispatch against exogenous electricity prices. After the solve, the time series is read from `n.links_t.p0` and multiplied back by `scale_factor` to recover the provincial total; if the solver returns infeasible or hits a time limit without a feasible solution, a flat load curve based on annual production is used as a fallback. Finally, in the master iteration the returned provincial aluminum consumption is written directly into `links_t.p_set` and `loads_t.p_set` (no equality constraints), completing the "potline sub-problem optimization → master problem fixing" closed-loop iteration.
+
+## Network Re-creation
+
+### Old approach (deep copy)
 ```python
-# 复制网络对象
+# Deep-copy the network object
 n_current = copy.deepcopy(n)
 n_current.config = config
 n_current.opts = opts
 ```
 
-### 新方式（重新加载网络）⭐
+### New approach (reload from file) ⭐
 ```python
-# 重新加载网络，保持状态清洁
+# Reload from file – keeps state clean
 if original_network_path:
-    # 从文件重新加载网络
     if "overrides" in kwargs:
         overrides = kwargs["overrides"]
         n_current = pypsa.Network(original_network_path, override_component_attrs=overrides)
     else:
         n_current = pypsa.Network(original_network_path)
 else:
-    # 复制原始网络
     n_current = copy.deepcopy(original_network)
 
-# 重新应用网络准备
+# Re-apply network preparation
 n_current = prepare_network(
     n_current,
     kwargs.get("solve_opts", {}),
@@ -123,11 +134,11 @@ n_current = prepare_network(
 )
 ```
 
-## 电解铝用能固定方式
+## Fixing Aluminum Power Consumption
 
-### 旧方式（约束方式）
+### Old approach (explicit constraints)
 ```python
-# 通过添加约束来固定电解铝用能
+# Fix via equality constraints
 def add_aluminum_usage_constraints(n, fixed_aluminum_usage):
     p = n.model["Link-p"]
     for smelter in aluminum_smelters:
@@ -136,74 +147,65 @@ def add_aluminum_usage_constraints(n, fixed_aluminum_usage):
         n.model.add_constraints(lhs == rhs, name=f"aluminum-fixed-usage-{smelter}")
 ```
 
-### 新方式（p_set方式）⭐
+### New approach (`p_set`) ⭐
 ```python
-# 通过设置p_set来固定电解铝用能
+# Fix via p_set
 for smelter in aluminum_usage.columns:
     if smelter in n_current.links.index:
         fixed_aluminum_power = aluminum_usage[smelter].values
-        # 确保p_set存在
         if not hasattr(n_current.links_t, 'p_set'):
             n_current.links_t.p_set = pd.DataFrame(index=n_current.snapshots, columns=n_current.links.index)
-        # 修改smelter的link出力
         n_current.links_t.p_set[smelter] = fixed_aluminum_power
-        # 同时修改对应的负荷设定
         for load in aluminum_loads:
             if hasattr(n_current.loads_t, 'p_set'):
                 n_current.loads_t.p_set[load] = fixed_aluminum_power
 ```
 
-## 虚拟发电机边际成本设置
+## Virtual Generator Marginal Cost
 
-### 旧方式（零边际成本）
+### Old approach (zero marginal cost)
 ```python
-# 虚拟发电机使用零边际成本
 n_al.add("Generator",
          f"virtual_gen_{bus}",
          bus=bus,
          carrier="virtual",
-         p_nom=1e6,  # 大容量
-         marginal_cost=0.0)  # 零边际成本
+         p_nom=1e6,
+         marginal_cost=0.0)
 ```
 
-### 新方式（节点边际电价）⭐
+### New approach (nodal price) ⭐
 ```python
-# 虚拟发电机使用节点边际电价
 if nodal_prices is not None and bus in nodal_prices.index:
-    # 使用节点边际电价作为边际成本
     marginal_cost = nodal_prices[bus]
-    logger.info(f"为节点 {bus} 添加虚拟发电机，使用节点边际电价")
+    logger.info(f"Adding virtual generator at bus {bus} with nodal marginal price")
 else:
-    # 如果没有节点电价，使用零边际成本
     marginal_cost = 0.0
-    logger.info(f"为节点 {bus} 添加虚拟发电机，使用零边际成本（无节点电价数据）")
-    
+    logger.info(f"Adding virtual generator at bus {bus} with zero marginal cost (no nodal price data)")
+
 n_al.add("Generator",
          f"virtual_gen_{bus}",
          bus=bus,
          carrier="virtual",
-         p_nom=1e6,  # 大容量
-         marginal_cost=marginal_cost)  # 使用节点边际电价作为边际成本
+         p_nom=1e6,
+         marginal_cost=marginal_cost)
 ```
 
-### 节点电价提取
+### Nodal Price Extraction
 ```python
-# 提取当前迭代的节点电价（用于电解铝优化）
 current_nodal_prices = None
 if hasattr(n_current, 'buses_t') and hasattr(n_current.buses_t, 'marginal_price'):
-    # 获取所有电力节点的边际电价
     electricity_buses = n_current.buses[n_current.buses.carrier != "aluminum"].index
     if len(electricity_buses) > 0:
         current_nodal_prices = n_current.buses_t.marginal_price[electricity_buses]
-        logger.info(f"提取节点电价: {list(electricity_buses)}")
+        logger.info(f"Extracted nodal prices: {list(electricity_buses)}")
 ```
 
-## 优势
+## Advantages
 
-1. **更稳定的收敛**：基于目标函数变化判断收敛，比电解铝用能变化更稳定
-2. **更清洁的网络状态**：每次迭代重新加载网络，避免状态累积
-3. **更准确的优化**：虚拟发电机使用节点边际电价，提高电解铝优化精度
-4. **更简洁的实现**：使用p_set固定电解铝用能，代码更简洁高效
-5. **更好的性能监控**：详细的时间统计帮助分析算法性能
-6. **更灵活的配置**：支持通过配置文件调整算法参数
-7. **更一致的实现**：与 `capacity_expansion_planning_aluminum_iterative.py` 保持一致 
+1. **More stable convergence**: objective-based convergence is more robust than energy-change-based convergence.
+2. **Cleaner network state**: reloading the network at each iteration avoids accumulated solver artifacts.
+3. **Higher optimization accuracy**: virtual generators use nodal marginal prices, improving aluminum dispatch quality.
+4. **Simpler implementation**: `p_set` fixing replaces explicit constraint injection.
+5. **Better performance monitoring**: detailed timing statistics help diagnose algorithm performance.
+6. **Flexible configuration**: iteration parameters are adjustable via the config file.
+7. **Consistent design**: aligned with `capacity_expansion_planning_aluminum_iterative.py`.
