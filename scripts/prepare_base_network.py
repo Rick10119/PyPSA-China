@@ -129,7 +129,7 @@ def prepare_network(config):
         add_buses(network, nodes, suffix, carrier, pro_centroid_x, pro_centroid_y)
 
     # add carriers
-    network.add("Carrier", "AC")  # 添加AC carrier定义
+    network.add("Carrier", "AC")  # Add AC carrierdefinition
     if config["heat_coupling"]:
         network.add("Carrier", "heat")
     for carrier in config["Techs"]["vre_techs"]:
@@ -152,7 +152,7 @@ def prepare_network(config):
     if config["add_aluminum"]:
         network.add("Carrier", "aluminum")
     
-    # 添加其他可能需要的carriers
+    # Add other carriers that may be needed
     if config["add_hydro"]:
         network.add("Carrier", "stations")
         network.add("Carrier", "hydro_inflow")
@@ -300,7 +300,7 @@ def prepare_network(config):
         # Add links between each provincial aluminum bus and the China aluminum hub
         # Allow bi-directional transfers with efficiency 1.0
         for province in production_ratio.index:
-            # 从省份到中国hub的link
+            # Link from province to China hub
             network.add("Link",
                        f"{province} to China aluminum hub",
                        bus0=f"{province} aluminum",
@@ -309,27 +309,27 @@ def prepare_network(config):
                        carrier="aluminum transfer",
                        p_nom=1e10)
             
-            # 从中国hub到省份的link（反向）
+            # Link from China hub to province（reverse）
             network.add("Link",
                        f"China aluminum hub to {province}",
                        bus0="China aluminum hub",
                        bus1=f"{province} aluminum",
                        efficiency=1,
                        carrier="aluminum transfer",
-                       p_nom=1e10)  # 假设运营成本为0
+                       p_nom=1e10)  # Assume operating costs are 0
     else:
         if config["only_other_load"]:
-            # 在else分支中，需要重新定义这些变量
-            # 读取电解铝厂容量数据
+            # in else branch，These variables need to be redefined
+            # Read electrolytic aluminum plant capacity data
             al_smelter_annual_production = pd.read_csv(snakemake.input.al_smelter_p_max)
             al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
             al_smelter_annual_production = al_smelter_annual_production.reindex(nodes).fillna(0).infer_objects(copy=False)
             al_smelter_annual_production = al_smelter_annual_production[al_smelter_annual_production > 0.01]
             
-            # 计算生产比例
+            # Calculate production ratio
             production_ratio = al_smelter_annual_production / al_smelter_annual_production.sum()
             
-            # 获取铝负荷数据
+            # Get aluminum load data
             from scripts.scenario_utils import get_aluminum_load_for_network
             load_data = get_aluminum_load_for_network(
                 config,
@@ -394,10 +394,10 @@ def prepare_network(config):
                      p_nom=1e8,
                      marginal_cost=costs.at['coal', 'fuel'])
         
-    # 添加CO2载体定义 - 参考biomass-synthetic-fuels示例
+    # Add CO2 carrier definition - Reference biomass-synthetic-fuels example
     network.add("Carrier", "co2 atmosphere", co2_emissions=-1)
 
-    # 添加CO2大气bus和store
+    # Add CO2 atmosphere bus and store
     network.madd('Bus',
                     nodes,
                     suffix=" co2 atmosphere",
@@ -415,7 +415,7 @@ def prepare_network(config):
     )
     network.add("Carrier", "co2 stored", co2_emissions=0)
 
-    # 添加CO2存储bus和store
+    # Add CO2 storage bus and store
     network.madd('Bus',
                     nodes,
                     suffix=" co2 stored",
@@ -441,7 +441,7 @@ def prepare_network(config):
                      carrier="biomass",
                      )
 
-        # 添加生物质存储
+        # Add biomass storage
         biomass_potential = pd.read_hdf(snakemake.input.biomass_potental)
         network.madd("Store",
                      nodes + " biomass",
@@ -452,7 +452,7 @@ def prepare_network(config):
                      carrier='biomass'
         )
 
-        # 添加生物质CHP（无碳捕获），不影响碳排放
+        # Add biomass CHP（No carbon capture），Does not affect carbon emissions
         network.madd("Link",
                      nodes + " central biomass CHP",
                      bus0=nodes + " biomass",
@@ -468,7 +468,7 @@ def prepare_network(config):
                      lifetime=costs.at["biomass CHP", "lifetime"]
         )
 
-        # 添加生物质CHP（带碳捕获）
+        # Add biomass CHP（With carbon capture）
         network.madd("Link",
                      nodes + " central biomass CHP capture",
                      bus0=nodes + " biomass",
@@ -480,15 +480,15 @@ def prepare_network(config):
                      carrier="biomass",
                      efficiency=costs.at["biomass CHP", "efficiency"] * 0.9,
                      efficiency2=costs.at["biomass CHP", "efficiency-heat"],
-                     efficiency3=0.33*costs.at["biomass CHP capture", "capture_rate"],  # CO2捕获率
-                     efficiency4=-0.33*costs.at["biomass CHP capture", "capture_rate"],  # 负值表示从大气中移除，因为一开始的co2也是从大气中来的
+                     efficiency3=0.33*costs.at["biomass CHP capture", "capture_rate"],  # CO2catch rate
+                     efficiency4=-0.33*costs.at["biomass CHP capture", "capture_rate"],  # Negative values ​​indicate removal from the atmosphere，Because the co2 at the beginning also came from the atmosphere
                      capital_cost=0.33 * costs.at["biomass CHP capture", "capital_cost"] + costs.at["biomass CHP", "capital_cost"],
                      marginal_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
                          "biomass CHP capture", "marginal_cost"] + 0.33 * costs.at["biomass CHP capture", "marginal_cost"] + costs.at['solid biomass', 'fuel'],
                      lifetime=costs.at["biomass CHP capture", "lifetime"]
         )
 
-        # 添加分散式生物质锅炉（无碳捕获）
+        # Adding a decentralized biomass boiler（No carbon capture）
         network.madd("Link",
                      nodes + " decentral biomass boiler",
                      bus0=nodes + " biomass",
@@ -697,7 +697,7 @@ def prepare_network(config):
                      lifetime=costs.at["hydrogen storage tank type 1 including compressor","lifetime"])
 
     if config['add_methanation']:
-        # 添加直接空气捕获(DAC)过程
+        # Add direct air capture(DAC)process
         network.add("Carrier", "DAC")
         network.madd("Link",
                      nodes + " DAC",
@@ -707,14 +707,14 @@ def prepare_network(config):
                      bus3=nodes + " central heat",
                      p_nom_extendable=True,
                      carrier="DAC",
-                     efficiency=1,  # CO2从大气到存储的效率
-                     efficiency2=-(costs.at["direct air capture","electricity-input"] + costs.at["direct air capture","compression-electricity-input"]),  # 消耗电力
+                     efficiency=1,  # CO2Efficiency from atmosphere to storage
+                     efficiency2=-(costs.at["direct air capture","electricity-input"] + costs.at["direct air capture","compression-electricity-input"]),  # consume electricity
                      efficiency3=-costs.at["direct air capture","heat-input"],
                      capital_cost=costs.at["direct air capture","capital_cost"],
                      marginal_cost=0.9*(400-5*(int(cost_year)-2020)),
                      lifetime=costs.at["direct air capture","lifetime"])
         
-        # 添加甲烷化过程（Sabatier反应）
+        # Add methanation process（Sabatierreaction）
         network.madd("Link",
                      nodes + " Sabatier",
                      bus0=nodes+" H2",
@@ -723,7 +723,7 @@ def prepare_network(config):
                      p_nom_extendable=True,
                      carrier="Sabatier",
                      efficiency=costs.at["methanation","efficiency"],
-                     efficiency2=-costs.at["methanation","efficiency"]*costs.at["gas", "co2_emissions"],  # 消耗CO2
+                     efficiency2=-costs.at["methanation","efficiency"]*costs.at["gas", "co2_emissions"],  # Consume CO2
                      capital_cost=costs.at["methanation","capital_cost"],
                      marginal_cost=0.1*(400-5*(int(cost_year)-2020))*costs.at["methanation","efficiency"]*costs.at["gas", "co2_emissions"],
                      lifetime=costs.at["methanation","lifetime"])

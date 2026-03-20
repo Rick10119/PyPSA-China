@@ -109,7 +109,7 @@ def prepare_network(config):
     cost_year = snakemake.wildcards.planning_horizons
     costs = load_costs(tech_costs, config['costs'], config['electricity'], cost_year, Nyears)
 
-    # 应用市场情景成本调整
+    # Apply market scenario cost adjustments
     from add_electricity import apply_market_scenario_costs
     costs = apply_market_scenario_costs(costs, config)
 
@@ -161,7 +161,7 @@ def prepare_network(config):
         add_buses(network, nodes, suffix, carrier, pro_centroid_x, pro_centroid_y)
 
     # add carriers
-    network.add("Carrier", "AC")  # 添加AC carrier定义
+    network.add("Carrier", "AC")  # Add AC carrierdefinition
     if config["heat_coupling"]:
         network.add("Carrier", "heat")
     for carrier in config["Techs"]["vre_techs"]:
@@ -189,7 +189,7 @@ def prepare_network(config):
 
     load.columns = pro_names
 
-    # 添加电力负载
+    # Add electrical load
     network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
 
     if config["heat_coupling"]:

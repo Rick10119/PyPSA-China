@@ -57,7 +57,7 @@ def get_scenario_params(config: Dict[str, Any],
     Returns:
         Dictionary with sub-dictionaries for each scenario dimension.
     """
-    # 如果没有指定，使用当前配置中的默认值
+    # if not specified，Use default values ​​from current configuration
     current_scenario = config['aluminum']['current_scenario']
     market_key = _get_current_market_key(config)
     
@@ -214,13 +214,13 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
     Returns:
         Dictionary with operational parameters for the smelter links.
     """
-    # 获取电解铝厂灵活性参数
+    # Obtain flexibility parameters of electrolytic aluminum plant
     smelter_params = get_smelter_params(config, smelter_flexibility)
     
-    # 就业转移参数（影响stand_by_cost）
+    # Employment transfer parameters（Affect stand_by_cost）
     employment_params = get_employment_transfer_params(config)
 
-    # 基础参数
+    # Basic parameters
     operational_params = {
         'p_min_pu': smelter_params['p_min_pu'],
         'capital_cost': 33234.9, # eur/MW, 400 ￥/tonne
@@ -236,7 +236,7 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
                 operational_params['stand_by_cost'] * employment_params['stand_by_cost_factor']
             )
     
-    # 如果提供了容量，计算成本参数
+    # If capacity is provided，Calculate cost parameters
     if al_smelter_p_nom is not None:
         operational_params.update({
             'start_up_cost': smelter_params['restart_cost'] * al_smelter_p_nom,
@@ -244,7 +244,7 @@ def get_aluminum_smelter_operational_params(config: Dict[str, Any],
             'stand_by_cost': operational_params['stand_by_cost'] * al_smelter_p_nom,
         })
     else:
-        # 报错
+        # Report an error
         raise ValueError("al_smelter_p_nom is required")
     
     return operational_params
@@ -269,14 +269,14 @@ def get_aluminum_demand_for_year(config: Dict[str, Any],
     if primary_demand_scenario is None:
         primary_demand_scenario = config['aluminum']['current_scenario']['primary_demand']
     
-    # 加载铝需求数据
+    # Load aluminum demand data
     with open(aluminum_demand_json_path, 'r', encoding='utf-8') as f:
         aluminum_demand_data = json.load(f)
     
-    # 获取需求数据 (10kt)
+    # Get demand data (10kt)
     primary_demand_10kt = aluminum_demand_data['primary_aluminum_demand'][primary_demand_scenario][year]
     
-    # 转换为吨
+    # Convert to tons
     primary_demand_tons = primary_demand_10kt * 10000
     
     return primary_demand_tons
@@ -304,16 +304,16 @@ def get_aluminum_load_for_network(config: Dict[str, Any],
     Returns:
         Dictionary with provincial aluminum load and aggregate quantities.
     """
-    # 获取原铝需求
+    # Obtain primary aluminum demand
     primary_demand_tons = get_aluminum_demand_for_year(
         config, year, primary_demand_scenario, aluminum_demand_json_path
     )
     
-    # 计算全国铝负荷 (MW)
+    # Calculate national aluminum load (MW)
     hours_per_year = 8760
     national_al_load = primary_demand_tons / hours_per_year
     
-    # 创建铝负荷时间序列
+    # Create aluminum load time series
     al_load_values = np.tile(
         national_al_load * production_ratio.values,
         (len(network_snapshots), 1)
@@ -420,6 +420,6 @@ def print_scenario_summary(config: Dict[str, Any], scenario_params: Dict[str, An
     print(f"  Other flexible demand: {grid['other_flexible_demand']*100}%")
 
 
-# 添加必要的导入
+# Add necessary imports
 import numpy as np
 import pandas as pd

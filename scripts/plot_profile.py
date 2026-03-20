@@ -283,7 +283,7 @@ def plot_heating_comparison(n, config):
 
 def export_load_data_to_csv(n, config):
     """
-    导出电力负荷数据到CSV格式，只包含AC bus的load、heat pump和resistive heater数据。
+    Export electrical load data to CSV format，Contains only AC busload、heat pumpand resistant heaterdata。
     
     Parameters:
     -----------
@@ -294,55 +294,55 @@ def export_load_data_to_csv(n, config):
     """
     planning_horizon = snakemake.wildcards.planning_horizons
     
-    # 获取时间索引
+    # Get time index
     time_index = n.stores_t.p.index
     
-    # 获取AC bus列表
+    # Get AC buslist
     ac_buses = n.buses[n.buses.carrier == 'AC'].index.tolist()
     print(f"AC buses found: {ac_buses}")
     
-    # 创建空的DataFrame来存储负荷数据
+    # Create an empty DataFrame to store load data
     load_data = pd.DataFrame(index=time_index)
     
-    # 1. 添加基本负荷数据 (loads) - 只包含AC bus的负荷
+    # 1. Add base load data (loads) - Contains only AC busload
     if hasattr(n, 'loads_t') and hasattr(n.loads_t, 'p'):
-        # 获取所有负荷，但排除特定的负荷类型
+        # Get all loads，but exclude specific load types
         all_loads = n.loads_t.p.copy()
         
-        # 只保留连接到AC bus的负荷
+        # Only keep connected to AC busload
         ac_loads = all_loads.copy()
         for col in all_loads.columns:
-            # 检查这个负荷是否连接到AC bus
+            # Check if this load is connected to AC bus
             if hasattr(n, 'loads') and col in n.loads.index:
                 load_bus = n.loads.at[col, 'bus']
                 if load_bus not in ac_buses:
                     ac_loads = ac_loads.drop(columns=[col])
         
-        # 排除battery、H2和aluminum smelter相关的负荷
+        # Exclude battery、H2and aluminum smelterassociated load
         exclude_patterns = ['battery', 'H2', 'aluminum', 'smelter']
         for pattern in exclude_patterns:
             cols_to_drop = [col for col in ac_loads.columns if pattern.lower() in col.lower()]
             ac_loads = ac_loads.drop(columns=cols_to_drop)
         
-        # 只添加总负荷，不添加单独的负荷列
+        # Add total load only，Do not add a separate load column
         load_data['total_load'] = ac_loads.sum(axis=1)
     
-    # 2. 添加heat pump和resistive heater数据 - 只包含连接到AC bus的设备
+    # 2. Add heat pumpand resistant heaterdata - Contains only connections to AC busequipment
     if hasattr(n, 'links_t') and hasattr(n.links_t, 'p0'):
-        # 获取所有link的电力消耗
+        # Get the power consumption of all links
         all_links = n.links_t.p0.copy()
         
-        # 只保留连接到AC bus的link（bus0或bus1是AC bus）
+        # Only keep connected to AC buslink（bus0Or bus1 is AC bus）
         ac_links = all_links.copy()
         for col in all_links.columns:
-            # 检查这个link是否连接到AC bus
+            # Check if this link is connected to AC bus
             if hasattr(n, 'links') and col in n.links.index:
                 link_bus0 = n.links.at[col, 'bus0']
                 link_bus1 = n.links.at[col, 'bus1']
                 if link_bus0 not in ac_buses and link_bus1 not in ac_buses:
                     ac_links = ac_links.drop(columns=[col])
         
-        # 只保留heat pump和resistive heater相关的设备
+        # Only keep heat pumpand resistant heaterrelated equipment
         include_patterns = ['heat pump', 'resistive heater']
         filtered_links = pd.DataFrame()
         for pattern in include_patterns:
@@ -350,34 +350,34 @@ def export_load_data_to_csv(n, config):
             if matching_cols:
                 filtered_links = pd.concat([filtered_links, ac_links[matching_cols]], axis=1)
         
-        # 将link数据添加到DataFrame中（转换为正值表示消耗）
+        # Add link data to DataFrame（Converted to a positive value to represent consumption）
         for col in filtered_links.columns:
-            load_data[f'link_{col}'] = filtered_links[col].abs()  # 取绝对值，保持正值
+            load_data[f'link_{col}'] = filtered_links[col].abs()  # Take absolute value，stay positive
     
 
     
-    # 4. 添加时间信息
+    # 4. Add time information
     load_data['datetime'] = load_data.index
     
-    # 5. 计算总电力消耗（所有负荷和用电设备的总和）
-    # 只包含消耗相关的列
+    # 5. Calculate total power consumption（Sum of all loads and consumers）
+    # Only include consumption-related columns
     consumption_columns = []
     for col in load_data.columns:
         if col not in ['datetime']:
             consumption_columns.append(col)
     
-    # 计算总消耗（所有值都是正值，直接相加）
+    # Calculate total consumption（All values ​​are positive，Add directly）
     total_consumption = 0
     for col in consumption_columns:
         total_consumption += load_data[col]
     
-    # 创建最终输出DataFrame，只包含时间戳和总消耗
+    # Create final output DataFrame，Only contains timestamp and total consumption
     final_data = pd.DataFrame({
         'datetime': load_data['datetime'],
         'total_consumption': total_consumption
     })
     
-    # 6. 保存到CSV文件
+    # 6. Save to CSV file
     output_file = snakemake.output.get("load_data_csv", f"results/ac_bus_load_data_{planning_horizon}.csv")
     final_data.to_csv(output_file, index=False)
     
@@ -386,11 +386,11 @@ def export_load_data_to_csv(n, config):
     print(f"AC bus list: {ac_buses}")
     print(f"Output columns: datetime, total_consumption")
     
-    # 7. 生成汇总统计
+    # 7. Generate summary statistics
     summary_stats = {
-        '总消耗平均值 (MW)': final_data['total_consumption'].mean(),
-        '总消耗最大值 (MW)': final_data['total_consumption'].max(),
-        '总消耗最小值 (MW)': final_data['total_consumption'].min(),
+        'Total consumption average (MW)': final_data['total_consumption'].mean(),
+        'Maximum total consumption (MW)': final_data['total_consumption'].max(),
+        'Minimum total consumption (MW)': final_data['total_consumption'].min(),
     }
     
     print("\nSummary statistics:")

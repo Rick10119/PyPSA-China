@@ -75,7 +75,7 @@ def get_base_version_from_config(config_path):
         return None
     
     version = config.get('version', '')
-    # logger.info(f"从配置文件 {config_path} 读取到版本号: {version}")
+    # logger.info(f"from configuration file {config_path} Read the version number: {version}")
     return version
 
 def find_scenario_results(results_dir, base_version):
@@ -631,7 +631,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
         if category in category_colors:
             color = category_colors[category]
         else:
-            # 使用默认颜色映射
+            # Use default colormap
             color = plt.cm.tab20(cat_idx % 20)
         global_category_colors[category] = color
     
@@ -694,7 +694,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                                     signs.append(-1)
                                 elif value > 0:  # Cost increase
                                     signs.append(1)
-                                else:  # 无变化
+                                else:  # No change
                                     signs.append(0)
                             category_signs[category] = signs
                         
@@ -741,7 +741,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                                 value = demand_data.get(category, 0)
                                 # Visual convention: cost reductions (negative) plotted above, increases below
                                 if value < 0:  # Cost reduction (shown above the axis)
-                                    demand_positive.append(abs(value))  # 取绝对值
+                                    demand_positive.append(abs(value))  # Take absolute value
                                     demand_negative.append(0)
                                 elif value > 0:  # Cost increase (shown below the axis)
                                     demand_positive.append(0)
@@ -778,7 +778,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                             if any(val > 0 for val in category_values):
                                 # Same legend-handling logic for the negative stack
                                 label = category if category not in added_to_legend else ""
-                                ax.bar(x_pos, -np.array(category_values), width,  # 使用负值
+                                ax.bar(x_pos, -np.array(category_values), width,  # Use negative values
                                        bottom=bottom_negative,
                                        color=colors[cat_idx], 
                                        alpha=0.8,
@@ -793,7 +793,7 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
                             total_value = sum(demand_data.values())
                             net_values.append(total_value)
                         
-                        # 在堆叠图顶部显示净值
+                        # Show net worth on top of stacked chart
                         for i, (x, net_value) in enumerate(zip(x_pos, net_values)):
                             # Place the label slightly above the positive stack
                             text_y = bottom_positive[i] + 5e9
@@ -893,16 +893,16 @@ def generate_scenario_plots(scenarios, output_dir, file_type='costs'):
 
 def validate_scenario_matching(scenarios, file_type='costs'):
     """
-    验证场景匹配的正确性
+    Verify the correctness of scene matching
     
     Parameters:
     -----------
     scenarios : dict
-        场景信息
+        scene information
     file_type : str
-        文件类型
+        File type
     """
-    # logger.info("=== 验证场景匹配正确性 ===")
+    # logger.info("=== Verify scene matching correctness ===")
     
     total_scenarios = len(scenarios)
     valid_scenarios = 0
@@ -910,7 +910,7 @@ def validate_scenario_matching(scenarios, file_type='costs'):
     
     for scenario_code, scenario_info in scenarios.items():
         if len(scenario_code) == 4:
-            # 检查目录是否存在
+            # Check if directory exists
             dir_100p = scenario_info['100p']['version_dir']
             if 'non_flexible' not in scenario_info:
                 invalid_scenarios += 1
@@ -923,9 +923,9 @@ def validate_scenario_matching(scenarios, file_type='costs'):
                 valid_scenarios += 1
             else:
                 invalid_scenarios += 1
-                logger.warning(f"场景 {scenario_code}: 目录缺失")
+                logger.warning(f"scene {scenario_code}: Directory missing")
     
-    # logger.info(f"场景验证完成: 有效 {valid_scenarios} 个, 无效 {invalid_scenarios} 个")
+    # logger.info(f"Scenario verification completed: efficient {valid_scenarios} indivual, invalid {invalid_scenarios} indivual")
     # logger.info("")
 
 def generate_summary_table(scenarios, output_dir, file_type='costs'):
@@ -1197,10 +1197,10 @@ def main():
     log_level = logging.INFO
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
     
-    # logger.info(f"开始分析场景结果，文件类型: {args.file_type}")
-    # logger.info(f"结果目录: {args.results_dir}")
-    # logger.info(f"输出目录: {args.output}")
-    # logger.info(f"配置文件: {args.config}")
+    # logger.info(f"Start analyzing scene results，File type: {args.file_type}")
+    # logger.info(f"Results directory: {args.results_dir}")
+    # logger.info(f"Output directory: {args.output}")
+    # logger.info(f"Configuration file: {args.config}")
     
     # Read the base version from config
     base_version = get_base_version_from_config(args.config)
@@ -1215,100 +1215,45 @@ def main():
         logger.error("No scenario results were found under the specified results directory.")
         return
     
-    # logger.info(f"基于基准版本 {base_version} 构建了 {len(scenarios)} 个场景")
+    # logger.info(f"Based on baseline version {base_version} Built {len(scenarios)} scenes")
     
-    # 创建输出目录
+    # Create output directory
     output_path = Path(args.output)
     output_path.mkdir(parents=True, exist_ok=True)
     
-    # 验证场景匹配正确性
-    # logger.info("验证场景匹配正确性...")
+    # Verify scene matching correctness
+    # logger.info("Verify scene matching correctness...")
     validate_scenario_matching(scenarios, args.file_type)
     
-    # 生成场景对比图表
-    # logger.info("生成场景对比图表...")
+    # Generate scene comparison chart
+    # logger.info("Generate scene comparison chart...")
     generate_scenario_plots(scenarios, output_path, args.file_type)
     
-    # 生成摘要表格
-    # logger.info("生成摘要表格...")
+    # Generate summary table
+    # logger.info("Generate summary table...")
     generate_summary_table(scenarios, output_path, args.file_type)
     
-    # 生成原始成本对比表格
-    # logger.info("生成原始成本对比表格...")
+    # Generate original cost comparison table
+    # logger.info("Generate original cost comparison table...")
     generate_raw_cost_comparison_table(scenarios, output_path, args.file_type)
     
-    # 打印数据完整性统计
+    # Print data integrity statistics
     # print_data_completeness_stats(scenarios, args.file_type)
     
-    # logger.info("分析完成！")
-    # logger.info(f"结果保存在: {output_path}")
+    # logger.info("Analysis completed！")
+    # logger.info(f"The results are saved in: {output_path}")
 
 def print_data_completeness_stats(scenarios, file_type):
     """
-    打印数据完整性统计
+    Print data integrity statistics
     
     Parameters:
     -----------
     scenarios : dict
-        场景信息
+        scene information
     file_type : str
-        文件类型
+        File type
     """
-    # print(f"\n=== 数据完整性统计 ({file_type}) ===")
-    
-    # total_scenarios = len(scenarios)
-    # complete_scenarios = 0
-    # missing_100p = 0
-    # missing_non_flex = 0
-    # missing_both = 0
-    
-    # for scenario_code, scenario_info in scenarios.items():
-    #     scenario_data = load_scenario_data(scenario_info, file_type)
-        
-    #     has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
-    #     has_non_flex_data = 'non_flexible' in scenario_info and not scenario_data['non_flexible'].empty
-        
-    #     if has_100p_data and has_non_flex_data:
-    #         complete_scenarios += 1
-    #     elif not has_100p_data and not has_non_flex_data:
-    #         missing_both += 1
-    #     elif not has_100p_data:
-    #         missing_100p += 1
-    #     else:
-    #         missing_non_flex += 1
-    
-    # print(f"总场景数: {total_scenarios}")
-    # print(f"数据完整: {complete_scenarios} ({complete_scenarios/total_scenarios*100:.1f}%)")
-    # print(f"100p数据缺失: {missing_100p} ({missing_100p/total_scenarios*100:.1f}%)")
-    # print(f"non_flexible数据缺失: {missing_non_flex} ({missing_non_flex/total_scenarios*100:.1f}%)")
-    # print(f"两者都缺失: {missing_both} ({missing_both/total_scenarios*100:.1f}%)")
-    
-    # # 按flexibility-demand-market组合显示详细统计
-    # print(f"\n=== 按场景组合的数据完整性 ===")
-    # flexibility_levels = ['L', 'M', 'H', 'N']
-    # demand_levels = ['L', 'M', 'H']
-    # market_levels = ['L', 'M', 'H']
-    
-    # for flexibility in flexibility_levels:
-    #     for demand in demand_levels:
-    #         for market in market_levels:
-    #             scenario_code = f"{flexibility}{demand}{market}"
-    #             if scenario_code in scenarios:
-    #                 scenario_data = load_scenario_data(scenarios[scenario_code], file_type)
-                    
-    #                 has_100p_data = '100p' in scenario_data and not scenario_data['100p'].empty
-    #                 has_non_flex_data = 'non_flexible' in scenario_data and not scenario_data['non_flexible'].empty
-                    
-    #                 if has_100p_data and has_non_flex_data:
-    #                     status = "✓ Complete"
-    #                 elif not has_100p_data and not has_non_flex_data:
-    #                     status = "✗ Both missing"
-    #                 elif not has_100p_data:
-    #                     status = "✗ 100p missing"
-    #                 else:
-    #                     status = "✗ Non_flex missing"
-                    
-    #                 print(f"  {scenario_code} (F:{flexibility}, D:{demand}, M:{market}): {status}")
 
 if __name__ == "__main__":
     main()
