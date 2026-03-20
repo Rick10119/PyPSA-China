@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: : 2024 The PyPSA-China Authors
+# SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors
 #
 # SPDX-License-Identifier: MIT
 
@@ -17,7 +17,9 @@ import os
 import numpy as np
 import pandas as pd
 import pypsa
+import matplotlib.pyplot as plt
 from add_electricity import load_costs, update_transmission_costs
+from scenario_utils import get_aluminum_smelter_operational_params
 
 idx = pd.IndexSlice
 
@@ -142,6 +144,111 @@ def calculate_nodal_costs(n, label, nodal_costs):
         nodal_costs = nodal_costs.reindex(index.union(nodal_costs.index))
         nodal_costs.loc[index, label] = marginal_costs.values
 
+        # Calculate startup costs for committable components (only for aluminum)
+        if (hasattr(c, 'pnl') and 'start_up_cost' in c.df.columns and
+            c.name == "Link" and "aluminum" in c.df.carrier.unique()):
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # For aluminum smelters, calculate status from power data (continuous model)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Status is 1 when power > 1 (MW, threshold set by me), 0 when power = 0
+                status = (p0_data > 1).astype(int)
+                
+                # Calculate startup events (status changes from 0 to 1) only for aluminum
+                startup_events = (status.diff() > 0).sum()  # Count transitions from 0 to 1
+                
+                # Calculate startup costs per line using link-specific costs
+                startup_costs = startup_events * c.df.loc[aluminum_smelters, "start_up_cost"]
+                c.df.loc[aluminum_smelters, "startup_costs"] = startup_costs
+                startup_costs = c.df.loc[aluminum_smelters].groupby(["location", "carrier"])["startup_costs"].sum()
+                index = pd.MultiIndex.from_tuples(
+                    [(c.list_name, "startup") + t for t in startup_costs.index.to_list()]
+                )
+                nodal_costs = nodal_costs.reindex(index.union(nodal_costs.index))
+                nodal_costs.loc[index, label] = startup_costs.values
+
+        # Calculate shutdown costs for committable components (only for aluminum)
+        if (hasattr(c, 'pnl') and 'shut_down_cost' in c.df.columns and
+            c.name == "Link" and "aluminum" in c.df.carrier.unique()):
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # For aluminum smelters, calculate status from power data (continuous model)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Status is 1 when power > 1 (MW, threshold set by me), 0 when power = 0
+                status = (p0_data > 1).astype(int)
+                
+                # Calculate shutdown events (status changes from 1 to 0) only for aluminum
+                shutdown_events = (status.diff() < 0).sum()  # Count transitions from 1 to 0
+                
+                # Calculate shutdown costs per line using link-specific costs
+                shutdown_costs = shutdown_events * c.df.loc[aluminum_smelters, "shut_down_cost"]
+                c.df.loc[aluminum_smelters, "shutdown_costs"] = shutdown_costs
+                shutdown_costs = c.df.loc[aluminum_smelters].groupby(["location", "carrier"])["shutdown_costs"].sum()
+                index = pd.MultiIndex.from_tuples(
+                    [(c.list_name, "shutdown") + t for t in shutdown_costs.index.to_list()]
+                )
+                nodal_costs = nodal_costs.reindex(index.union(nodal_costs.index))
+                nodal_costs.loc[index, label] = shutdown_costs.values
+
+        # Calculate standby costs for committable components (only for aluminum)
+        if (hasattr(c, 'pnl') and 'stand_by_cost' in c.df.columns and
+            c.name == "Link" and "aluminum" in c.df.carrier.unique()):
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # For aluminum smelters, calculate status from power data (continuous model)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Status is 1 when power > 0, 0 when power = 0
+                status = (p0_data > 0).astype(int)
+                
+                # Calculate total standby hours by multiplying status with time weights
+                # Ensure both have the same index (time periods)
+                standby_hours = (status.multiply(n.snapshot_weightings.generators, axis=0)).sum()
+                
+                # Calculate standby costs per line using link-specific costs
+                standby_costs = standby_hours * c.df.loc[aluminum_smelters, "stand_by_cost"]
+                c.df.loc[aluminum_smelters, "standby_costs"] = standby_costs
+                standby_costs = c.df.loc[aluminum_smelters].groupby(["location", "carrier"])["standby_costs"].sum()
+                index = pd.MultiIndex.from_tuples(
+                    [(c.list_name, "standby") + t for t in standby_costs.index.to_list()]
+                )
+                nodal_costs = nodal_costs.reindex(index.union(nodal_costs.index))
+                nodal_costs.loc[index, label] = standby_costs.values
+
+        # Special handling for aluminum smelters in iterative optimization
+        # When iterative_optimization is True, aluminum smelters use continuous model without status
+        if (c.name == "Link" and "aluminum" in c.df.carrier.unique() and 
+            hasattr(n, 'config') and n.config.get('iterative_optimization', False) and
+            'start_up_cost' in c.df.columns):
+            
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # Calculate startup events manually for aluminum smelters
+                # Count transitions from 0 to > 0 power (only true startup events)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Create a mask for when previous power was 0 and current power > 0
+                startup_events = ((p0_data.shift(1) == 0) & (p0_data > 0)).sum()
+                
+                # Calculate startup costs using operational params
+                operational_params = get_aluminum_smelter_operational_params(config, 
+                                                                          config.get('aluminum', {}).get('smelter_flexibility'),
+                                                                          c.df.loc[aluminum_smelters, 'p_nom_opt'].iloc[0] if len(aluminum_smelters) > 0 else None)
+                startup_cost_value = operational_params.get('start_up_cost', 0.0)
+                c.df.loc[aluminum_smelters, "startup_costs"] = startup_events * startup_cost_value
+                startup_costs = c.df.loc[aluminum_smelters].groupby(["location", "carrier"])["startup_costs"].sum()
+                index = pd.MultiIndex.from_tuples(
+                    [(c.list_name, "startup") + t for t in startup_costs.index.to_list()]
+                )
+                nodal_costs = nodal_costs.reindex(index.union(nodal_costs.index))
+                nodal_costs.loc[index, label] = startup_costs.values
+
     return nodal_costs
 
 
@@ -149,16 +256,19 @@ def calculate_costs(n, label, costs):
     for c in n.iterate_components(
         n.branch_components | n.controllable_one_port_components ^ {"Load"}
     ):
+        # Calculate capital costs
         capital_costs = c.df.capital_cost * c.df[opt_name.get(c.name, "p") + "_nom_opt"]
         capital_costs_grouped = capital_costs.groupby(c.df.carrier).sum()
-
+        
+        # Add component type and cost type as index levels
         capital_costs_grouped = pd.concat([capital_costs_grouped], keys=["capital"])
         capital_costs_grouped = pd.concat([capital_costs_grouped], keys=[c.list_name])
-
+        
+        # Update costs DataFrame
         costs = costs.reindex(capital_costs_grouped.index.union(costs.index))
-
         costs.loc[capital_costs_grouped.index, label] = capital_costs_grouped
 
+        # Calculate marginal costs based on component type
         if c.name == "Link":
             p = c.pnl.p0.multiply(n.snapshot_weightings.generators, axis=0).sum()
         elif c.name == "Line":
@@ -170,23 +280,109 @@ def calculate_costs(n, label, costs):
         else:
             p = c.pnl.p.multiply(n.snapshot_weightings.generators, axis=0).sum()
 
-        # correct sequestration cost
+        # Special case for CO2 storage
         if c.name == "Store":
             items = c.df.index[
                 (c.df.carrier == "co2 stored") & (c.df.marginal_cost <= -100.0)
             ]
             c.df.loc[items, "marginal_cost"] = -20.0
 
+        # Calculate marginal costs
         marginal_costs = p * c.df.marginal_cost
-
         marginal_costs_grouped = marginal_costs.groupby(c.df.carrier).sum()
-
+        
+        # Add component type and cost type as index levels
         marginal_costs_grouped = pd.concat([marginal_costs_grouped], keys=["marginal"])
         marginal_costs_grouped = pd.concat([marginal_costs_grouped], keys=[c.list_name])
-
+        
+        # Update costs DataFrame
         costs = costs.reindex(marginal_costs_grouped.index.union(costs.index))
-
         costs.loc[marginal_costs_grouped.index, label] = marginal_costs_grouped
+
+        # Calculate startup costs for committable components (only for aluminum)
+        if (hasattr(c, 'pnl') and 'start_up_cost' in c.df.columns and
+            c.name == "Link" and "aluminum" in c.df.carrier.unique()):
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # For aluminum smelters, calculate status from power data (continuous model)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Status is 1 when power > 1 (MW, threshold set by me), 0 when power = 0
+                status = (p0_data > 1).astype(int)
+                
+                # Calculate startup events (status changes from 0 to 1) only for aluminum
+                startup_events = (status.diff() > 0).sum()  # Count transitions from 0 to 1
+                
+                # Calculate startup costs per line using link-specific costs
+                startup_costs = startup_events * c.df.loc[aluminum_smelters, "start_up_cost"]
+                startup_costs_grouped = startup_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
+                
+                # Add component type and cost type as index levels
+                startup_costs_grouped = pd.concat([startup_costs_grouped], keys=["startup"])
+                startup_costs_grouped = pd.concat([startup_costs_grouped], keys=[c.list_name])
+                
+                # Update costs DataFrame
+                costs = costs.reindex(startup_costs_grouped.index.union(costs.index))
+                costs.loc[startup_costs_grouped.index, label] = startup_costs_grouped
+
+        # Calculate shutdown costs for committable components (only for aluminum)
+        if (hasattr(c, 'pnl') and 'shut_down_cost' in c.df.columns and
+            c.name == "Link" and "aluminum" in c.df.carrier.unique()):
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # For aluminum smelters, calculate status from power data (continuous model)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Status is 1 when power > 0, 0 when power = 0
+                status = (p0_data > 0).astype(int)
+                
+                # Calculate shutdown events (status changes from 1 to 0) only for aluminum
+                shutdown_events = (status.diff() < 0).sum()  # Count transitions from 1 to 0
+                
+                # Calculate shutdown costs per line using link-specific costs
+                shutdown_costs = shutdown_events * c.df.loc[aluminum_smelters, "shut_down_cost"]
+                shutdown_costs_grouped = shutdown_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
+                
+                # Add component type and cost type as index levels
+                shutdown_costs_grouped = pd.concat([shutdown_costs_grouped], keys=["shutdown"])
+                shutdown_costs_grouped = pd.concat([shutdown_costs_grouped], keys=[c.list_name])
+                
+                # Update costs DataFrame
+                costs = costs.reindex(shutdown_costs_grouped.index.union(costs.index))
+                costs.loc[shutdown_costs_grouped.index, label] = shutdown_costs_grouped
+
+        # Calculate standby costs for committable components (only for aluminum)
+        if (hasattr(c, 'pnl') and 'stand_by_cost' in c.df.columns and
+            c.name == "Link" and "aluminum" in c.df.carrier.unique()):
+            # Find aluminum smelters
+            aluminum_smelters = c.df.index[c.df.carrier == "aluminum"]
+            
+            if len(aluminum_smelters) > 0:
+                # For aluminum smelters, calculate status from power data (continuous model)
+                p0_data = c.pnl.p0[aluminum_smelters]
+                # Status is 1 when power > 0, 0 when power = 0
+                status = (p0_data > 0).astype(int)
+                
+                # Calculate total standby time (when status is 1 but not generating) only for aluminum
+                # Calculate total standby hours by multiplying status with time weights
+                # Ensure both have the same index (time periods)
+                standby_hours = (status.multiply(n.snapshot_weightings.generators, axis=0)).sum()
+                
+                # Calculate standby costs per line using link-specific costs
+                standby_costs = standby_hours * c.df.loc[aluminum_smelters, "stand_by_cost"]
+                standby_costs_grouped = standby_costs.groupby(c.df.loc[aluminum_smelters, 'carrier']).sum()
+                
+                # Add component type and cost type as index levels
+                standby_costs_grouped = pd.concat([standby_costs_grouped], keys=["standby"])
+                standby_costs_grouped = pd.concat([standby_costs_grouped], keys=[c.list_name])
+                
+                # Update costs DataFrame
+                costs = costs.reindex(standby_costs_grouped.index.union(costs.index))
+                costs.loc[standby_costs_grouped.index, label] = standby_costs_grouped
+
+        # Iterative optimization already handled by per-line startup costs above
 
     # add back in all hydro
     # costs.loc[("storage_units", "capital", "hydro"),label] = (0.01)*2e6*n.storage_units.loc[n.storage_units.group=="hydro", "p_nom"].sum()
@@ -246,34 +442,112 @@ def calculate_curtailment(n, label, curtailment):
 
 
 def calculate_energy(n, label, energy):
+    """
+    Calculate the total energy for each component in the network.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components
+    label : str
+        The label/identifier for the current scenario
+    energy : pd.DataFrame
+        DataFrame to store the calculated energy values
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated energy DataFrame with new calculations
+    """
+    
+    # Iterate through all components (both one-port and branch components)
     for c in n.iterate_components(n.one_port_components | n.branch_components):
+        
+        # Handle one-port components (like generators, loads, storage units)
         if c.name in n.one_port_components:
-            c_energies = (
-                c.pnl.p.multiply(n.snapshot_weightings.generators, axis=0)
-                .sum()
-                .multiply(c.df.sign)
-                .groupby(c.df.carrier)
-                .sum()
-            )
-        else:
-            c_energies = pd.Series(0.0, c.df.carrier.unique())
-            for port in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
-                totals = (
-                    c.pnl["p" + port]
-                    .multiply(n.snapshot_weightings.generators, axis=0)
+            logger.debug(f"Processing one-port component: {c.name}")
+            
+            # Check if pnl data exists and has the expected columns
+            if not hasattr(c, 'pnl') or 'p' not in c.pnl:
+                logger.warning(f"No pnl data found for {c.name}")
+                continue
+                
+            # Filter out components that don't exist in pnl data
+            valid_components = c.df.index.intersection(c.pnl.p.columns)
+            if len(valid_components) == 0:
+                logger.warning(f"No valid components found for {c.name} in pnl data")
+                continue
+                
+            # Calculate energy by:
+            # 1. Multiply power by snapshot weightings (to account for time periods)
+            # 2. Sum over all time periods
+            # 3. Multiply by sign (to handle consumption vs generation)
+            # 4. Group by carrier type
+            try:
+                c_energies = (
+                    c.pnl.p[valid_components].multiply(n.snapshot_weightings.generators, axis=0)
+                    .sum()
+                    .multiply(c.df.loc[valid_components, "sign"])
+                    .groupby(c.df.loc[valid_components, "carrier"])
                     .sum()
                 )
-                # remove values where bus is missing (bug in nomopyomo)
-                no_bus = c.df.index[c.df["bus" + port] == ""]
-                totals.loc[no_bus] = float(
-                    n.component_attrs[c.name].loc["p" + port, "default"]
-                )
-                c_energies -= totals.groupby(c.df.carrier).sum()
+            except Exception as e:
+                logger.warning(f"Error calculating energy for {c.name}: {str(e)}")
+                continue
+        else:
+            logger.debug(f"Processing branch component: {c.name}")
+            # For branch components (like lines, transformers, links)
+            # Initialize empty series with zeros for each carrier
+            c_energies = pd.Series(0.0, c.df.carrier.unique())
+            
+            # Process each port of the branch component
+            # (e.g., bus0, bus1 for a line)
+            for port in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
+                # Skip bus2 for hydro turbine links
+                if c.name == "Link" and port == "2" and "hydroelectricity" in c.df.carrier.unique():
+                    logger.debug("Skipping bus2 for hydro turbine links")
+                    continue
+                # Skip bus3 for aluminum smelters
+                if c.name == "Link" and port == "3" and "aluminum smelter" in c.df.carrier.unique():
+                    logger.debug("Skipping bus3 for aluminum smelters")
+                    continue
+                    
+                logger.debug(f"Processing port: {port}")
+                
+                # Skip if power flow data is missing for this port
+                if "p" + port not in c.pnl:
+                    logger.warning(f"Skipping port {port} for {c.name} as power flow data is missing")
+                    continue
+                    
+                try:
+                    # Calculate total energy flow through each port
+                    totals = (
+                        c.pnl["p" + port]
+                        .multiply(n.snapshot_weightings.generators, axis=0)
+                        .sum()
+                    )
+                    
+                    # Handle cases where bus is missing (bug in nomopyomo)
+                    no_bus = c.df.index[c.df["bus" + port] == ""]
+                    # Only process links that exist in both totals and no_bus
+                    valid_no_bus = no_bus.intersection(totals.index)
+                    if not valid_no_bus.empty:
+                        totals.loc[valid_no_bus] = float(
+                            n.component_attrs[c.name].loc["p" + port, "default"]
+                        )                    
+                    # Subtract the port's energy from total (to account for flow direction)
+                    c_energies -= totals.groupby(c.df.carrier).sum()
+                except Exception as e:
+                    logger.warning(f"Error processing port {port} for {c.name}: {str(e)}")
+                    continue  # Skip this port and continue with others instead of raising the error
 
+        # Add component name as first level of index
         c_energies = pd.concat([c_energies], keys=[c.list_name])
 
+        # Ensure the energy DataFrame has all necessary indices
         energy = energy.reindex(c_energies.index.union(energy.index))
 
+        # Store the calculated energies in the DataFrame
         energy.loc[c_energies.index, label] = c_energies
 
     return energy
@@ -281,45 +555,90 @@ def calculate_energy(n, label, energy):
 
 def calculate_supply(n, label, supply):
     """
-    Calculate the max dispatch of each component at the buses aggregated by
-    carrier.
+    Calculate the maximum power dispatch (supply) of each component at the buses, aggregated by carrier.
+    
+    This function calculates the peak power flow through each component in the network,
+    which represents the maximum capacity utilization of each technology.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components and their data
+    label : str
+        The label/identifier for the current scenario (e.g., year)
+    supply : pd.DataFrame
+        DataFrame to store the calculated supply values
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated supply DataFrame with maximum dispatch values for each component
     """
+    # Get unique bus carriers (e.g., AC, DC, heat, etc.)
     bus_carriers = n.buses.carrier.unique()
 
+    # Process each bus carrier type separately
     for i in bus_carriers:
+        # Create a boolean map of buses belonging to this carrier
         bus_map = n.buses.carrier == i
-        bus_map.at[""] = False
+        bus_map.at[""] = False  # Exclude empty bus names
 
+        # Process one-port components (generators, loads, storage units)
         for c in n.iterate_components(n.one_port_components):
-            items = c.df.index[c.df.bus.map(bus_map).fillna(False)]
+            # Find components connected to buses of this carrier
+            items = c.df.index[c.df.bus.map(bus_map).fillna(False).infer_objects(copy=False)]
 
             if len(items) == 0:
                 continue
 
+            # Filter out components that don't exist in pnl data
+            valid_items = items.intersection(c.pnl.p.columns)
+            if len(valid_items) == 0:
+                logger.warning(f"No valid items found for {c.name} in pnl data")
+                continue
+
+            # Calculate maximum power flow, accounting for component sign
+            # (positive for generation, negative for consumption)
             s = (
-                c.pnl.p[items]
-                .max()
-                .multiply(c.df.loc[items, "sign"])
-                .groupby(c.df.loc[items, "carrier"])
-                .sum()
+                c.pnl.p[valid_items]
+                .max()  # Get maximum power flow
+                .multiply(c.df.loc[valid_items, "sign"])  # Apply sign convention
+                .groupby(c.df.loc[valid_items, "carrier"])  # Group by technology type
+                .sum()  # Sum over all components of same carrier
             )
+            # Add component type and bus carrier as index levels
             s = pd.concat([s], keys=[c.list_name])
             s = pd.concat([s], keys=[i])
 
+            # Update the supply DataFrame
             supply = supply.reindex(s.index.union(supply.index))
             supply.loc[s.index, label] = s
 
+        # Process branch components (links, lines, transformers)
         for c in n.iterate_components(n.branch_components):
+            # Process each port of the branch component
             for end in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
+                # Find components connected to buses of this carrier at this port
                 items = c.df.index[c.df["bus" + end].map(bus_map).fillna(False)]
 
                 if len(items) == 0:
                     continue
 
-                # lots of sign compensation for direction and to do maximums
+                # Skip if power flow data is missing for this port
+                if "p" + end not in c.pnl:
+                    logger.warning(f"Skipping port {end} for {c.name} as power flow data is missing")
+                    continue
+
+                # Filter out components without power flow data
+                valid_items = items.intersection(c.pnl["p" + end].columns)
+                if len(valid_items) == 0:
+                    logger.warning(f"No valid items found for port {end} of {c.name}")
+                    continue
+
+                # Calculate maximum power flow with sign compensation
                 s = (-1) ** (1 - int(end)) * (
-                    (-1) ** int(end) * c.pnl["p" + end][items]
-                ).max().groupby(c.df.loc[items, "carrier"]).sum()
+                    (-1) ** int(end) * c.pnl["p" + end][valid_items]
+                ).max().groupby(c.df.loc[valid_items, "carrier"]).sum()
                 s.index = s.index + end
                 s = pd.concat([s], keys=[c.list_name])
                 s = pd.concat([s], keys=[i])
@@ -332,35 +651,67 @@ def calculate_supply(n, label, supply):
 
 def calculate_supply_energy(n, label, supply_energy):
     """
-    Calculate the total energy supply/consuption of each component at the buses
+    Calculate the total energy supply/consumption of each component at the buses,
     aggregated by carrier.
+    
+    This function calculates the total energy flow through each component over time,
+    which represents the actual energy production/consumption.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components and their data
+    label : str
+        The label/identifier for the current scenario (e.g., year)
+    supply_energy : pd.DataFrame
+        DataFrame to store the calculated energy values
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated supply_energy DataFrame with total energy values for each component
     """
+    # Get unique bus carriers
     bus_carriers = n.buses.carrier.unique()
 
+    # Process each bus carrier type
     for i in bus_carriers:
+        # Create boolean map of buses belonging to this carrier
         bus_map = n.buses.carrier == i
         bus_map.at[""] = False
 
+        # Process one-port components
         for c in n.iterate_components(n.one_port_components):
             items = c.df.index[c.df.bus.map(bus_map).fillna(False)]
 
             if len(items) == 0:
                 continue
 
+            # Filter out components that don't exist in pnl data
+            valid_items = items.intersection(c.pnl.p.columns)
+            if len(valid_items) == 0:
+                logger.warning(f"No valid items found for {c.name} in pnl data")
+                continue
+
+            # Calculate total energy flow over time
+            # Multiply by snapshot weightings to account for time periods
             s = (
-                c.pnl.p[items]
-                .multiply(n.snapshot_weightings.generators, axis=0)
-                .sum()
-                .multiply(c.df.loc[items, "sign"])
-                .groupby(c.df.loc[items, "carrier"])
-                .sum()
+                c.pnl.p[valid_items]
+                .multiply(n.snapshot_weightings.generators, axis=0)  # Weight by time period
+                .sum()  # Sum over all time periods
+                .multiply(c.df.loc[valid_items, "sign"])  # Apply sign convention
+                .groupby(c.df.loc[valid_items, "carrier"])  # Group by technology
+                .sum()  # Sum over all components of same carrier
             )
+            # Add component type and bus carrier as index levels
             s = pd.concat([s], keys=[c.list_name])
             s = pd.concat([s], keys=[i])
 
+            # Update the supply_energy DataFrame
             supply_energy = supply_energy.reindex(s.index.union(supply_energy.index))
             supply_energy.loc[s.index, label] = s
 
+        # Process branch components
         for c in n.iterate_components(n.branch_components):
             for end in [col[3:] for col in c.df.columns if col[:3] == "bus"]:
                 items = c.df.index[c.df["bus" + str(end)].map(bus_map).fillna(False)]
@@ -368,17 +719,29 @@ def calculate_supply_energy(n, label, supply_energy):
                 if len(items) == 0:
                     continue
 
-                s = (-1) * c.pnl["p" + end][items].multiply(
-                    n.snapshot_weightings.generators, axis=0
-                ).sum().groupby(c.df.loc[items, "carrier"]).sum()
-                s.index = s.index + end
+                # Skip if power flow data is missing
+                if "p" + end not in c.pnl:
+                    logger.warning(f"Skipping port {end} for {c.name} as power flow data is missing")
+                    continue
+
+                # Filter out components without power flow data
+                valid_items = items.intersection(c.pnl["p" + end].columns)
+                if len(valid_items) == 0:
+                    logger.warning(f"No valid items found for port {end} of {c.name}")
+                    continue
+
+                # Calculate total energy flow with sign compensation
+                s = (-1) * c.pnl["p" + end][valid_items].multiply(
+                    n.snapshot_weightings.generators, axis=0  # Weight by time period
+                ).sum().groupby(c.df.loc[valid_items, "carrier"]).sum()
+                s.index = s.index + end  # Add port number to index
                 s = pd.concat([s], keys=[c.list_name])
                 s = pd.concat([s], keys=[i])
 
+                # Update the supply_energy DataFrame
                 supply_energy = supply_energy.reindex(
                     s.index.union(supply_energy.index)
                 )
-
                 supply_energy.loc[s.index, label] = s
 
     return supply_energy
@@ -488,7 +851,7 @@ def calculate_weighted_prices(n, label, weighted_prices):
                 continue
 
             load += (
-                n.links_t.p0[names].groupby(n.links.loc[names, "bus0"], axis=1).sum()
+                n.links_t.p0[names].T.groupby(n.links.loc[names, "bus0"]).sum().T
             )
 
         # Add H2 Store when charging
@@ -514,51 +877,79 @@ def calculate_market_values(n, label, market_values):
     carrier = "AC"
 
     buses = n.buses.index[n.buses.carrier == carrier]
+    
+    # Only use buses that exist in marginal_price data
+    available_buses = buses.intersection(n.buses_t.marginal_price.columns)
+    
+    if available_buses.empty:
+        logger.warning("No available buses found for market value calculation")
+        return market_values
 
     ## First do market value of generators ##
 
     generators = n.generators.index[n.buses.loc[n.generators.bus, "carrier"] == carrier]
 
-    techs = n.generators.loc[generators, "carrier"].value_counts().index
+    # Filter out generators that don't exist in pnl data
+    valid_generators = generators.intersection(n.generators_t.p.columns)
+    if len(valid_generators) == 0:
+        logger.warning("No valid generators found for market value calculation")
+    else:
+        techs = n.generators.loc[valid_generators, "carrier"].value_counts().index
 
-    market_values = market_values.reindex(market_values.index.union(techs))
+        market_values = market_values.reindex(market_values.index.union(techs))
 
-    for tech in techs:
-        gens = generators[n.generators.loc[generators, "carrier"] == tech]
+        for tech in techs:
+            gens = valid_generators[n.generators.loc[valid_generators, "carrier"] == tech]
 
-        dispatch = (
-            n.generators_t.p[gens]
-            .groupby(n.generators.loc[gens, "bus"], axis=1)
-            .sum()
-            .reindex(columns=buses, fill_value=0.0)
-        )
+            try:
+                dispatch = (
+                    n.generators_t.p[gens]
+                    .T.groupby(n.generators.loc[gens, "bus"])
+                    .sum()
+                    .T
+                    .reindex(columns=available_buses, fill_value=0.0)
+                )
 
-        revenue = dispatch * n.buses_t.marginal_price[buses]
+                revenue = dispatch * n.buses_t.marginal_price[available_buses]
 
-        market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
+                market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
+            except Exception as e:
+                logger.warning(f"Error calculating market value for generator tech {tech}: {str(e)}")
+                continue
 
     ## Now do market value of links ##
 
     for i in ["0", "1"]:
         all_links = n.links.index[n.buses.loc[n.links["bus" + i], "carrier"] == carrier]
 
-        techs = n.links.loc[all_links, "carrier"].value_counts().index
+        # Filter out links that don't exist in pnl data
+        valid_links = all_links.intersection(n.links_t["p" + i].columns)
+        if len(valid_links) == 0:
+            logger.warning(f"No valid links found for port {i} in market value calculation")
+            continue
+
+        techs = n.links.loc[valid_links, "carrier"].value_counts().index
 
         market_values = market_values.reindex(market_values.index.union(techs))
 
         for tech in techs:
-            links = all_links[n.links.loc[all_links, "carrier"] == tech]
+            links = valid_links[n.links.loc[valid_links, "carrier"] == tech]
 
-            dispatch = (
-                n.links_t["p" + i][links]
-                .groupby(n.links.loc[links, "bus" + i], axis=1)
-                .sum()
-                .reindex(columns=buses, fill_value=0.0)
-            )
+            try:
+                dispatch = (
+                    n.links_t["p" + i][links]
+                    .T.groupby(n.links.loc[links, "bus" + i])
+                    .sum()
+                    .T
+                    .reindex(columns=available_buses, fill_value=0.0)
+                )
 
-            revenue = dispatch * n.buses_t.marginal_price[buses]
+                revenue = dispatch * n.buses_t.marginal_price[available_buses]
 
-            market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
+                market_values.at[tech, label] = revenue.sum().sum() / dispatch.sum().sum()
+            except Exception as e:
+                logger.warning(f"Error calculating market value for link tech {tech} port {i}: {str(e)}")
+                continue
 
     return market_values
 
@@ -571,29 +962,357 @@ def calculate_price_statistics(n, label, price_statistics):
     )
 
     buses = n.buses.index[n.buses.carrier == "AC"]
+    
+    # Only use buses that exist in marginal_price data
+    available_buses = buses.intersection(n.buses_t.marginal_price.columns)
+    
+    if available_buses.empty:
+        # If no buses available, set default values
+        price_statistics.at["zero_hours", label] = 0.0
+        price_statistics.at["mean", label] = 0.0
+        price_statistics.at["standard_deviation", label] = 0.0
+        return price_statistics
 
     threshold = 0.1  # higher than phoney marginal_cost of wind/solar
 
-    df = pd.DataFrame(data=0.0, columns=buses, index=n.snapshots)
+    df = pd.DataFrame(data=0.0, columns=available_buses, index=n.snapshots)
 
-    df[n.buses_t.marginal_price[buses] < threshold] = 1.0
+    df[n.buses_t.marginal_price[available_buses] < threshold] = 1.0
 
     price_statistics.at["zero_hours", label] = df.sum().sum() / (
         df.shape[0] * df.shape[1]
     )
 
     price_statistics.at["mean", label] = (
-        n.buses_t.marginal_price[buses].unstack().mean()
+        n.buses_t.marginal_price[available_buses].unstack().mean()
     )
 
     price_statistics.at["standard_deviation", label] = (
-        n.buses_t.marginal_price[buses].unstack().std()
+        n.buses_t.marginal_price[available_buses].unstack().std()
     )
 
     return price_statistics
 
 
-def make_summaries(networks_dict):
+def calculate_aluminum_statistics(n, label, aluminum_statistics):
+    """
+    Calculate aluminum-related statistics including electricity costs and other metrics.
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components
+    label : str
+        The label/identifier for the current scenario
+    aluminum_statistics : pd.DataFrame
+        DataFrame to store the calculated aluminum statistics
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated aluminum_statistics DataFrame with new calculations
+    """
+    
+    # Define the statistics we want to calculate
+    stats_list = [
+        "total_electricity_cost",  # The sum of the products of annual electricity consumption and node marginal electricity price
+        "total_electricity_consumption",  # Total electricity consumption throughout the year
+        "average_electricity_price",  # average electricity price
+        "max_electricity_price",  # Maximum electricity price
+        "min_electricity_price",  # lowest electricity price
+        "electricity_cost_per_mwh",  # Average cost of electricity per MWh
+        "aluminum_capacity",  # Aluminum smelting capacity
+        "aluminum_storage_capacity",  # Aluminum storage capacity
+        "aluminum_utilization_rate",  # Aluminum smelting utilization rate
+        "total_startup_events",  # Total number of starts
+        "total_shutdown_events",  # total number of closures
+    ]
+    
+    aluminum_statistics = aluminum_statistics.reindex(
+        aluminum_statistics.index.union(pd.Index(stats_list))
+    )
+    
+    # Get electricity buses (AC carrier)
+    electricity_buses = n.buses.index[n.buses.carrier == "AC"]
+    
+    # Only use buses that exist in marginal_price data
+    available_buses = electricity_buses.intersection(n.buses_t.marginal_price.columns)
+    
+    if available_buses.empty:
+        logger.warning("No available electricity buses found for aluminum statistics")
+        # Set default values
+        for stat in stats_list:
+            aluminum_statistics.at[stat, label] = 0.0
+        return aluminum_statistics
+    
+    # Find aluminum smelter links
+    aluminum_smelters = n.links.index[n.links.carrier == "aluminum"]
+    
+    if len(aluminum_smelters) == 0:
+        logger.warning("No aluminum smelters found in the network")
+        # Set default values
+        for stat in stats_list:
+            aluminum_statistics.at[stat, label] = 0.0
+        return aluminum_statistics
+    
+    # Calculate electricity consumption and costs for aluminum smelters
+    total_electricity_cost = 0.0
+    total_electricity_consumption = 0.0
+    
+    # Count the number of starts and stops
+    total_startup_events = 0
+    total_shutdown_events = 0
+    
+    # Statistics of start and stop times by province
+    province_startup_events = {}
+    province_shutdown_events = {}
+    
+    # Process each aluminum smelter
+    for smelter in aluminum_smelters:
+        # Get the bus where the smelter is connected (bus0 for electricity input)
+        smelter_bus = n.links.loc[smelter, "bus0"]
+        
+        # Check if the bus exists in marginal price data
+        if smelter_bus not in n.buses_t.marginal_price.columns:
+            logger.warning(f"Smelter {smelter} bus {smelter_bus} not found in marginal price data")
+            continue
+        
+        # Get electricity consumption (p0 is typically negative for consumption)
+        if smelter in n.links_t.p0.columns:
+            electricity_consumption = n.links_t.p0[smelter].abs()  # Use absolute value
+            electricity_prices = n.buses_t.marginal_price[smelter_bus]
+            
+            # Calculate total electricity consumption (MWh)
+            total_consumption = (
+                electricity_consumption.multiply(n.snapshot_weightings.generators, axis=0)
+                .sum()
+            )
+            
+            # Calculate total electricity cost (EUR)
+            total_cost = (
+                electricity_consumption.multiply(n.snapshot_weightings.generators, axis=0)
+                .multiply(electricity_prices, axis=0)
+                .sum()
+            )
+            
+            total_electricity_consumption += total_consumption
+            total_electricity_cost += total_cost
+            
+            # Calculate the number of starts and stops
+            # state：When the power > 0 in running state(1)，When the power = 0 in stop state(0)
+            status = (electricity_consumption > 0).astype(int)
+            
+            # Start event：Status changes from 0 to 1 (from stop to run)
+            startup_events = (status.diff() > 0).sum()
+            # close event：Status changes from 1 to 0 (from running to stopping)
+            shutdown_events = (status.diff() < 0).sum()
+            
+            total_startup_events += startup_events
+            total_shutdown_events += shutdown_events
+            
+            # Statistics of start and stop times by province
+            # Extract province information from smelter name
+            province = None
+            for prov in ["Anhui", "Shandong", "Henan", "Xinjiang", "InnerMongolia", "Gansu", "Qinghai", "Ningxia", "Yunnan", "Guizhou", "Sichuan", "Chongqing", "Hubei", "Hunan", "Jiangxi", "Fujian", "Guangdong", "Guangxi", "Hainan", "Tibet"]:
+                if prov in smelter:
+                    province = prov
+                    break
+            
+            if province is None:
+                # If the province cannot be identified from its name，Try to identify from bus name
+                for prov in ["Anhui", "Shandong", "Henan", "Xinjiang", "InnerMongolia", "Gansu", "Qinghai", "Ningxia", "Yunnan", "Guizhou", "Sichuan", "Chongqing", "Hubei", "Hunan", "Jiangxi", "Fujian", "Guangdong", "Guangxi", "Hainan", "Tibet"]:
+                    if prov in smelter_bus:
+                        province = prov
+                        break
+            
+            if province is None:
+                province = "Unknown"
+            
+            # Accumulate the number of starts and stops in this province
+            if province not in province_startup_events:
+                province_startup_events[province] = 0
+                province_shutdown_events[province] = 0
+            
+            province_startup_events[province] += startup_events
+            province_shutdown_events[province] += shutdown_events
+    
+    # Print the statistics of start and stop times in each province
+    logger.debug(f"=== Statistics on start and stop times of electrolytic aluminum ({label}) ===")
+    logger.debug(f"Total number of starts: {total_startup_events}")
+    logger.debug(f"total number of closures: {total_shutdown_events}")
+    logger.debug("Details of the number of starts and stops in each province:")
+    
+    for province in sorted(province_startup_events.keys()):
+        startup_count = province_startup_events[province]
+        shutdown_count = province_shutdown_events[province]
+        logger.debug(f"  {province}: start up {startup_count} Second-rate, closure {shutdown_count} Second-rate")
+    
+    # Calculate aluminum capacity (from links)
+    aluminum_capacity = n.links.loc[aluminum_smelters, "p_nom_opt"].sum()
+    
+    # Calculate aluminum storage capacity (from stores)
+    aluminum_stores = n.stores.index[n.stores.carrier == "aluminum"]
+    aluminum_storage_capacity = n.stores.loc[aluminum_stores, "e_nom_opt"].sum() if len(aluminum_stores) > 0 else 0.0
+    
+    # Calculate utilization rate (actual consumption vs capacity)
+    if aluminum_capacity > 0:
+        # Convert capacity from MW to MWh for the year (8760 hours)
+        annual_capacity = aluminum_capacity * 8760
+        aluminum_utilization_rate = total_electricity_consumption / annual_capacity if annual_capacity > 0 else 0.0
+    else:
+        aluminum_utilization_rate = 0.0
+    
+    # Calculate average electricity cost per MWh
+    electricity_cost_per_mwh = (
+        total_electricity_cost / total_electricity_consumption 
+        if total_electricity_consumption > 0 else 0.0
+    )
+    
+    # Calculate price statistics for all electricity buses
+    all_prices = n.buses_t.marginal_price[available_buses].unstack()
+    average_electricity_price = all_prices.mean() if len(all_prices) > 0 else 0.0
+    max_electricity_price = all_prices.max() if len(all_prices) > 0 else 0.0
+    min_electricity_price = all_prices.min() if len(all_prices) > 0 else 0.0
+    
+    # Store all statistics
+    aluminum_statistics.at["total_electricity_cost", label] = total_electricity_cost
+    aluminum_statistics.at["total_electricity_consumption", label] = total_electricity_consumption
+    aluminum_statistics.at["average_electricity_price", label] = average_electricity_price
+    aluminum_statistics.at["max_electricity_price", label] = max_electricity_price
+    aluminum_statistics.at["min_electricity_price", label] = min_electricity_price
+    aluminum_statistics.at["electricity_cost_per_mwh", label] = electricity_cost_per_mwh
+    aluminum_statistics.at["aluminum_capacity", label] = aluminum_capacity
+    aluminum_statistics.at["aluminum_storage_capacity", label] = aluminum_storage_capacity
+    aluminum_statistics.at["aluminum_utilization_rate", label] = aluminum_utilization_rate
+    aluminum_statistics.at["total_startup_events", label] = total_startup_events
+    aluminum_statistics.at["total_shutdown_events", label] = total_shutdown_events
+    
+    return aluminum_statistics
+
+
+def calculate_emissions(n, label, emissions):
+    """
+    Calculate monthly CO2 emissions from coal and natural gas
+    
+    Parameters:
+    -----------
+    n : pypsa.Network
+        The network object containing all components
+    label : str
+        The label/identifier for the current scenario
+    emissions : pd.DataFrame
+        DataFrame to store the calculated emissions data
+        
+    Returns:
+    --------
+    pd.DataFrame
+        Updated emissions DataFrame with coal and gas emissions by month
+    """
+    
+    # Define emission metrics
+    emissions_list = [
+        "total_coal_emissions",  # total coal emissions
+        "total_gas_emissions",   # Total natural gas emissions
+        # Monthly coal emissions
+        "coal_emissions_jan", "coal_emissions_feb", "coal_emissions_mar", "coal_emissions_apr",
+        "coal_emissions_may", "coal_emissions_jun", "coal_emissions_jul", "coal_emissions_aug",
+        "coal_emissions_sep", "coal_emissions_oct", "coal_emissions_nov", "coal_emissions_dec",
+        # Monthly natural gas emissions
+        "gas_emissions_jan", "gas_emissions_feb", "gas_emissions_mar", "gas_emissions_apr",
+        "gas_emissions_may", "gas_emissions_jun", "gas_emissions_jul", "gas_emissions_aug",
+        "gas_emissions_sep", "gas_emissions_oct", "gas_emissions_nov", "gas_emissions_dec",
+    ]
+    
+    emissions = emissions.reindex(
+        emissions.index.union(pd.Index(emissions_list))
+    )
+    
+    # Initialize monthly emissions dictionary
+    monthly_coal_emissions = {}
+    monthly_gas_emissions = {}
+    
+    # Get emission factors
+    carrier_emissions = n.carriers.co2_emissions if hasattr(n.carriers, 'co2_emissions') else pd.Series(dtype=float)
+    
+    # Handle the generator
+    if hasattr(n, 'generators_t') and hasattr(n.generators_t, 'p'):
+        gen_dispatch = n.generators_t.p
+        
+        for generator in gen_dispatch.columns:
+            if generator in n.generators.index:
+                carrier = n.generators.at[generator, 'carrier']
+                emission_factor = carrier_emissions.get(carrier, 0.0)
+                
+                # Only deals with coal and natural gas related technologies
+                if 'coal' in carrier.lower() or 'gas' in carrier.lower():
+                    # Calculate monthly energy production
+                    monthly_data = gen_dispatch[generator].multiply(n.snapshot_weightings.generators, axis=0)
+                    monthly_energy = monthly_data.resample('M').sum()
+                    monthly_gen_emissions = monthly_energy * emission_factor
+                    
+                    # Assigned to coal or natural gas based on carrier type
+                    if 'coal' in carrier.lower():
+                        for month_idx, month_emissions in monthly_gen_emissions.items():
+                            month_key = f"coal_emissions_{month_idx.strftime('%b').lower()}"
+                            monthly_coal_emissions[month_key] = monthly_coal_emissions.get(month_key, 0.0) + month_emissions
+                    elif 'gas' in carrier.lower():
+                        for month_idx, month_emissions in monthly_gen_emissions.items():
+                            month_key = f"gas_emissions_{month_idx.strftime('%b').lower()}"
+                            monthly_gas_emissions[month_key] = monthly_gas_emissions.get(month_key, 0.0) + month_emissions
+    
+    # Handle links（CHP、converter etc.）
+    if hasattr(n, 'links_t') and hasattr(n.links_t, 'p0'):
+        link_power = n.links_t.p0
+        
+        for link in link_power.columns:
+            if link in n.links.index:
+                carrier = n.links.at[link, 'carrier']
+                emission_factor = carrier_emissions.get(carrier, 0.0)
+                
+                # Only deals with coal and natural gas related technologies
+                if 'coal' in carrier.lower() or 'gas' in carrier.lower():
+                    # Calculate monthly energy consumption
+                    monthly_data = link_power[link].abs().multiply(n.snapshot_weightings.generators, axis=0)
+                    monthly_energy = monthly_data.resample('M').sum()
+                    monthly_link_emissions = monthly_energy * emission_factor
+                    
+                    # Assigned to coal or natural gas based on carrier type
+                    if 'coal' in carrier.lower():
+                        for month_idx, month_emissions in monthly_link_emissions.items():
+                            month_key = f"coal_emissions_{month_idx.strftime('%b').lower()}"
+                            monthly_coal_emissions[month_key] = monthly_coal_emissions.get(month_key, 0.0) + month_emissions
+                    elif 'gas' in carrier.lower():
+                        for month_idx, month_emissions in monthly_link_emissions.items():
+                            month_key = f"gas_emissions_{month_idx.strftime('%b').lower()}"
+                            monthly_gas_emissions[month_key] = monthly_gas_emissions.get(month_key, 0.0) + month_emissions
+    
+    # Calculate total emissions
+    total_coal_emissions = sum(monthly_coal_emissions.values())
+    total_gas_emissions = sum(monthly_gas_emissions.values())
+    
+    # Total storage emissions
+    emissions.at["total_coal_emissions", label] = total_coal_emissions
+    emissions.at["total_gas_emissions", label] = total_gas_emissions
+    
+    # Store monthly coal emissions
+    for month_key, month_value in monthly_coal_emissions.items():
+        if month_key in emissions.index:
+            emissions.at[month_key, label] = month_value
+    
+    # Storage monthly natural gas emissions
+    for month_key, month_value in monthly_gas_emissions.items():
+        if month_key in emissions.index:
+            emissions.at[month_key, label] = month_value
+    
+    # Record summary information
+    logger.debug(f"Emissions calculation for {label}:")
+    logger.debug(f"  Total coal emissions: {total_coal_emissions/1e6:.2f} million tonnes CO2")
+    logger.debug(f"  Total gas emissions: {total_gas_emissions/1e6:.2f} million tonnes CO2")
+    
+    return emissions
+
+
+def make_summaries(networks_dict, config=None):
     outputs = [
         "nodal_costs",
         "nodal_capacities",
@@ -610,7 +1329,12 @@ def make_summaries(networks_dict):
         "price_statistics",
         "market_values",
         "metrics",
+        "emissions",  # Add emissions calculation
     ]
+    
+    # Add aluminum statistics if add_aluminum is True
+    if config and config.get("add_aluminum", False):
+        outputs.append("aluminum_statistics")
 
     columns = pd.MultiIndex.from_tuples(
         networks_dict.keys(), names=["pathway", "planning_horizons"]
@@ -622,9 +1346,13 @@ def make_summaries(networks_dict):
         df[output] = pd.DataFrame(columns=columns, dtype=float)
 
     for label, filename in networks_dict.items():
-        logger.info(f"Make summary for scenario {label}, using {filename}")
+        logger.debug(f"Make summary for scenario {label}, using {filename}")
 
         n = pypsa.Network(filename)
+
+        # Add config to network object for access in cost calculations
+        if config is not None:
+            n.config = config
 
         assign_carriers(n)
         assign_locations(n)
@@ -662,7 +1390,7 @@ if __name__ == "__main__":
                      for topology in expand_from_wildcard("topology", config)
                      for heating_demand in expand_from_wildcard("heating_demand", config)}
 
-    df = make_summaries(networks_dict)
+    df = make_summaries(networks_dict, config)
     df["metrics"].loc["total costs"] = df["costs"].sum()
 
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors
+# SPDX-FileCopyrightText: : 2025 Ruike Lyu, rl8728@princeton.edu
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,29 +6,33 @@ name: pypsa-china
 channels:
   - conda-forge
   - bioconda
+  - gurobi
 dependencies:
-  - python>=3.8
+  - python>=3.9
   - pip
 
-  - pypsa>=0.18.1
-  - atlite>=0.2.6
+  # Core dependencies - main versions only
+  - pypsa=0.29.0
+  - atlite
   - dask
+  - gurobi
 
-  # Dependencies of the workflow itself
+  # Workflow dependencies - no version specified
   - xlrd
   - openpyxl
   - pycountry
   - seaborn
   - snakemake-minimal
   - memory_profiler
-  - yaml
+  - pyyaml
   - pytables
   - lxml
-  - powerplantmatching>=0.4.8
-  - numpy
+  
+  # Data processing libraries - no version specified
+  - numpy=1.24.3
   - pandas
   - geopandas
-  - xarray
+  - xarray=2024.2.0
   - netcdf4
   - networkx
   - scipy
@@ -36,22 +40,42 @@ dependencies:
   - progressbar2
   - pyomo
   - matplotlib
-  - proj
-  - fiona <= 1.18.20  # Till issue https://github.com/Toblerity/Fiona/issues/1085 is not solved
-  - geopy
   - tqdm
-  - pytz
-  - country_converter
-  - tabula-py
 
-  # Keep in conda environment when calling ipython
-  - ipython
-
-  # GIS dependencies:
+  # GIS dependencies - minimal restrictions
+  - proj
+  - fiona
+  - geopy
   - cartopy
   - descartes
   - rasterio
+  - pytz
+  - country_converter
+  - tabula-py
+  - graphviz
 
+  # Keep ipython in conda environment
+  - ipython
+
+  # Install poppler for fiona support
+  - poppler
+  - pyogrio
+
+  # pip installed packages
   - pip:
     - vresutils>=0.3.1
     - tsam>=1.1.0
+    - powerplantmatching>=0.4.8
+
+# Installation guide for Linux:
+# 1. Create environment using this file: conda env create -f envs/environment.yaml
+# 2. Activate environment: conda activate pypsa-china
+# 3. Check if Dict import in _helpers.py needs modification (if related errors occur)
+
+# For Linux systems, you might need to install system dependencies:
+# sudo apt-get update
+# sudo apt-get install -y libpoppler-cpp-dev
+# sudo apt-get install -y libgdal-dev
+# sudo apt-get install -y libspatialindex-dev 
+
+# To delete the environment: conda remove -n pypsa-china --all

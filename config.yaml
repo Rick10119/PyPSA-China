@@ -2,91 +2,178 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-version: 0325.175.1H
+version: 0120.1H.1
 logging_level: INFO
 foresight: "myopic"
 
+# Single-node mode – if true, keep only one target province in the network
+using_single_node: False
+single_node_province: "Shandong"  # Target province when single-node mode is enabled
+
 results_dir: 'results/'
 summary_dir: 'summary/'
+threads: 192
+mem_per_thread: 2500
+
+tmin: '-01-01 00:00'
+tmax: '-12-31 23:00'
+freq: '1h'
+
+add_aluminum: True
+only_other_load: False
+iterative_optimization: True
+aluminum_commitment: False # keep False for iterative optimization
+aluminum_max_iterations: 2  # Maximum number of aluminum–power iterations
+aluminum_convergence_tolerance: 0.01  # Convergence threshold (relative change in objective; 0.01 = 1%)
+
+# Aluminum smelter capacity ratio scenarios (100%, 90%, 80%, 70%, 60%)
+aluminum_capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
 
 scenario:
   line_limits: [ 'opt' ]
-  pathway: ['exponential175','beta25175']
-  topology: "current+Neighbor" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
+  pathway: ['linear2050']
+  topology: "current+FCG" # "current" or "FCG" or "current+FCG" or "current+Neighbor"
+  planning_horizons:
+    - 2050
   co2_reduction:
-    exponential175:
-      '2020': 0.0
-      '2025': 0.22623418
-      '2030': 0.41175086
-      '2035': 0.56387834
-      '2040': 0.688626
-      '2045': 0.79092165
-      '2050': 0.87480618
-      '2055': 0.94359322
+    linear2060:
+      '2020': -1.
+      '2025': -1.
+      '2030': 0.143
+      '2035': 0.286
+      '2040': 0.429
+      '2045': 0.571
+      '2050': 0.714
+      '2055': 0.857
       '2060': 1.0
-    linear175:
-      '2020': 0.
-      '2025': 0.16666667
-      '2030': 0.33333333
-      '2035': 0.5
-      '2040': 0.66666667
-      '2045': 0.83333333
+    linear2050:
+      '2020': -1.
+      '2025': -1.
+      '2030': 0.2
+      '2035': 0.4
+      '2040': 0.6
+      '2045': 0.8
       '2050': 1.0
       '2055': 1.0
       '2060': 1.0
-    beta05175:
-      '2020': 0.
-      '2025': 0.41489656
-      '2030': 0.5139467
-      '2035': 0.58764476
-      '2040': 0.65150003
-      '2045': 0.71196579
-      '2050': 0.77403968
-      '2055': 0.84573191
-      '2060': 1.0
-    beta25175:
-      '2020': 0.0 #0.
-      '2025': 0.05096974 #0.06949544
-      '2030': 0.23251132 #0.27330722
-      '2035': 0.5 #0.52741596
-      '2040': 0.76748868 #0.75163934
-      '2045': 0.94903026 #0.90276156
-      '2050': 1.0 #0.97687314
-      '2055': 1.0 #0.99829624
-      '2060': 1.0 #1.0
-    mean175:
-      '2020': 0.
-      '2025': 0.12193339
-      '2030': 0.29252381
-      '2035': 0.53193917
-      '2040': 0.75766462
-      '2045': 0.88664452
-      '2050': 0.93740309
-      '2055': 0.97179661
-      '2060': 1.0
   opts: ['ll']
   attr: 'p_nom'
-  planning_horizons:
-    - 2020
-    - 2025
-    - 2030
-    - 2035
-    - 2040
-    - 2045
-    - 2050
-    - 2055
-    - 2060
   heating_demand: ['positive']
+
+solving:
+  solver:
+    name: gurobi
+    options: default
+  solver_options:
+    default:
+      Threads: 192
+      Crossover: 0
+      Method: 2 # barrier
+      BarConvTol: 1.e-5
+      FeasibilityTol: 1.e-6
+      AggFill: 0
+      PreDual: 0
+      GURO_PAR_BARDENSETHRESH: 200
+      DualReductions: 0
+      OutputFlag: 1  # 关闭Gurobi输出
+      LogToConsole: 1  # 关闭控制台日志
+      LogFile: ''  # 关闭日志文件
+    MILP:
+      Threads: 90
+      Method: -1 # 自动选择，通常是对偶单纯形法，更适合分支定界
+      MIPGap: 1.e-2
+      TimeLimit: 7200
+      Heuristics: 0.5 # 增加启发式搜索的强度
+      Cuts: 0 # 尝试关闭大部分割平面生成，或设置为1 (温和生成)
+      Presolve: -1 # 保持默认，通常是有益的
+  options:
+    track_iterations: false
+    min_iterations: 4
+    max_iterations: 6
+    skip_iterations: false
+    formulation: kirchhoff
+    load_shedding: false
+    noisy_costs: false
+    clip_p_max_pu: 0.01
+
+  mem: 150000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+
+aluminum:
+  grid_interaction:
+    "2020": false
+    "2025": false
+    "2030": true
+    "2035": true
+    "2040": true
+    "2045": true
+    "2050": true
+    "2055": true
+    "2060": true
+
+  # Aluminum smelter capacity ratio (overrides top-level `aluminum_capacity_ratio` if set)
+  capacity_ratio: 1.0  # 1.0 = 100%, 0.9 = 90%, 0.8 = 80%, 0.7 = 70%, 0.6 = 60%
+
+  # Scenario-dimension settings (these correspond to the scenario definitions summarized in Table 5 and the SI)
+  scenario_dimensions:
+    # 1. Smelter operational flexibility scenarios
+    smelter_flexibility:
+      low:
+        p_min_pu: 0.99  # Minimum power level (p.u.)
+        restart_cost: 96593.79766  # Restart cost [eur / MW]
+        stand_by_cost: 1.2  # Stand-by cost [eur / MW / h]
+      mid:
+        p_min_pu: 0.9  # Minimum power level (p.u.)
+        restart_cost: 13980.68124  # Restart cost [eur / MW]
+        stand_by_cost: 1.2  # Stand-by cost [eur / MW / h]
+      high:
+        p_min_pu: 0.7  # Minimum power level (p.u.)
+        restart_cost: 2796.136248  # Restart cost [eur / MW]
+        stand_by_cost: 1.2  # Stand-by cost [eur / MW / h]
+      non_constrained:
+        p_min_pu: 0.0  # Fully flexible operation (no minimum power)
+        restart_cost: 0  # No restart cost [eur / MW]
+        stand_by_cost: 0  # No stand-by cost [eur / MW / h]
+    
+    # 2. Market opportunity / technology-cost scenarios
+    market_opportunity:
+      low:
+        vre_cost_factor: 0.8      # Multiplier on VRE capital costs (0.8x)
+        battery_cost_factor: 0.8  # Multiplier on battery capital costs (0.8x)
+        h2_cost_factor: 0.8       # Multiplier on H2 / long-duration storage costs (0.8x)
+        sabatier_cost_factor: 0.8 # Multiplier on methanation (Sabatier) costs (0.8x)
+      mid:
+        vre_cost_factor: 1.0      # Reference VRE capital costs (1.0x)
+        battery_cost_factor: 1.0  # Reference battery capital costs (1.0x)
+        h2_cost_factor: 1.0       # Reference H2 / long-duration storage costs (1.0x)
+        sabatier_cost_factor: 1.0 # Reference methanation (Sabatier) costs (1.0x)
+      high:
+        vre_cost_factor: 1.0      # Same VRE capital costs as mid (1.0x)
+        battery_cost_factor: 1.5  # Higher battery capital costs (1.5x)
+        h2_cost_factor: 1.5       # Higher H2 / long-duration storage costs (1.5x)
+        sabatier_cost_factor: 1.5 # Higher methanation (Sabatier) costs (1.5x)
+    
+    # 3. Employment transfer scenarios (affecting stand-by cost)
+    employment_transfer:
+      unfavorable:
+        stand_by_cost_factor: 0.0  # Unfavorable case – keep stand-by cost at baseline
+      favorable:
+        stand_by_cost_factor: 1.0  # Favorable case – reduce effective stand-by cost
+
+  # Current scenario combination (default: mid demand, mid flexibility, mid market opportunity)
+  current_scenario:
+    smelter_flexibility: "mid"
+    primary_demand: "mid"
+    market_opportunity: "mid"
+    employment_transfer: "favorable"
+  
+  # Aluminum storage costs
+  al_marginal_cost_storage: 3.79E-05 # euro/MWh
+  al_storage_limit: 8760  # hours (24 * 365)
 
 snapshots:
   start: "2020-01-01"
   end: "2021-01-01"
   inclusive: 'left'
-
-tmin: '-01-01 00:00'
-tmax: '-12-31 23:00'
-freq: '1H'
-frequency: 1.
 
 logging:
   level: INFO
@@ -115,25 +202,6 @@ Technique:
 
 coal_cc: true
 hydrogen_lines: true
-
-existing_infrastructure: ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']
-
-bus_suffix: [""," central heat"," decentral heat"," gas"," coal"]
-bus_carrier: {
-    "": "AC",
-    " central heat": "heat",
-    " decentral heat": "heat",
-    " gas": "gas",
-    " coal": "coal",
-}
-
-Techs:
-  ## for add carriers
-  vre_techs: [ "onwind","offwind","solar","solar thermal","hydroelectricity", "nuclear","biomass","heat pump","resistive heater","Sabatier","H2 CHP"]
-  conv_techs: ["OCGT gas", "CHP gas", "gas boiler","coal boiler","coal power plant","CHP coal"]
-  store_techs: ["H2","battery","water tanks","PHS"]
-
-
 ## add components
 heat_coupling: True
 add_gas: True
@@ -142,6 +210,25 @@ add_biomass: True
 add_hydro: True
 add_H2: True
 add_methanation: True
+
+existing_infrastructure: ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']
+
+bus_suffix: [""," central heat"," decentral heat"," gas"," coal"," aluminum"]
+bus_carrier: {
+    "": "AC",
+    " central heat": "heat",
+    " decentral heat": "heat",
+    " gas": "gas",
+    " coal": "coal",
+    " aluminum": "aluminum",
+}
+
+Techs:
+  ## for add carriers
+  vre_techs: [ "onwind","offwind","solar","solar thermal","hydroelectricity", "nuclear","biomass","heat pump","resistive heater","Sabatier","H2 CHP"]
+  conv_techs: ["OCGT gas", "CHP gas", "gas boiler","coal boiler","coal power plant","CHP coal"]
+  store_techs: ["H2","battery","water tanks","PHS"]
+
 
 transmission_efficiency:
   DC:
@@ -208,7 +295,7 @@ electricity:
     Generator: []
     StorageUnit: [] # battery, H2
     Store: [battery, H2]
-    Link: []
+    Link: [battery]
 
   max_hours:
     battery: 6
@@ -218,11 +305,6 @@ electricity:
   custom_powerplants: false # use pandas query strings here, e.g. Country in ['Germany']
   conventional_carriers: [nuclear, oil, OCGT, CCGT, coal, lignite, geothermal, biomass]
   renewable_capacities_from_OPSD: [] # onwind, offwind, solar
-
-  # estimate_renewable_capacities_from_capacity_stats:
-  #   # Wind is the Fueltype in ppm.data.Capacity_stats, onwind, offwind-{ac,dc} the carrier in PyPSA-Eur
-  #   Wind: [onwind, offwind-ac, offwind-dc]
-  #   Solar: [solar]
 
 hydro:
   hydro_capital_cost: True
@@ -262,7 +344,7 @@ plotting:
   costs_max: 500
   costs_avg: 50
   costs_threshold: 1000
-  costs_plots_threshold: 20
+  costs_plots_threshold: 2
 
   energy_max: 25000.
   energy_min: 0.
@@ -548,6 +630,10 @@ plotting:
     DC: "#8a1caf"
     DC-DC: "#8a1caf"
     DC link: "#8a1caf"
+    # aluminum (only used when add_aluminum is True)
+    aluminum: '#8B4513'
+    aluminum smelter: '#8B4513'
+    aluminum storage: '#D2691E'
   nice_names:
     AC-AC: "Electric grid"
     H2-AC: "H2 Fuel Cell"
@@ -575,102 +661,15 @@ plotting:
     heat pump: "Heat Pump"
     solar thermal: "Solar Thermal"
     uranium: "Nuclear"
+    aluminum: "Aluminum Smelter"
+    aluminum smelter: "Aluminum Smelter"
+    aluminum storage: "Aluminum Storage"
     energy:
       coal: "Coal"
       offwind: "Offshore Wind"
       onwind: "Onshore Wind"
       solar: "Solar"
       solar thermal: "Solar Thermal"
-
-
-solving:
-  options:
-#    clip_p_max_pu: 1.e-2
-#    load_shedding: false
-#    transmission_losses: 0
-#    noisy_costs: false
-#    skip_iterations: true
-#    track_iterations: false
-#    min_iterations: 4
-#    max_iterations: 6
-#    seed: 123
-    formulation: kirchhoff
-    load_shedding: false
-    noisy_costs: false
-    min_iterations: 4
-    max_iterations: 6
-    clip_p_max_pu: 0.01
-    skip_iterations: false
-    track_iterations: false
-
-  solver:
-    name: gurobi
-    options: gurobi-default
-
-  solver_options:
-    highs-default:
-      # refer to https://ergo-code.github.io/HiGHS/options/definitions.html#solver
-      threads: 4
-      solver: "ipm"
-      run_crossover: "off"
-      small_matrix_value: 1e-6
-      large_matrix_value: 1e9
-      primal_feasibility_tolerance: 1e-5
-      dual_feasibility_tolerance: 1e-5
-      ipm_optimality_tolerance: 1e-4
-      parallel: "on"
-      random_seed: 123
-    gurobi-default:
-      threads: 8
-      method: 2 # barrier
-      crossover: 0
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-6
-      AggFill: 0
-      PreDual: 0
-      GURO_PAR_BARDENSETHRESH: 200
-      DualReductions: 0
-#      threads: 4
-#      method: 2 # barrier
-#      crossover: 0
-#      BarConvTol: 1.e-6
-#      Seed: 123
-#      AggFill: 0
-#      PreDual: 0
-#      GURO_PAR_BARDENSETHRESH: 200
-#      seed: 10              # Consistent seed for all plattforms
-    gurobi-numeric-focus:
-      name: gurobi
-      NumericFocus: 3       # Favour numeric stability over speed
-      method: 2             # barrier
-      crossover: 0          # do not use crossover
-      BarHomogeneous: 1     # Use homogeneous barrier if standard does not converge
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-4
-      OptimalityTol: 1.e-4
-      ObjScale: -0.5
-      threads: 8
-      Seed: 123
-    gurobi-fallback:        # Use gurobi defaults
-      name: gurobi
-      crossover: 0
-      method: 2             # barrier
-      BarHomogeneous: 1     # Use homogeneous barrier if standard does not converge
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-5
-      OptimalityTol: 1.e-5
-      Seed: 123
-      threads: 8
-    cplex-default:
-      threads: 4
-      lpmethod: 4 # barrier
-      solutiontype: 2 # non basic solution, ie no crossover
-      barrier.convergetol: 1.e-5
-      feasopt.tolerance: 1.e-6
-    cbc-default: {} # Used in CI
-    glpk-default: {} # Used in CI
-
-  mem: 80000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
 
 no_lines: False
 line_volume_limit_max: 5.e+15   #line_volume_limit is set = factor * max

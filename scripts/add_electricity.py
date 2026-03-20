@@ -1,9 +1,13 @@
-# SPDX-FileCopyrightText: : 2024 The PyPSA-China Authors
-#
-# SPDX-License-Identifier: MIT
-
 import logging
+from _helpers import configure_logging, update_p_nom_max
+
+import pypsa
 import pandas as pd
+import numpy as np
+import xarray as xr
+import geopandas as gpd
+
+from vresutils import transfer as vtransfer
 
 idx = pd.IndexSlice
 
@@ -19,6 +23,66 @@ def calculate_annuity(n, r):
         return r / (1. - 1./(1.+r)**n)
     else:
         return 1 / n
+
+def apply_market_scenario_costs(costs, config):
+    """
+    Adjust technology capital costs according to the market-opportunity scenario.
+
+    Parameters
+    ----------
+    costs : pandas.DataFrame
+        Technology cost table indexed by technology name.
+    config : dict
+        Configuration dictionary containing `aluminum.scenario_dimensions.market_opportunity`.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Updated cost table with scenario-specific capital-cost multipliers applied.
+    """
+    # Apply cost multipliers based on the active market-opportunity scenario
+    if 'aluminum' in config and 'current_scenario' in config['aluminum']:
+        market_scenario = config['aluminum']['current_scenario'].get('market_opportunity', 'mid')
+        
+        if market_scenario in config['aluminum']['scenario_dimensions']['market_opportunity']:
+            market_factors = config['aluminum']['scenario_dimensions']['market_opportunity'][market_scenario]
+            
+            # Apply VRE capital-cost multiplier
+            vre_techs = ['solar', 'onwind', 'offwind', 'solar-rooftop', 'solar-utility']
+            for tech in vre_techs:
+                if tech in costs.index:
+                    costs.loc[tech, 'capital_cost'] *= market_factors['vre_cost_factor']
+            
+            # Apply battery capital-cost multiplier
+            battery_techs = ['battery', 'battery storage', 'battery inverter']
+            for tech in battery_techs:
+                if tech in costs.index:
+                    costs.loc[tech, 'capital_cost'] *= market_factors['battery_cost_factor']
+            
+            # Apply H2 / hydrogen-storage capital-cost multiplier
+            h2_techs = ['H2', 'hydrogen storage tank type 1', 'fuel cell', 'electrolysis']
+            for tech in h2_techs:
+                if tech in costs.index:
+                    costs.loc[tech, 'capital_cost'] *= market_factors['h2_cost_factor']
+            
+            # Apply methanation (Sabatier) capital-cost multiplier
+            sabatier_techs = ['Sabatier']
+            for tech in sabatier_techs:
+                if tech in costs.index:
+                    costs.loc[tech, 'capital_cost'] *= market_factors['sabatier_cost_factor']
+            
+            # Log the set of market-opportunity cost adjustments that were applied
+            try:
+                logger.info(f"Applied market opportunity cost factors for scenario '{market_scenario}': "
+                           f"VRE={market_factors['vre_cost_factor']}, "
+                           f"Battery={market_factors['battery_cost_factor']}, "
+                           f"H2={market_factors['h2_cost_factor']}, "
+                           f"Sabatier={market_factors['sabatier_cost_factor']}")
+            except Exception as e:
+                print(f"WARNING: Logger failed: {e}")
+    
+    return costs
+
 
 def load_costs(tech_costs, config, elec_config,cost_year, Nyears):
 
@@ -75,6 +139,9 @@ def load_costs(tech_costs, config, elec_config,cost_year, Nyears):
     costs.loc["H2"] = \
         costs_for_storage(costs.loc["hydrogen storage tank type 1"], costs.loc["fuel cell"],
                           costs.loc["electrolysis"], max_hours=max_hours['H2'])
+
+    # Adjust costs according to market scenarios
+    costs = apply_market_scenario_costs(costs, config)
 
     for attr in ('marginal_cost', 'capital_cost'):
         overwrites = config.get(attr)

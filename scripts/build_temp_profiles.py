@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: : 2024 The PyPSA-China Authors
-#
-# SPDX-License-Identifier: MIT
 import logging
 from _helpers import configure_logging
 

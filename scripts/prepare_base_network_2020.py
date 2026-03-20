@@ -1,6 +1,37 @@
-# SPDX-FileCopyrightText: : 2024 The PyPSA-China Authors
+# SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors
 #
 # SPDX-License-Identifier: MIT
+
+"""
+This script prepares the base network for the PyPSA-China model for the year 2020.
+It creates a PyPSA network with the following components:
+
+1. Network Structure:
+   - Sets up the network with specified snapshots and time resolution
+   - Configures bus locations based on province centroids
+   - Adds carriers for different energy types (electricity, heat, gas, coal)
+
+2. Energy Components:
+   - Adds renewable generators (wind, solar, hydro)
+   - Configures conventional power plants
+   - Sets up heat pumps and resistive heaters
+   - Adds storage components (batteries, pumped hydro storage)
+   - Configures transmission lines between provinces
+
+3. Demand and Constraints:
+   - Loads electricity demand data
+   - Configures heat demand profiles
+   - Sets up CO2 emission constraints
+   - Adds capacity constraints for different technologies
+
+4. Cost Parameters:
+   - Loads technology costs
+   - Configures capital and marginal costs
+   - Sets up cost parameters for transmission and storage
+
+The script takes configuration parameters from the Snakefile and creates a network
+that serves as the base for further optimization and analysis.
+"""
 
 # for pathway network
 
@@ -12,6 +43,9 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from math import radians, cos, sin, asin, sqrt
+from functools import partial
+import pyproj
+from shapely.ops import transform
 import xarray as xr
 from functions import pro_names, HVAC_cost_curve
 from add_electricity import load_costs
@@ -54,14 +88,17 @@ def prepare_network(config):
     # set times
     planning_horizons = snakemake.wildcards['planning_horizons']
     if int(planning_horizons) % 4 != 0:
-        snapshots = pd.date_range(str(planning_horizons)+'-01-01 00:00', str(planning_horizons)+'-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+        snapshots = pd.date_range(str(planning_horizons)+'-01-01 00:00', str(planning_horizons)+'-12-31 23:00', freq=config['freq'])
     else:
-        snapshots = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+        snapshots = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         snapshots = snapshots.map(lambda t: t.replace(year=int(planning_horizons)))
 
     network.set_snapshots(snapshots)
-    network.snapshot_weightings[:] = config['frequency']
-    represented_hours = network.snapshot_weightings.sum()[0]
+    # Derive snapshot weights in hours from the time resolution string
+    # Example: '1h' -> 1, '2h' -> 2, '8h' -> 8
+    freq_hours = float(config['freq'].replace('h', ''))
+    network.snapshot_weightings[:] = freq_hours
+    represented_hours = network.snapshot_weightings.sum().iloc[0]
     Nyears= represented_hours/8760.
 
     #load graph
@@ -70,9 +107,13 @@ def prepare_network(config):
 
     tech_costs = snakemake.input.tech_costs
     cost_year = snakemake.wildcards.planning_horizons
-    costs = load_costs(tech_costs,config['costs'],config['electricity'],cost_year, Nyears)
+    costs = load_costs(tech_costs, config['costs'], config['electricity'], cost_year, Nyears)
 
-    date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+    # Apply market scenario cost adjustments
+    from add_electricity import apply_market_scenario_costs
+    costs = apply_market_scenario_costs(costs, config)
+
+    date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
     date_range = date_range.map(lambda t: t.replace(year=2020))
 
     ds_solar = xr.open_dataset(snakemake.input.profile_solar)
@@ -80,14 +121,21 @@ def prepare_network(config):
     ds_offwind = xr.open_dataset(snakemake.input.profile_offwind)
 
     solar_p_max_pu = ds_solar['profile'].transpose('time', 'bus').to_pandas()
-    solar_p_max_pu.index = solar_p_max_pu.index.tz_localize('Asia/shanghai')
+    # Ensure solar_p_max_pu has naive timestamps to match date_range
+    if solar_p_max_pu.index.tz is not None:
+        solar_p_max_pu.index = solar_p_max_pu.index.tz_localize(None)
     solar_p_max_pu = solar_p_max_pu.loc[date_range].set_index(network.snapshots)
     onwind_p_max_pu = ds_onwind['profile'].transpose('time', 'bus').to_pandas()
-    onwind_p_max_pu.index = onwind_p_max_pu.index.tz_localize('Asia/shanghai')
+    # Ensure onwind_p_max_pu has naive timestamps to match date_range
+    if onwind_p_max_pu.index.tz is not None:
+        onwind_p_max_pu.index = onwind_p_max_pu.index.tz_localize(None)
     onwind_p_max_pu = onwind_p_max_pu.loc[date_range].set_index(network.snapshots)
     offwind_p_max_pu = ds_offwind['profile'].transpose('time', 'bus').to_pandas()
-    offwind_p_max_pu.index = offwind_p_max_pu.index.tz_localize('Asia/shanghai')
+    # Ensure offwind_p_max_pu has naive timestamps to match date_range
+    if offwind_p_max_pu.index.tz is not None:
+        offwind_p_max_pu.index = offwind_p_max_pu.index.tz_localize(None)
     offwind_p_max_pu = offwind_p_max_pu.loc[date_range].set_index(network.snapshots)
+
     def rename_province(label):
         rename = {
             "Nei Mongol": "InnerMongolia",
@@ -107,13 +155,13 @@ def prepare_network(config):
     pro_centroid_x = pro_shapes.to_crs('+proj=cea').centroid.to_crs(pro_shapes.crs).x
     pro_centroid_y = pro_shapes.to_crs('+proj=cea').centroid.to_crs(pro_shapes.crs).y
 
-
     # add buses
     for suffix in config["bus_suffix"]:
         carrier = config["bus_carrier"][suffix]
         add_buses(network, nodes, suffix, carrier, pro_centroid_x, pro_centroid_y)
 
     # add carriers
+    network.add("Carrier", "AC")  # Add AC carrierdefinition
     if config["heat_coupling"]:
         network.add("Carrier", "heat")
     for carrier in config["Techs"]["vre_techs"]:
@@ -134,33 +182,14 @@ def prepare_network(config):
     if config["add_coal"]:
         network.add("Carrier", "coal", co2_emissions=costs.at['coal', 'co2_emissions'])
 
-    # add global constraint
-    if not isinstance(config['scenario']['co2_reduction'], tuple):
-
-        if config['scenario']['co2_reduction'] is not None:
-
-            # extra co2
-            # 791 TWh extra space heating demand + 286 Twh extra hot water demand
-            # 60% CHP efficiency 0.468 40% coal boiler efficiency 0.97
-            # (((791+286) * 0.6 /0.468) + ((791+286) * 0.4 /0.97))  * 0.34 * 1e6 = 0.62 * 1e9
-
-            co2_limit = (5.288987673 + 0.628275682)*1e9 * (1 - config['scenario']['co2_reduction'][pathway][planning_horizons]) # Chinese 2020 CO2 emissions of electric and heating sector
-
-            network.add("GlobalConstraint",
-                        "co2_limit",
-                        type="primary_energy",
-                        carrier_attribute="co2_emissions",
-                        sense="<=",
-                        constant=co2_limit)
-
     #load demand data
     with pd.HDFStore(snakemake.input.elec_load, mode='r') as store:
         load = 1e6 * store['load']
-        load.index = load.index.tz_localize('Asia/shanghai')
         load = load.loc[network.snapshots]
 
     load.columns = pro_names
 
+    # Add electrical load
     network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
 
     if config["heat_coupling"]:
@@ -214,7 +243,7 @@ def prepare_network(config):
         points = df.apply(lambda row: Point(row.Lon, row.Lat), axis=1)
         dams = gpd.GeoDataFrame(df, geometry=points, crs=4236)
 
-        hourly_rng = pd.date_range('1979-01-01', '2017-01-01', freq='1H', inclusive='left')
+        hourly_rng = pd.date_range('1979-01-01', '2017-01-01', freq=config['freq'], inclusive='left')
         inflow = pd.read_pickle('data/hydro/daily_hydro_inflow_per_dam_1979_2016_m3.pickle').reindex(hourly_rng, fill_value=0)
         inflow.columns = dams.index
 
@@ -302,8 +331,15 @@ def prepare_network(config):
             date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
             date_range = date_range.map(lambda t: t.replace(year=2016))
 
-            p_nom = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station].max()
-            p_pu = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station] / p_nom
+            # Resample inflow data to match network frequency
+            resampled_inflow = inflow.resample(config['freq']).sum()
+            # Ensure resampled_inflow has naive timestamps to match date_range
+            if resampled_inflow.index.tz is not None:
+                resampled_inflow.index = resampled_inflow.index.tz_localize(None)
+            resampled_inflow = resampled_inflow.loc[date_range]
+
+            p_nom = (resampled_inflow/water_consumption_factor).iloc[:,inflow_station].max()
+            p_pu = (resampled_inflow/water_consumption_factor).iloc[:,inflow_station] / p_nom
             p_pu.index = network.snapshots
             network.add('Generator',
                        dams.index[inflow_station] + ' inflow',
@@ -319,8 +355,11 @@ def prepare_network(config):
         hydro_p_nom = pd.read_hdf("data/p_nom/hydro_p_nom.h5")
         hydro_p_max_pu = pd.read_hdf("data/p_nom/hydro_p_max_pu.h5", key="hydro_p_max_pu")
 
-        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
+        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         date_range = date_range.map(lambda t: t.replace(year=2020))
+        # Ensure hydro_p_max_pu has naive timestamps to match date_range
+        if hydro_p_max_pu.index.tz is not None:
+            hydro_p_max_pu.index = hydro_p_max_pu.index.tz_localize(None)
         hydro_p_max_pu = hydro_p_max_pu.loc[date_range]
         hydro_p_max_pu.index = network.snapshots
 
@@ -393,10 +432,12 @@ def prepare_network(config):
             #1e3 converts from W/m^2 to MW/(1000m^2) = kW/m^2
             solar_thermal = config['solar_cf_correction'] * store['solar_thermal_profiles']/1e3
 
-        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         date_range = date_range.map(lambda t: t.replace(year=2020))
 
-        solar_thermal.index = solar_thermal.index.tz_localize('Asia/shanghai')
+        # Ensure solar_thermal has naive timestamps to match date_range
+        if solar_thermal.index.tz is not None:
+            solar_thermal.index = solar_thermal.index.tz_localize(None)
         solar_thermal = solar_thermal.loc[date_range].set_index(network.snapshots)
 
         for cat in [" central "]:
@@ -479,7 +520,7 @@ def prepare_network(config):
                      bus0=nodes,
                      bus1=nodes + " battery",
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
-                     capital_cost=costs.at['battery inverter','capital_cost'],
+                     capital_cost=0.5*costs.at['battery inverter','capital_cost'],
                      p_nom_extendable=True,
                      carrier="battery",
                      lifetime=costs.at['battery inverter','lifetime'] )
@@ -489,9 +530,10 @@ def prepare_network(config):
                      bus0=nodes + " battery",
                      bus1=nodes,
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
-                     marginal_cost=0.,
+                     capital_cost=0.5*costs.at['battery inverter','capital_cost'],
                      carrier="battery discharger",
-                     p_nom_extendable=True)
+                     p_nom_extendable=True,
+                     lifetime=costs.at['battery inverter','lifetime'])
 
     if "PHS" in config["Techs"]["store_techs"]:
         # pure pumped hydro storage, fixed, 6h energy by default, no inflow

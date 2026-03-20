@@ -1,5 +1,4 @@
-# SPDX-FileCopyrightText: : 2024 The PyPSA-China Authors
-#
+# SPDX-FileCopyrightText: : 2022 The PyPSA-China Authors, 2025 Ruike Lyu, rl8728@princeton.edu
 # SPDX-License-Identifier: MIT
 
 # for pathway network
@@ -12,6 +11,9 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from math import radians, cos, sin, asin, sqrt
+from functools import partial
+import pyproj
+from shapely.ops import transform
 import xarray as xr
 from functions import pro_names, HVAC_cost_curve
 from add_electricity import load_costs
@@ -54,14 +56,17 @@ def prepare_network(config):
     # set times
     planning_horizons = snakemake.wildcards['planning_horizons']
     if int(planning_horizons) % 4 != 0:
-        snapshots = pd.date_range(str(planning_horizons)+'-01-01 00:00', str(planning_horizons)+'-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+        snapshots = pd.date_range(str(planning_horizons)+'-01-01 00:00', str(planning_horizons)+'-12-31 23:00', freq=config['freq'])
     else:
-        snapshots = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+        snapshots = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         snapshots = snapshots.map(lambda t: t.replace(year=int(planning_horizons)))
 
     network.set_snapshots(snapshots)
-    network.snapshot_weightings[:] = config['frequency']
-    represented_hours = network.snapshot_weightings.sum()[0]
+    # Derive snapshot weights in hours from the time resolution string
+    # Example: '1h' -> 1, '2h' -> 2, '8h' -> 8
+    freq_hours = float(config['freq'].replace('h', ''))
+    network.snapshot_weightings[:] = freq_hours
+    represented_hours = network.snapshot_weightings.sum().iloc[0]
     Nyears= represented_hours/8760.
 
     #load graph
@@ -70,9 +75,13 @@ def prepare_network(config):
 
     tech_costs = snakemake.input.tech_costs
     cost_year = snakemake.wildcards.planning_horizons
-    costs = load_costs(tech_costs,config['costs'],config['electricity'],cost_year, Nyears)
+    costs = load_costs(tech_costs, config['costs'], config['electricity'], cost_year, Nyears)
+    
+    # Apply technology-cost adjustments for the active market-opportunity scenario
+    from add_electricity import apply_market_scenario_costs
+    costs = apply_market_scenario_costs(costs, config)
 
-    date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+    date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
     date_range = date_range.map(lambda t: t.replace(year=2020))
 
     ds_solar = xr.open_dataset(snakemake.input.profile_solar)
@@ -80,13 +89,19 @@ def prepare_network(config):
     ds_offwind = xr.open_dataset(snakemake.input.profile_offwind)
 
     solar_p_max_pu = ds_solar['profile'].transpose('time', 'bus').to_pandas()
-    solar_p_max_pu.index = solar_p_max_pu.index.tz_localize('Asia/shanghai')
+    # Ensure solar_p_max_pu has naive timestamps to match date_range
+    if solar_p_max_pu.index.tz is not None:
+        solar_p_max_pu.index = solar_p_max_pu.index.tz_localize(None)
     solar_p_max_pu = solar_p_max_pu.loc[date_range].set_index(network.snapshots)
     onwind_p_max_pu = ds_onwind['profile'].transpose('time', 'bus').to_pandas()
-    onwind_p_max_pu.index = onwind_p_max_pu.index.tz_localize('Asia/shanghai')
+    # Ensure onwind_p_max_pu has naive timestamps to match date_range
+    if onwind_p_max_pu.index.tz is not None:
+        onwind_p_max_pu.index = onwind_p_max_pu.index.tz_localize(None)
     onwind_p_max_pu = onwind_p_max_pu.loc[date_range].set_index(network.snapshots)
     offwind_p_max_pu = ds_offwind['profile'].transpose('time', 'bus').to_pandas()
-    offwind_p_max_pu.index = offwind_p_max_pu.index.tz_localize('Asia/shanghai')
+    # Ensure offwind_p_max_pu has naive timestamps to match date_range
+    if offwind_p_max_pu.index.tz is not None:
+        offwind_p_max_pu.index = offwind_p_max_pu.index.tz_localize(None)
     offwind_p_max_pu = offwind_p_max_pu.loc[date_range].set_index(network.snapshots)
 
     def rename_province(label):
@@ -114,6 +129,7 @@ def prepare_network(config):
         add_buses(network, nodes, suffix, carrier, pro_centroid_x, pro_centroid_y)
 
     # add carriers
+    network.add("Carrier", "AC")  # Add AC carrierdefinition
     if config["heat_coupling"]:
         network.add("Carrier", "heat")
     for carrier in config["Techs"]["vre_techs"]:
@@ -132,12 +148,24 @@ def prepare_network(config):
     if config["add_gas"]:
         network.add("Carrier", "gas", co2_emissions=costs.at['gas', 'co2_emissions'])  # in t_CO2/MWht
     if config["add_coal"]:
-        network.add("Carrier", "coal", co2_emissions=costs.at['coal', 'co2_emissions'])
+        network.add("Carrier", "coal", co2_emissions=costs.at['coal', 'co2_emissions'])  # only count when boiler is used
+    if config["add_aluminum"]:
+        network.add("Carrier", "aluminum")
+    
+    # Add other carriers that may be needed
+    if config["add_hydro"]:
+        network.add("Carrier", "stations")
+        network.add("Carrier", "hydro_inflow")
 
     # add global constraint
     if not isinstance(config['scenario']['co2_reduction'], tuple):
 
         if config['scenario']['co2_reduction'] is not None:
+            
+            # extra co2
+            # 791 TWh extra space heating demand + 286 Twh extra hot water demand
+            # 60% CHP efficiency 0.468 40% coal boiler efficiency 0.97
+            # (((791+286) * 0.6 /0.468) + ((791+286) * 0.4 /0.97))  * 0.34 * 1e6 = 0.62 * 1e9 # 2020
 
             co2_limit = (5.288987673 + 0.628275682)*1e9  * (1 - config['scenario']['co2_reduction'][pathway][planning_horizons]) # Chinese 2020 CO2 emissions of electric and heating sector
 
@@ -151,12 +179,173 @@ def prepare_network(config):
     #load demand data
     with pd.HDFStore(snakemake.input.elec_load, mode='r') as store:
         load = 1e6 * store['load']
-        load.index = load.index.tz_localize('Asia/shanghai')
         load = load.loc[network.snapshots]
 
     load.columns = pro_names
+    
+    if config["add_aluminum"] and config["aluminum"]["grid_interaction"][planning_horizons]:
+        # Use the dedicated scenario helper functions for aluminum-related parameters
+        from scripts.scenario_utils import (
+            get_aluminum_demand_for_year,
+            get_aluminum_load_for_network,
+            get_aluminum_smelter_operational_params
+        )
+        
+        # Retrieve total primary-aluminum demand for the selected year and scenario
+        primary_demand_tons = get_aluminum_demand_for_year(
+            config, 
+            planning_horizons, 
+            aluminum_demand_json_path=snakemake.input.aluminum_demand_json
+        )
+        
+        # Read provincial smelter annual production and keep only provinces with non-trivial capacity
+        al_smelter_annual_production = pd.read_csv(snakemake.input.al_smelter_p_max)
+        al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
+        al_smelter_annual_production = al_smelter_annual_production.reindex(nodes).fillna(0).infer_objects(copy=False)
+        al_smelter_annual_production = al_smelter_annual_production[al_smelter_annual_production > 0.01]
+        
+        # Compute provincial production shares
+        production_ratio = al_smelter_annual_production / al_smelter_annual_production.sum()
+        
+        # Convert annual production to power capacity (MW) and scale by the selected capacity ratio
+        base_capacity = al_smelter_annual_production * 10000 * 13.3 / 8760
+        
+        # Read the capacity-ratio setting (this maps to the 100/90/80/70/60% aluminum scenarios)
+        capacity_ratio = config.get('aluminum_capacity_ratio', 1.0)
+        if 'aluminum' in config and 'capacity_ratio' in config['aluminum']:
+            capacity_ratio = config['aluminum']['capacity_ratio']
+        
+        # Apply the capacity-ratio multiplier
+        al_smelter_p_nom = base_capacity * capacity_ratio
+        
+        # Build the aluminum-load time series consistent with the national demand scenario
+        load_data = get_aluminum_load_for_network(
+            config,
+            planning_horizons,
+            network.snapshots,
+            nodes,
+            production_ratio,
+            aluminum_demand_json_path=snakemake.input.aluminum_demand_json
+        )
+        aluminum_load = load_data['aluminum_load']
+        
+        # Build aluminum-smelter operational parameters (p_min, start-up and stand-by costs)
+        operational_params = get_aluminum_smelter_operational_params(
+            config, 
+            al_smelter_p_nom=al_smelter_p_nom
+        )
+        
+        # Add provincial aluminum smelter links
+        network.madd("Link",
+                    production_ratio.index,
+                    suffix=" aluminum smelter",
+                    bus0=production_ratio.index,
+                    bus1=production_ratio.index + " aluminum",
+                    carrier="aluminum",
+                    p_nom=al_smelter_p_nom,
+                    p_nom_extendable=False,
+                    efficiency=1.0/13.3,
+                    capital_cost=operational_params['capital_cost'],
+                    stand_by_cost=operational_params['stand_by_cost'],
+                    marginal_cost=operational_params['marginal_cost'],
+                    start_up_cost=0.5*operational_params['start_up_cost'],
+                    shut_down_cost=0.5*operational_params['start_up_cost'],
+                    committable=config['aluminum_commitment'],
+                    p_min_pu=operational_params['p_min_pu'] if config['aluminum_commitment'] else 0,
+                    )
 
-    network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
+        # Add aluminum storage only for provinces with production > 0.01 10 kt/year
+        network.madd("Store",
+                    production_ratio.index,  # Only add for filtered provinces
+                    suffix=" aluminum storage",
+                    bus=production_ratio.index + " aluminum",
+                    carrier="aluminum",
+                    e_nom_extendable=True,
+                    e_cyclic=True)
+
+        # Add aluminum load only for provinces with production > 0.01 10 kt/year
+        network.madd("Load",
+                    production_ratio.index,  # Only add for filtered provinces
+                    suffix=" aluminum",
+                    bus=production_ratio.index + " aluminum",
+                    p_set=aluminum_load[production_ratio.index])
+
+        # Subtract aluminum load from provincial electric load for affected provinces
+        load_minus_al = load.copy()
+        # Convert aluminum load back into electrical power (MW) before subtracting
+        load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index] * 10000 * 13.3 / 8760
+        network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
+        
+        # Add a China-wide aluminum hub bus (for tracking national aluminum balancing)
+        # Add a carrier for aluminum transfer
+        network.add("Carrier", "aluminum transfer")
+        network.add("Bus", 
+                   "China aluminum hub", 
+                   carrier="aluminum transfer")
+        
+        # Optionally, generators connected to the hub can be used to monitor load shedding
+        # network.add("Generator",
+        #              "China aluminum hub load shedding",
+        #              bus="China aluminum hub",
+        #              carrier="aluminum transfer",
+        #              p_nom=1e10,
+        #              marginal_cost=1e6)
+        # network.add("Generator",
+        #              "China aluminum hub load abandon",
+        #              bus="China aluminum hub",
+        #              carrier="aluminum transfer",
+        #              p_nom=-1e10,
+        #              marginal_cost=-1e6)
+        
+        # Add links between each provincial aluminum bus and the China aluminum hub
+        # Allow bi-directional transfers with efficiency 1.0
+        for province in production_ratio.index:
+            # Link from province to China hub
+            network.add("Link",
+                       f"{province} to China aluminum hub",
+                       bus0=f"{province} aluminum",
+                       bus1="China aluminum hub",
+                       efficiency=1,
+                       carrier="aluminum transfer",
+                       p_nom=1e10)
+            
+            # Link from China hub to province（reverse）
+            network.add("Link",
+                       f"China aluminum hub to {province}",
+                       bus0="China aluminum hub",
+                       bus1=f"{province} aluminum",
+                       efficiency=1,
+                       carrier="aluminum transfer",
+                       p_nom=1e10)  # Assume operating costs are 0
+    else:
+        if config["only_other_load"]:
+            # in else branch，These variables need to be redefined
+            # Read electrolytic aluminum plant capacity data
+            al_smelter_annual_production = pd.read_csv(snakemake.input.al_smelter_p_max)
+            al_smelter_annual_production = al_smelter_annual_production.set_index('Province')['p_nom']
+            al_smelter_annual_production = al_smelter_annual_production.reindex(nodes).fillna(0).infer_objects(copy=False)
+            al_smelter_annual_production = al_smelter_annual_production[al_smelter_annual_production > 0.01]
+            
+            # Calculate production ratio
+            production_ratio = al_smelter_annual_production / al_smelter_annual_production.sum()
+            
+            # Get aluminum load data
+            from scripts.scenario_utils import get_aluminum_load_for_network
+            load_data = get_aluminum_load_for_network(
+                config,
+                planning_horizons,
+                network.snapshots,
+                nodes,
+                production_ratio,
+                aluminum_demand_json_path=snakemake.input.aluminum_demand_json
+            )
+            aluminum_load = load_data['aluminum_load']
+            
+            load_minus_al = load.copy()
+            load_minus_al[production_ratio.index] = load[production_ratio.index] - aluminum_load[production_ratio.index] * 10000 * 13.3 / 8760
+            network.madd("Load", nodes, bus=nodes, p_set=load_minus_al)
+        else:
+            network.madd("Load", nodes, bus=nodes, p_set=load[nodes])
 
     if config["heat_coupling"]:
 
@@ -204,7 +393,45 @@ def prepare_network(config):
                      p_nom_extendable=False,
                      p_nom=1e8,
                      marginal_cost=costs.at['coal', 'fuel'])
+        
+    # Add CO2 carrier definition - Reference biomass-synthetic-fuels example
+    network.add("Carrier", "co2 atmosphere", co2_emissions=-1)
 
+    # Add CO2 atmosphere bus and store
+    network.madd('Bus',
+                    nodes,
+                    suffix=" co2 atmosphere",
+                    x=pro_centroid_x,
+                    y=pro_centroid_y,
+                    carrier="co2 atmosphere",
+                    )
+
+    network.madd("Store",
+                    nodes + " co2 atmosphere",
+                    bus =nodes + " co2 atmosphere",
+                    e_nom=1e10, 
+                    e_min_pu=-1,
+                    carrier="co2 atmosphere"
+    )
+    network.add("Carrier", "co2 stored", co2_emissions=0)
+
+    # Add CO2 storage bus and store
+    network.madd('Bus',
+                    nodes,
+                    suffix=" co2 stored",
+                    x=pro_centroid_x,
+                    y=pro_centroid_y,
+                    carrier="co2 stored"
+    )
+
+    network.madd("Store",
+                    nodes + " co2 stored",
+                    bus =nodes + " co2 stored",
+                    e_nom=1e10, 
+                    carrier="co2 stored",
+                    e_min_pu=-1
+    )
+        
     if config["add_biomass"]:
         network.madd('Bus',
                      nodes,
@@ -214,6 +441,7 @@ def prepare_network(config):
                      carrier="biomass",
                      )
 
+        # Add biomass storage
         biomass_potential = pd.read_hdf(snakemake.input.biomass_potental)
         network.madd("Store",
                      nodes + " biomass",
@@ -224,68 +452,43 @@ def prepare_network(config):
                      carrier='biomass'
         )
 
-        network.add("Carrier", "CO2", co2_emissions=0)
-        network.madd('Bus',
-                     nodes,
-                     suffix=" CO2",
-                     x=pro_centroid_x,
-                     y=pro_centroid_y,
-                     carrier="CO2",
-                     )
-
-        network.madd("Store",
-                     nodes + " CO2",
-                     bus =nodes + " CO2",
-                     carrier='CO2'
-        )
-
-        network.add("Carrier", "CO2 capture", co2_emissions=1)
-        network.madd('Bus',
-                     nodes,
-                     suffix=" CO2 capture",
-                     x=pro_centroid_x,
-                     y=pro_centroid_y,
-                     carrier="CO2 capture",
-        )
-
-        network.madd("Store",
-                     nodes + " CO2 capture",
-                     bus =nodes + " CO2 capture",
-                     e_nom_extendable=True,
-                     carrier='CO2 capture'
-        )
-
-        network.madd("Link",
-                     nodes + " central biomass CHP capture",
-                     bus0=nodes + " CO2",
-                     bus1=nodes + " CO2 capture",
-                     bus2=nodes,
-                     p_nom_extendable=True,
-                     carrier='CO2 capture',
-                     efficiency=costs.at["biomass CHP capture", "capture_rate"],
-                     efficiency2=-1*costs.at["biomass CHP capture", "capture_rate"]*costs.at["biomass CHP capture", "electricity-input"],
-                     capital_cost=costs.at["biomass CHP capture", "capture_rate"]*costs.at["biomass CHP capture", "capital_cost"],
-                     lifetime=costs.at["biomass CHP capture", "lifetime"]
-        )
-
+        # Add biomass CHP（No carbon capture），Does not affect carbon emissions
         network.madd("Link",
                      nodes + " central biomass CHP",
                      bus0=nodes + " biomass",
                      bus1=nodes,
                      bus2=nodes + " central heat",
-                     bus3=nodes + " CO2",
                      p_nom_extendable=True,
                      carrier="biomass",
                      efficiency=costs.at["biomass CHP", "efficiency"],
                      efficiency2=costs.at["biomass CHP", "efficiency-heat"],
-                     efficiency3=0.32522269504651985, # 4187.0095385594495TWh equates to 0.79*(5.24/3.04) Gt CO2  # tCO2/MWh
-                     capital_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
-                         "biomass CHP", "capital_cost"],
+                     capital_cost=costs.at["biomass CHP", "capital_cost"],
                      marginal_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
-                         "biomass CHP", "marginal_cost"] + costs.at['solid biomass', 'fuel'],
+                         "biomass CHP", "VOM"] + costs.at['solid biomass', 'fuel'],
                      lifetime=costs.at["biomass CHP", "lifetime"]
         )
 
+        # Add biomass CHP（With carbon capture）
+        network.madd("Link",
+                     nodes + " central biomass CHP capture",
+                     bus0=nodes + " biomass",
+                     bus1=nodes,
+                     bus2=nodes + " central heat",
+                     bus3=nodes + " co2 stored",
+                     bus4=nodes + " co2 atmosphere",
+                     p_nom_extendable=True,
+                     carrier="biomass",
+                     efficiency=costs.at["biomass CHP", "efficiency"] * 0.9,
+                     efficiency2=costs.at["biomass CHP", "efficiency-heat"],
+                     efficiency3=0.33*costs.at["biomass CHP capture", "capture_rate"],  # CO2catch rate
+                     efficiency4=-0.33*costs.at["biomass CHP capture", "capture_rate"],  # Negative values ​​indicate removal from the atmosphere，Because the co2 at the beginning also came from the atmosphere
+                     capital_cost=0.33 * costs.at["biomass CHP capture", "capital_cost"] + costs.at["biomass CHP", "capital_cost"],
+                     marginal_cost=costs.at["biomass CHP", "efficiency"] * costs.at[
+                         "biomass CHP capture", "marginal_cost"] + 0.33 * costs.at["biomass CHP capture", "marginal_cost"] + costs.at['solid biomass', 'fuel'],
+                     lifetime=costs.at["biomass CHP capture", "lifetime"]
+        )
+
+        # Adding a decentralized biomass boiler（No carbon capture）
         network.madd("Link",
                      nodes + " decentral biomass boiler",
                      bus0=nodes + " biomass",
@@ -293,8 +496,7 @@ def prepare_network(config):
                      p_nom_extendable=True,
                      carrier="biomass",
                      efficiency=costs.at["biomass boiler", "efficiency"],
-                     capital_cost=costs.at["biomass boiler", "efficiency"] * costs.at[
-                         "biomass boiler", "capital_cost"],
+                     capital_cost=costs.at["biomass boiler", "efficiency"] * costs.at["biomass boiler", "capital_cost"],
                      marginal_cost=costs.at["biomass boiler", "efficiency"] * costs.at[
                          "biomass boiler", "marginal_cost"] + costs.at["biomass boiler", "pelletizing cost"] + costs.at['solid biomass', 'fuel'],
                      lifetime=costs.at["biomass boiler", "lifetime"]
@@ -308,7 +510,7 @@ def prepare_network(config):
         points = df.apply(lambda row: Point(row.Lon, row.Lat), axis=1)
         dams = gpd.GeoDataFrame(df, geometry=points, crs=4236)
 
-        hourly_rng = pd.date_range('1979-01-01', '2017-01-01', freq='1H', inclusive='left')
+        hourly_rng = pd.date_range('1979-01-01', '2017-01-01', freq=config['freq'], inclusive='left')
         inflow = pd.read_pickle('data/hydro/daily_hydro_inflow_per_dam_1979_2016_m3.pickle').reindex(hourly_rng, fill_value=0)
         inflow.columns = dams.index
 
@@ -398,8 +600,15 @@ def prepare_network(config):
             date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
             date_range = date_range.map(lambda t: t.replace(year=2016))
 
-            p_nom = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station].max()
-            p_pu = (inflow.loc[date_range]/water_consumption_factor).iloc[:,inflow_station] / p_nom
+            # Resample inflow data to match network frequency
+            resampled_inflow = inflow.resample(config['freq']).sum()
+            # Ensure resampled_inflow has naive timestamps to match date_range
+            if resampled_inflow.index.tz is not None:
+                resampled_inflow.index = resampled_inflow.index.tz_localize(None)
+            resampled_inflow = resampled_inflow.loc[date_range]
+
+            p_nom = (resampled_inflow/water_consumption_factor).iloc[:,inflow_station].max()
+            p_pu = (resampled_inflow/water_consumption_factor).iloc[:,inflow_station] / p_nom
             p_pu.index = network.snapshots
             network.add('Generator',
                        dams.index[inflow_station] + ' inflow',
@@ -415,8 +624,13 @@ def prepare_network(config):
         hydro_p_nom = pd.read_hdf("data/p_nom/hydro_p_nom.h5")
         hydro_p_max_pu = pd.read_hdf("data/p_nom/hydro_p_max_pu.h5", key="hydro_p_max_pu")
 
-        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
+        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         date_range = date_range.map(lambda t: t.replace(year=2020))
+        
+        # Ensure hydro_p_max_pu has naive timestamps to match date_range
+        if hydro_p_max_pu.index.tz is not None:
+            hydro_p_max_pu.index = hydro_p_max_pu.index.tz_localize(None)
+        
         hydro_p_max_pu = hydro_p_max_pu.loc[date_range]
         hydro_p_max_pu.index = network.snapshots
 
@@ -459,7 +673,7 @@ def prepare_network(config):
                      carrier="H2 CHP",
                      efficiency=costs.at["central hydrogen CHP","efficiency"],
                      efficiency2=costs.at["central hydrogen CHP","efficiency"]/costs.at["central hydrogen CHP","c_b"],
-                     capital_cost=costs.at["central hydrogen CHP","efficiency"]*costs.at["central hydrogen CHP","capital_cost"],
+                     capital_cost=costs.at["central hydrogen CHP","efficiency"] * costs.at["central hydrogen CHP","capital_cost"],
                      lifetime=costs.at["central hydrogen CHP","lifetime"]
                      )
 
@@ -483,15 +697,35 @@ def prepare_network(config):
                      lifetime=costs.at["hydrogen storage tank type 1 including compressor","lifetime"])
 
     if config['add_methanation']:
+        # Add direct air capture(DAC)process
+        network.add("Carrier", "DAC")
+        network.madd("Link",
+                     nodes + " DAC",
+                     bus0=nodes + " co2 atmosphere",# base value is tonne of co2 in atmosphere
+                     bus1=nodes + " co2 stored",
+                     bus2=nodes,
+                     bus3=nodes + " central heat",
+                     p_nom_extendable=True,
+                     carrier="DAC",
+                     efficiency=1,  # CO2Efficiency from atmosphere to storage
+                     efficiency2=-(costs.at["direct air capture","electricity-input"] + costs.at["direct air capture","compression-electricity-input"]),  # consume electricity
+                     efficiency3=-costs.at["direct air capture","heat-input"],
+                     capital_cost=costs.at["direct air capture","capital_cost"],
+                     marginal_cost=0.9*(400-5*(int(cost_year)-2020)),
+                     lifetime=costs.at["direct air capture","lifetime"])
+        
+        # Add methanation process（Sabatierreaction）
         network.madd("Link",
                      nodes + " Sabatier",
                      bus0=nodes+" H2",
                      bus1=nodes+" gas",
+                     bus2=nodes+" co2 stored",
                      p_nom_extendable=True,
                      carrier="Sabatier",
                      efficiency=costs.at["methanation","efficiency"],
-                     capital_cost=costs.at["methanation","efficiency"] * costs.at["methanation","capital_cost"] + costs.at["direct air capture","capital_cost"]*costs.at['gas', 'co2_emissions']*costs.at["methanation","efficiency"],
-                     marginal_cost=(400-5*(int(cost_year)-2020))*costs.at['gas', 'co2_emissions']*costs.at["methanation","efficiency"],
+                     efficiency2=-costs.at["methanation","efficiency"]*costs.at["gas", "co2_emissions"],  # Consume CO2
+                     capital_cost=costs.at["methanation","capital_cost"],
+                     marginal_cost=0.1*(400-5*(int(cost_year)-2020))*costs.at["methanation","efficiency"]*costs.at["gas", "co2_emissions"],
                      lifetime=costs.at["methanation","lifetime"])
 
     # add components
@@ -549,15 +783,19 @@ def prepare_network(config):
 
     if "heat pump" in config["Techs"]["vre_techs"]:
 
-        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
+        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         date_range = date_range.map(lambda t: t.replace(year=2020))
 
         with pd.HDFStore(snakemake.input.cop_name, mode='r') as store:
             ashp_cop = store['ashp_cop_profiles']
-            ashp_cop.index = ashp_cop.index.tz_localize('Asia/shanghai')
+            # Ensure ashp_cop has naive timestamps to match date_range
+            if ashp_cop.index.tz is not None:
+                ashp_cop.index = ashp_cop.index.tz_localize(None)
             ashp_cop = ashp_cop.loc[date_range].set_index(network.snapshots)
             gshp_cop = store['gshp_cop_profiles']
-            gshp_cop.index = gshp_cop.index.tz_localize('Asia/shanghai')
+            # Ensure gshp_cop has naive timestamps to match date_range
+            if gshp_cop.index.tz is not None:
+                gshp_cop.index = gshp_cop.index.tz_localize(None)
             gshp_cop = gshp_cop.loc[date_range].set_index(network.snapshots)
 
         for cat in [' decentral ', ' central ']:
@@ -600,16 +838,16 @@ def prepare_network(config):
                          lifetime=costs.at[cat.lstrip()+'resistive heater','lifetime'])
 
     if "solar thermal" in config["Techs"]["vre_techs"]:
-        #this is the amount of heat collected in W per m^2, accounting
-        #for efficiency
         with pd.HDFStore(snakemake.input.solar_thermal_name, mode='r') as store:
             #1e3 converts from W/m^2 to MW/(1000m^2) = kW/m^2
             solar_thermal = config['solar_cf_correction'] * store['solar_thermal_profiles']/1e3
 
-        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'],tz='Asia/shanghai')
+        date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
         date_range = date_range.map(lambda t: t.replace(year=2020))
 
-        solar_thermal.index = solar_thermal.index.tz_localize('Asia/shanghai')
+        # Ensure solar_thermal has naive timestamps to match date_range
+        if solar_thermal.index.tz is not None:
+            solar_thermal.index = solar_thermal.index.tz_localize(None)
         solar_thermal = solar_thermal.loc[date_range].set_index(network.snapshots)
 
         for cat in [" decentral ", " central "]:
@@ -699,10 +937,10 @@ def prepare_network(config):
                         bus=nodes,
                         carrier="coal cc",
                         p_nom_extendable=True,
-                        efficiency=costs.at['coal', 'efficiency'],
-                        marginal_cost= costs.at['coal', 'marginal_cost'],
+                        efficiency=costs.at['coal', 'efficiency'] * 0.9,
+                        marginal_cost= costs.at['coal', 'marginal_cost'] + costs.at['retrofit', 'VOM']*0.34,
                         capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'], #NB: capital cost is per MWel
-                        lifetime=costs.at['coal', 'lifetime'])
+                        lifetime=costs.at['retrofit', 'lifetime'])
 
             for year in range(int(planning_horizons)-25,2021,5):
                 network.madd("Generator",
@@ -711,11 +949,12 @@ def prepare_network(config):
                              bus=nodes,
                              carrier="coal cc",
                              p_nom_extendable=True,
-                             capital_cost=costs.at['coal', 'capital_cost'] + costs.at['retrofit', 'capital_cost'] + 2021 - year,
-                             efficiency=costs.at['coal', 'efficiency'],
-                             lifetime=costs.at['coal', 'lifetime'],
+                             capital_cost=costs.at['retrofit', 'capital_cost'],
+                             efficiency=costs.at['coal', 'efficiency'] * 0.9,
+                             lifetime=costs.at['retrofit', 'lifetime'],
                              build_year=year,
-                             marginal_cost=costs.at['coal', 'marginal_cost'])
+                             marginal_cost=costs.at['coal', 'marginal_cost'] + costs.at['retrofit', 'VOM']*0.34
+                             )
 
     if "CHP coal" in config["Techs"]["conv_techs"]:
         network.madd("Link",
@@ -790,6 +1029,7 @@ def prepare_network(config):
         network.madd("Store",
                      nodes + " battery",
                      bus=nodes + " battery",
+                     carrier="battery",
                      e_cyclic=True,
                      e_nom_extendable=True,
                      capital_cost=costs.at['battery storage','capital_cost'],
@@ -800,19 +1040,20 @@ def prepare_network(config):
                      bus0=nodes,
                      bus1=nodes + " battery",
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
-                     capital_cost=costs.at['battery inverter','capital_cost'],
+                     capital_cost=0.5*costs.at['battery inverter','capital_cost'],
                      p_nom_extendable=True,
                      carrier="battery",
-                     lifetime=costs.at['battery inverter','lifetime'] )
+                     lifetime=costs.at['battery inverter','lifetime'])
 
         network.madd("Link",
                      nodes + " battery discharger",
                      bus0=nodes + " battery",
                      bus1=nodes,
                      efficiency=costs.at['battery inverter','efficiency']**0.5,
-                     marginal_cost=0.,
-                     carrier="battery discharger",
-                     p_nom_extendable=True)
+                     capital_cost=0.5*costs.at['battery inverter','capital_cost'],
+                     carrier="battery",
+                     p_nom_extendable=True,
+                     lifetime=costs.at['battery inverter','lifetime'])
 
     if "PHS" in config["Techs"]["store_techs"]:
         # pure pumped hydro storage, fixed, 6h energy by default, no inflow

@@ -68,7 +68,7 @@ def add_existing_capacities(df_agg):
 
     for tech in ['coal','CHP coal', 'CHP gas', 'OCGT','solar', 'solar thermal', 'onwind', 'offwind','coal boiler','ground heat pump','nuclear']:
 
-        df = pd.read_csv(snakemake.input[f"existing_{tech}"], index_col=0).fillna(0.)
+        df = pd.read_csv(snakemake.input[f"existing_{tech}"], index_col=0).fillna(0.).infer_objects(copy=False)
         df.columns = df.columns.astype(int)
         df = df.sort_index()
 
@@ -313,12 +313,11 @@ def add_power_capacities_installed_before_baseyear(n, grouping_years, costs, bas
                        )
 
         if generator == "ground heat pump":
-            date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'], tz='Asia/shanghai')
+            date_range = pd.date_range('2025-01-01 00:00', '2025-12-31 23:00', freq=config['freq'])
             date_range = date_range.map(lambda t: t.replace(year=2020))
 
             with pd.HDFStore(snakemake.input.cop_name, mode='r') as store:
                 gshp_cop = store['gshp_cop_profiles']
-                gshp_cop.index = gshp_cop.index.tz_localize('Asia/shanghai')
                 gshp_cop = gshp_cop.loc[date_range].set_index(n.snapshots)
 
             n.madd("Link",
@@ -368,7 +367,11 @@ if __name__ == "__main__":
     config = snakemake.config
     tech_costs = snakemake.input.tech_costs
     cost_year = snakemake.wildcards.planning_horizons
-    costs = load_costs(tech_costs,config['costs'],config['electricity'],cost_year, Nyears)
+    costs = load_costs(tech_costs, config['costs'], config['electricity'], cost_year, Nyears)
+    
+    # Apply technology-cost adjustments for the active market-opportunity scenario
+    from add_electricity import apply_market_scenario_costs
+    costs = apply_market_scenario_costs(costs, config)
 
     grouping_years = config['existing_capacities']['grouping_years']
     add_power_capacities_installed_before_baseyear(n, grouping_years, costs, baseyear, config)
