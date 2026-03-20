@@ -1,4 +1,4 @@
-@ -1,879 +0,0 @@
+# SPDX-FileCopyrightText: : 2025 Ruike Lyu, rl8728@princeton.edu
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
