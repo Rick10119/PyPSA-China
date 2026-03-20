@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: : 2025 Ruike Lyu, rl8728@princeton.edu
 # -*- coding: utf-8 -*-
 """
 Plot scatter chart of optimal points showing capacity and net value.

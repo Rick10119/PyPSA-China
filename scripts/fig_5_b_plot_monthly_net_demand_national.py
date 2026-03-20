@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: : 2025 Ruike Lyu, rl8728@princeton.edu
 """
 This script generates monthly net load plots for selected provinces in the PyPSA-China model.
 Net load is defined as:

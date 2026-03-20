@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: : 2025 Ruike Lyu, rl8728@princeton.edu
 """
 Plot boxplots of optimal points.
 Read data from optimal_points_distribution_data_latest.csv and plot boxplots.

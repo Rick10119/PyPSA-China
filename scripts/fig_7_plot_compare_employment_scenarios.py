@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: : 2025 Ruike Lyu, rl8728@princeton.edu
 """
 Compare employment between two scenarios: MMMU and MMMU_non_flexible.
 
