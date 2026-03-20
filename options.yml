@@ -1,0 +1,114 @@
+# Default options
+
+# Hints for Yaml:
+# Scientific notation requires . before e and sign, e.g. 1.e+8 not 1e8
+# For "None" just leave the value blank or null, e.g. 'goat' :  OR 'goat' : null
+# True/False are not case-sensitive
+
+'run_name': 'simple'
+'results_dir_name': 'results/'
+'results_suffix': ''
+
+'tmin': '2016-01-01 00:00'
+'tmax': '2016-12-31 23:00'
+'freq': '1H'
+'frequency': 1.
+
+'load_year': 2020
+
+'python_version': '3'
+'discountrate': 0.07  # From a Lion Hirth paper, also reflects average of Noothout et al 2016
+'USD2013_to_EUR2013': 0.7532 # [EUR/USD] ECB: https://www.ecb.europa.eu/stats/exchange/eurofxref/html/eurofxref-graph-usd.en.html # noqa: E501
+
+'line_volume_limit_max': 5.e+15   #line_volume_limit is set = factor * max
+'line_cost_factor': 1
+
+'heterogeneity':   # heterogeneity parameter: can be one of: float>=1.; [min,max]; None
+'split_onwind': false  ###False
+'solver_name': 'gurobi'
+'solver_io':         # null or 'python'
+'solver_options':
+  'method': 2 # barrier
+  'threads': 4
+  'logfile': 'logfile/solver.log'
+  'LogToConsole': 1
+  'OutputFlag': 1
+  'BarConvTol': 1.e-5  #1.e-12 ###1e-8 # [0..1]
+  'Crossover': 0  # or -1
+  # 'NumericFocus': 1
+  # 'BarHomogeneous': 1
+  'FeasibilityTol': 1.e-6  #1e-2 ###1e-6 # [1e-9..1e-2]
+  # 'BarIterLimit': 10000
+  # 'IterationLimit': 10000
+  # 'AggFill': 0
+  # 'PreDual': 0
+'opf_keep_files': false
+'formulation': 'kirchhoff'
+
+'save_res': true
+'costref': 'diw2030'   #'Hir',
+'CO2price': 0.          #10, #Eur/t_CO2
+
+
+## STORAGE
+'add_H2_storage': true
+'add_battery_storage': true
+'add_PHS': false
+'PHS_max_hours': 6.
+'marginal_cost_storage': 0.  #1e-4
+
+
+## HYDRO
+'add_hydro': true
+'hydro_max_hours': #if None, take E_stor from hydrocapa_df
+'add_ror': false
+'hydro_capital_cost': false
+
+## COAL
+'add_coal': true
+
+## INCIDENTALS
+'nuclear': false
+'abs_flow_cost': 0. #1e-4,
+'no_lines': false
+'beta_layout': 1
+# solar capacity factors in REatlas are too high compared to other
+# studies; we correct this by applying a constant 'inverter
+# inefficiency' to the p_max_pu timeseries; comparing with
+# Pietzker+(2014) http://dx.doi.org/10.1016/j.apenergy.2014.08.011
+# the produced-power weighted average of capacity factor ratios is 1.2683
+'solar_cf_correction': 0.788457  # =  >>> 1/1.2683
+'bev_availability': 0.5   #How many cars do smart charging
+'transport_fuel_cell_share': 0.    #0 means all EVs, 1 means all FCs
+'tes_tau': 3.  #Thermal Energy Storage time constant - only affects decentral
+
+
+## HEAT
+'heat_coupling': true
+'heat_pumps': false
+'time_dep_hp_cop': true
+'boilers': true  #Allow electric and gas boilers
+'solar_thermal': true  # for China, decentral only
+
+'chp': true
+'chp_parameters':
+  'eta_elec': 0.468  #electrical efficiency with no heat output
+  'c_v': 0.15  #loss of fuel for each addition of heat
+  'c_m': 0.75  #backpressure ratio
+  'p_nom_ratio': 1.  #ratio of max heat output to max electrical output
+
+
+## EXTRA
+'retrofitting': false
+'retrofitting-cost_factor': 1.0
+'retroI-fraction': 0.25
+'retroII-fraction': 0.55
+'dsm_restriction_value': 0.75   #Set to 0 for no restriction on BEV DSM
+'dsm_restriction_time': 5   #Time at which SOC of BEV has to be dsm_restriction_value
+'ninja_solar': false
+'transport_heating_deadband_upper': 20.
+'transport_heating_deadband_lower': 15.
+'ICE_lower_degree_factor': 0.375     #in per cent increase in fuel consumption per degree above deadband
+'ICE_upper_degree_factor': 1.6
+'EV_lower_degree_factor': 0.98
+'EV_upper_degree_factor': 0.63
