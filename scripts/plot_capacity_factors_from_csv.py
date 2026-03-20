@@ -1,5 +1,5 @@
 """
-从CSV文件读取月度容量因子数据并绘制图表的脚本
+Script to read monthly capacity factor data from CSV file and graph it
 """
 
 import pandas as pd
@@ -11,9 +11,9 @@ import argparse
 
 def set_plot_style():
     """
-    设置绘图样式
+    Set drawing style
     """
-    # 设置字体为Helvetica
+    # Set the font to Helvetica
     plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial', 'sans-serif']
     plt.rcParams['axes.unicode_minus'] = False
     
@@ -29,32 +29,32 @@ def set_plot_style():
 
 def load_csv_data(csv_file):
     """
-    从CSV文件加载数据
+    Load data from CSV file
     
     Parameters:
     -----------
     csv_file : str
-        CSV文件路径
+        CSVfile path
     
     Returns:
     --------
     tuple
-        (capacity_factors, load_factors) 两个DataFrame
+        (capacity_factors, load_factors) Two DataFrames
     """
     if not os.path.exists(csv_file):
-        raise FileNotFoundError(f"CSV文件不存在: {csv_file}")
+        raise FileNotFoundError(f"CSVFile does not exist: {csv_file}")
     
-    # 读取CSV文件
+    # Read CSV file
     df = pd.read_csv(csv_file, index_col='Month')
     
-    # 分离容量因子和负荷因子数据
+    # Separate capacity factor and load factor data
     capacity_cols = [col for col in df.columns if 'Capacity_Factor' in col]
     load_cols = [col for col in df.columns if 'Load_Factor' in col]
     
     capacity_factors = df[capacity_cols] if capacity_cols else pd.DataFrame()
     load_factors = df[load_cols] if load_cols else pd.DataFrame()
     
-    # 重命名列，去掉后缀
+    # Rename columns，remove suffix
     capacity_factors.columns = [col.replace('_Capacity_Factor', '') for col in capacity_factors.columns]
     load_factors.columns = [col.replace('_Load_Factor', '') for col in load_factors.columns]
     
@@ -62,31 +62,31 @@ def load_csv_data(csv_file):
 
 def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     """
-    从CSV文件绘制容量因子图表
+    Plot capacity factor chart from CSV file
     
     Parameters:
     -----------
     csv_file : str
-        CSV文件路径
+        CSVfile path
     output_file : str, optional
-        输出图片文件路径
+        Output image file path
     title_suffix : str, optional
-        图表标题后缀
+        Chart title suffix
     """
-    # 加载数据
+    # Load data
     capacity_factors, load_factors = load_csv_data(csv_file)
     
     if capacity_factors.empty and load_factors.empty:
         print("Warning: No capacity factor or load factor data found in CSV file")
         return
     
-    # 设置绘图样式
+    # Set drawing style
     set_plot_style()
     
-    # 创建上下两个子图
+    # Create two subgraphs, upper and lower
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 9))
     
-    # 定义颜色
+    # Define color
     colors = {
         'Hydro': '#0000FF',      # Blue
         'Nuclear': '#800080',    # Purple
@@ -104,26 +104,26 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
         'Aluminum Load': '#2ca02c'        # Green
     }
     
-    # 定义显示标签映射
+    # Define display label mapping
     display_labels = {
         'Heating Load': 'Heating demand',
         'Aluminum Load': 'Aluminum smelter',
         'Electricity Load': 'Electricity load'
     }
     
-    # 上子图：电负荷、heating load和aluminum
+    # Upper sub-picture：electrical load、heating loadand aluminum
     load_types_upper = ['Electricity Load', 'Heating Load']
     for load_type in load_factors.columns:
         if load_type in load_types_upper:
             months = load_factors.index
             values = load_factors[load_type].values
             color = load_colors.get(load_type, '#000000')
-            # 使用显示标签
+            # Use display labels
             display_label = display_labels.get(load_type, load_type)
             ax1.plot(months, values, 's--', color=color, 
                     linewidth=4, markersize=6, label=display_label)
     
-    # 添加aluminum容量因子到上子图
+    # Add aluminum capacity factor to the upper subplot
     if 'Aluminum' in capacity_factors.columns:
         months = capacity_factors.index
         values = capacity_factors['Aluminum'].values
@@ -131,7 +131,7 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
         ax1.plot(months, values, 'o-', color=color, 
                 linewidth=4, markersize=6, label='Aluminum smelter')
     
-    # 下子图：Hydro, Coal, Gas, Wind, Solar
+    # Next sub-picture：Hydro, Coal, Gas, Wind, Solar
     tech_types_lower = ['Hydro', 'Coal', 'Gas', 'Wind', 'Solar']
     for tech in capacity_factors.columns:
         if tech in tech_types_lower:
@@ -141,32 +141,32 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
             ax2.plot(months, values, 'o-', color=color, 
                     linewidth=4, markersize=6, label=tech)
     
-    # 设置上子图属性
+    # Set the upper subgraph properties
     ax1.set_ylabel('Capacity Factor', fontsize=30)
     ax1.set_title(f'Monthly Load & Smelter Capacity Factors', 
                  fontsize=30)
-    ax1.set_xlim(1.0, 12.0)  # 扩展x轴范围，避免线条被轴遮住
-    ax1.set_ylim(-0.005, 1.005)      # 调整y轴范围为0-0.5
+    ax1.set_xlim(1.0, 12.0)  # Extend x-axis range，Avoid lines being obscured by axes
+    ax1.set_ylim(-0.005, 1.005)      # Adjust the y-axis range to 0-0.5
     ax1.set_xticks(range(1, 13))
     ax1.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=30)
-    ax1.tick_params(axis='y', labelsize=30)  # 设置y轴tick大小
+    ax1.tick_params(axis='y', labelsize=30)  # Set the y-axis tick size
     ax1.grid(True, alpha=0.3)
     
-    # 设置下子图属性
+    # Set the subgraph properties
     ax2.set_ylabel('Capacity Factor', fontsize=30)
     ax2.set_xlabel('Month', fontsize=30)
     ax2.set_title(f'Monthly Generation Capacity Factors', 
                  fontsize=30)
-    ax2.set_xlim(1.0, 12.0)  # 扩展x轴范围，避免线条被轴遮住
-    ax2.set_ylim(-0.0025, 0.8025)      # 调整y轴范围为0-0.5
+    ax2.set_xlim(1.0, 12.0)  # Extend x-axis range，Avoid lines being obscured by axes
+    ax2.set_ylim(-0.0025, 0.8025)      # Adjust the y-axis range to 0-0.5
     ax2.set_xticks(range(1, 13))
     ax2.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fontsize=30)
-    ax2.tick_params(axis='y', labelsize=30)  # 设置y轴tick大小
+    ax2.tick_params(axis='y', labelsize=30)  # Set the y-axis tick size
     ax2.grid(True, alpha=0.3)
     
-    # 将每个子图的图例放到外面
+    # Put the legend of each subplot outside
     ax1.legend(loc='center left', bbox_to_anchor=(1.04, 0.5), ncol=1, fontsize=30, borderaxespad=0.)
     # Set legend order: hydro, wind, solar, gas, coal
     legend_order = ['Hydro', 'Wind', 'Solar', 'Gas', 'Coal']
@@ -176,13 +176,13 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     ordered_labels = [l for l in legend_order if l in label_handle_map]
     ax2.legend(ordered_handles, ordered_labels, loc='center left', bbox_to_anchor=(1.04, 0.5), ncol=1, fontsize=30, borderaxespad=0.)
     
-    # 调整子图间距
+    # Adjust sub-picture spacing
     plt.tight_layout()
     
-    # 进一步调整子图间距，为右侧图例留出更多空间
+    # Further adjust sub-picture spacing，Leave more space for the legend on the right
     plt.subplots_adjust(right=2)
     
-    # 保存图表
+    # Save chart
     if output_file is None:
         output_file = csv_file.replace('.csv', '_plot.png')
     
@@ -191,23 +191,23 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     
     print(f"Plot saved to: {output_file}")
     
-    # 打印统计信息
+    # Print statistics
     print(f"\nTop subplot - Load factor and Aluminum capacity factor monthly statistics{title_suffix}")
     print("=" * 60)
     
-    # 显示负荷因子统计
+    # Show load factor statistics
     if not load_factors.empty:
         for load_type in load_factors.columns:
-            if load_type in load_types_upper:  # 只显示上子图的负荷类型
+            if load_type in load_types_upper:  # Only the load types of the upper subgraph are displayed.
                 data = load_factors[load_type]
                 avg_load = data.mean()
                 max_load = data.max()
                 min_load = data.min()
-                # 使用显示标签
+                # Use display labels
                 display_label = display_labels.get(load_type, load_type)
                 print(f"{display_label:15s}: avg={avg_load:.3f}, max={max_load:.3f}, min={min_load:.3f}")
     
-    # 显示Aluminum容量因子统计
+    # Display Aluminum capacity factor statistics
     if 'Aluminum' in capacity_factors.columns:
         data = capacity_factors['Aluminum']
         avg_cf = data.mean()
@@ -218,7 +218,7 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
     print(f"\nBottom subplot - Generator capacity factor monthly statistics (Hydro, Coal, Gas, Wind, Solar){title_suffix}")
     print("=" * 70)
     for tech in capacity_factors.columns:
-        if tech in tech_types_lower:  # 只显示下子图的技术
+        if tech in tech_types_lower:  # Technology to display only lower sub-images
             data = capacity_factors[tech]
             avg_cf = data.mean()
             max_cf = data.max()
@@ -227,12 +227,12 @@ def plot_capacity_factors_from_csv(csv_file, output_file=None, title_suffix=""):
 
 def main():
     """
-    主函数，处理命令行参数
+    main function，Handling command line arguments
     """
-    parser = argparse.ArgumentParser(description='从CSV文件绘制容量因子图表')
-    parser.add_argument('csv_file', help='CSV文件路径')
-    parser.add_argument('-o', '--output', help='输出图片文件路径')
-    parser.add_argument('-t', '--title', default='', help='图表标题后缀')
+    parser = argparse.ArgumentParser(description='Plot capacity factor chart from CSV file')
+    parser.add_argument('csv_file', help='CSVfile path')
+    parser.add_argument('-o', '--output', help='Output image file path')
+    parser.add_argument('-t', '--title', default='', help='Chart title suffix')
     
     args = parser.parse_args()
     
@@ -245,13 +245,13 @@ def main():
     return 0
 
 if __name__ == "__main__":
-    # 如果直接运行脚本，自动查找并处理所有可用的CSV文件
+    # If you run the script directly，Automatically find and process all available CSV files
     if len(os.sys.argv) == 1:
-        # 查找所有可用的CSV文件
+        # Find all available CSV files
         csv_dir = "results/monthly_capacity_factors"
         if os.path.exists(csv_dir):
             csv_files = [f for f in os.listdir(csv_dir) if f.endswith('.csv')]
-            csv_files.sort()  # 按文件名排序
+            csv_files.sort()  # Sort by file name
             
             if csv_files:
                 print(f"Found {len(csv_files)} CSV file(s):")
@@ -263,7 +263,7 @@ if __name__ == "__main__":
                     csv_path = os.path.join(csv_dir, csv_file)
                     print(f"\nProcessing file: {csv_file}")
                     
-                    # 从文件名提取信息作为标题后缀
+                    # Extract information from file name as title suffix
                     base_name = csv_file.replace('.csv', '')
                     if '_' in base_name:
                         parts = base_name.split('_')

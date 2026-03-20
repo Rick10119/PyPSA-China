@@ -73,7 +73,7 @@ class SlurmJobGenerator:
                 
                 scenario_info = {
                     "name": scenario_name,
-                    "config_file": str(config_file),  # 使用完整路径
+                    "config_file": str(config_file),  # Use the full path
                     "description": description,
                     "version": version,
                     "config_data": config_data

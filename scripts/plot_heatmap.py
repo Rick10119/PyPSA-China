@@ -77,7 +77,7 @@ def creat_df(n, tech, province_filter=None):
     renames = {0: 'p_store'}
     df.rename(columns=renames, inplace=True)
     
-    # 数据已经是中国本地时间，直接使用时间戳，不需要时区转换
+    # The data is already in Chinese local time，Use timestamp directly，No time zone conversion required
     date = n.stores_t.p.filter(like='water').index
     df['Hour'] = date.hour
     df['Day'] = date.strftime('%m-%d')
@@ -138,7 +138,7 @@ def creat_aluminum_df(n, province_filter=None):
     renames = {0: 'p_smelter'}
     df.rename(columns=renames, inplace=True)
     
-    # 数据已经是中国本地时间，直接使用时间戳，不需要时区转换
+    # The data is already in Chinese local time，Use timestamp directly，No time zone conversion required
     date = aluminum_links.index
     df['Hour'] = date.hour
     df['Day'] = date.strftime('%m-%d')

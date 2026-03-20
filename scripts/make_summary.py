@@ -1015,17 +1015,17 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
     
     # Define the statistics we want to calculate
     stats_list = [
-        "total_electricity_cost",  # 全年用电量与节点边际电价的乘积总和
-        "total_electricity_consumption",  # 全年总用电量
-        "average_electricity_price",  # 平均电价
-        "max_electricity_price",  # 最高电价
-        "min_electricity_price",  # 最低电价
-        "electricity_cost_per_mwh",  # 每MWh电力的平均成本
-        "aluminum_capacity",  # 铝冶炼产能
-        "aluminum_storage_capacity",  # 铝存储容量
-        "aluminum_utilization_rate",  # 铝冶炼利用率
-        "total_startup_events",  # 总启动次数
-        "total_shutdown_events",  # 总关闭次数
+        "total_electricity_cost",  # The sum of the products of annual electricity consumption and node marginal electricity price
+        "total_electricity_consumption",  # Total electricity consumption throughout the year
+        "average_electricity_price",  # average electricity price
+        "max_electricity_price",  # Maximum electricity price
+        "min_electricity_price",  # lowest electricity price
+        "electricity_cost_per_mwh",  # Average cost of electricity per MWh
+        "aluminum_capacity",  # Aluminum smelting capacity
+        "aluminum_storage_capacity",  # Aluminum storage capacity
+        "aluminum_utilization_rate",  # Aluminum smelting utilization rate
+        "total_startup_events",  # Total number of starts
+        "total_shutdown_events",  # total number of closures
     ]
     
     aluminum_statistics = aluminum_statistics.reindex(
@@ -1059,11 +1059,11 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
     total_electricity_cost = 0.0
     total_electricity_consumption = 0.0
     
-    # 统计启停次数
+    # Count the number of starts and stops
     total_startup_events = 0
     total_shutdown_events = 0
     
-    # 按省份统计启停次数
+    # Statistics of start and stop times by province
     province_startup_events = {}
     province_shutdown_events = {}
     
@@ -1098,20 +1098,20 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
             total_electricity_consumption += total_consumption
             total_electricity_cost += total_cost
             
-            # 计算启停次数
-            # 状态：当功率 > 0 时为运行状态(1)，当功率 = 0 时为停止状态(0)
+            # Calculate the number of starts and stops
+            # state：When the power > 0 in running state(1)，When the power = 0 in stop state(0)
             status = (electricity_consumption > 0).astype(int)
             
-            # 启动事件：状态从0变为1 (从停止到运行)
+            # Start event：Status changes from 0 to 1 (from stop to run)
             startup_events = (status.diff() > 0).sum()
-            # 关闭事件：状态从1变为0 (从运行到停止)
+            # close event：Status changes from 1 to 0 (from running to stopping)
             shutdown_events = (status.diff() < 0).sum()
             
             total_startup_events += startup_events
             total_shutdown_events += shutdown_events
             
-            # 按省份统计启停次数
-            # 从smelter名称中提取省份信息
+            # Statistics of start and stop times by province
+            # Extract province information from smelter name
             province = None
             for prov in ["Anhui", "Shandong", "Henan", "Xinjiang", "InnerMongolia", "Gansu", "Qinghai", "Ningxia", "Yunnan", "Guizhou", "Sichuan", "Chongqing", "Hubei", "Hunan", "Jiangxi", "Fujian", "Guangdong", "Guangxi", "Hainan", "Tibet"]:
                 if prov in smelter:
@@ -1119,7 +1119,7 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
                     break
             
             if province is None:
-                # 如果无法从名称中识别省份，尝试从bus名称中识别
+                # If the province cannot be identified from its name，Try to identify from bus name
                 for prov in ["Anhui", "Shandong", "Henan", "Xinjiang", "InnerMongolia", "Gansu", "Qinghai", "Ningxia", "Yunnan", "Guizhou", "Sichuan", "Chongqing", "Hubei", "Hunan", "Jiangxi", "Fujian", "Guangdong", "Guangxi", "Hainan", "Tibet"]:
                     if prov in smelter_bus:
                         province = prov
@@ -1128,7 +1128,7 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
             if province is None:
                 province = "Unknown"
             
-            # 累加该省份的启停次数
+            # Accumulate the number of starts and stops in this province
             if province not in province_startup_events:
                 province_startup_events[province] = 0
                 province_shutdown_events[province] = 0
@@ -1136,16 +1136,16 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
             province_startup_events[province] += startup_events
             province_shutdown_events[province] += shutdown_events
     
-    # 打印各省份的启停次数统计
-    logger.debug(f"=== 电解铝启停次数统计 ({label}) ===")
-    logger.debug(f"总启动次数: {total_startup_events}")
-    logger.debug(f"总关闭次数: {total_shutdown_events}")
-    logger.debug("各省份启停次数详情:")
+    # Print the statistics of start and stop times in each province
+    logger.debug(f"=== Statistics on start and stop times of electrolytic aluminum ({label}) ===")
+    logger.debug(f"Total number of starts: {total_startup_events}")
+    logger.debug(f"total number of closures: {total_shutdown_events}")
+    logger.debug("Details of the number of starts and stops in each province:")
     
     for province in sorted(province_startup_events.keys()):
         startup_count = province_startup_events[province]
         shutdown_count = province_shutdown_events[province]
-        logger.debug(f"  {province}: 启动 {startup_count} 次, 关闭 {shutdown_count} 次")
+        logger.debug(f"  {province}: start up {startup_count} Second-rate, closure {shutdown_count} Second-rate")
     
     # Calculate aluminum capacity (from links)
     aluminum_capacity = n.links.loc[aluminum_smelters, "p_nom_opt"].sum()
@@ -1192,7 +1192,7 @@ def calculate_aluminum_statistics(n, label, aluminum_statistics):
 
 def calculate_emissions(n, label, emissions):
     """
-    计算煤炭和天然气的月度CO2排放量
+    Calculate monthly CO2 emissions from coal and natural gas
     
     Parameters:
     -----------
@@ -1209,15 +1209,15 @@ def calculate_emissions(n, label, emissions):
         Updated emissions DataFrame with coal and gas emissions by month
     """
     
-    # 定义排放指标
+    # Define emission metrics
     emissions_list = [
-        "total_coal_emissions",  # 煤炭总排放量
-        "total_gas_emissions",   # 天然气总排放量
-        # 月度煤炭排放量
+        "total_coal_emissions",  # total coal emissions
+        "total_gas_emissions",   # Total natural gas emissions
+        # Monthly coal emissions
         "coal_emissions_jan", "coal_emissions_feb", "coal_emissions_mar", "coal_emissions_apr",
         "coal_emissions_may", "coal_emissions_jun", "coal_emissions_jul", "coal_emissions_aug",
         "coal_emissions_sep", "coal_emissions_oct", "coal_emissions_nov", "coal_emissions_dec",
-        # 月度天然气排放量
+        # Monthly natural gas emissions
         "gas_emissions_jan", "gas_emissions_feb", "gas_emissions_mar", "gas_emissions_apr",
         "gas_emissions_may", "gas_emissions_jun", "gas_emissions_jul", "gas_emissions_aug",
         "gas_emissions_sep", "gas_emissions_oct", "gas_emissions_nov", "gas_emissions_dec",
@@ -1227,14 +1227,14 @@ def calculate_emissions(n, label, emissions):
         emissions.index.union(pd.Index(emissions_list))
     )
     
-    # 初始化月度排放量字典
+    # Initialize monthly emissions dictionary
     monthly_coal_emissions = {}
     monthly_gas_emissions = {}
     
-    # 获取排放因子
+    # Get emission factors
     carrier_emissions = n.carriers.co2_emissions if hasattr(n.carriers, 'co2_emissions') else pd.Series(dtype=float)
     
-    # 处理发电机
+    # Handle the generator
     if hasattr(n, 'generators_t') and hasattr(n.generators_t, 'p'):
         gen_dispatch = n.generators_t.p
         
@@ -1243,14 +1243,14 @@ def calculate_emissions(n, label, emissions):
                 carrier = n.generators.at[generator, 'carrier']
                 emission_factor = carrier_emissions.get(carrier, 0.0)
                 
-                # 只处理煤炭和天然气相关技术
+                # Only deals with coal and natural gas related technologies
                 if 'coal' in carrier.lower() or 'gas' in carrier.lower():
-                    # 计算月度能源生产
+                    # Calculate monthly energy production
                     monthly_data = gen_dispatch[generator].multiply(n.snapshot_weightings.generators, axis=0)
                     monthly_energy = monthly_data.resample('M').sum()
                     monthly_gen_emissions = monthly_energy * emission_factor
                     
-                    # 根据载波类型分配到煤炭或天然气
+                    # Assigned to coal or natural gas based on carrier type
                     if 'coal' in carrier.lower():
                         for month_idx, month_emissions in monthly_gen_emissions.items():
                             month_key = f"coal_emissions_{month_idx.strftime('%b').lower()}"
@@ -1260,7 +1260,7 @@ def calculate_emissions(n, label, emissions):
                             month_key = f"gas_emissions_{month_idx.strftime('%b').lower()}"
                             monthly_gas_emissions[month_key] = monthly_gas_emissions.get(month_key, 0.0) + month_emissions
     
-    # 处理链接（CHP、转换器等）
+    # Handle links（CHP、converter etc.）
     if hasattr(n, 'links_t') and hasattr(n.links_t, 'p0'):
         link_power = n.links_t.p0
         
@@ -1269,14 +1269,14 @@ def calculate_emissions(n, label, emissions):
                 carrier = n.links.at[link, 'carrier']
                 emission_factor = carrier_emissions.get(carrier, 0.0)
                 
-                # 只处理煤炭和天然气相关技术
+                # Only deals with coal and natural gas related technologies
                 if 'coal' in carrier.lower() or 'gas' in carrier.lower():
-                    # 计算月度能源消耗
+                    # Calculate monthly energy consumption
                     monthly_data = link_power[link].abs().multiply(n.snapshot_weightings.generators, axis=0)
                     monthly_energy = monthly_data.resample('M').sum()
                     monthly_link_emissions = monthly_energy * emission_factor
                     
-                    # 根据载波类型分配到煤炭或天然气
+                    # Assigned to coal or natural gas based on carrier type
                     if 'coal' in carrier.lower():
                         for month_idx, month_emissions in monthly_link_emissions.items():
                             month_key = f"coal_emissions_{month_idx.strftime('%b').lower()}"
@@ -1286,25 +1286,25 @@ def calculate_emissions(n, label, emissions):
                             month_key = f"gas_emissions_{month_idx.strftime('%b').lower()}"
                             monthly_gas_emissions[month_key] = monthly_gas_emissions.get(month_key, 0.0) + month_emissions
     
-    # 计算总排放量
+    # Calculate total emissions
     total_coal_emissions = sum(monthly_coal_emissions.values())
     total_gas_emissions = sum(monthly_gas_emissions.values())
     
-    # 存储总排放量
+    # Total storage emissions
     emissions.at["total_coal_emissions", label] = total_coal_emissions
     emissions.at["total_gas_emissions", label] = total_gas_emissions
     
-    # 存储月度煤炭排放量
+    # Store monthly coal emissions
     for month_key, month_value in monthly_coal_emissions.items():
         if month_key in emissions.index:
             emissions.at[month_key, label] = month_value
     
-    # 存储月度天然气排放量
+    # Storage monthly natural gas emissions
     for month_key, month_value in monthly_gas_emissions.items():
         if month_key in emissions.index:
             emissions.at[month_key, label] = month_value
     
-    # 记录摘要信息
+    # Record summary information
     logger.debug(f"Emissions calculation for {label}:")
     logger.debug(f"  Total coal emissions: {total_coal_emissions/1e6:.2f} million tonnes CO2")
     logger.debug(f"  Total gas emissions: {total_gas_emissions/1e6:.2f} million tonnes CO2")

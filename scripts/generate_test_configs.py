@@ -302,9 +302,9 @@ def main() -> None:
         )
         if result.returncode == 0:
             print("✓ Successfully generated SLURM job files")
-            if "共生成" in result.stdout:
+            if "co-generated" in result.stdout:
                 for line in result.stdout.split("\n"):
-                    if "共生成" in line and "个SLURM作业文件" in line:
+                    if "co-generated" in line and "a SLURM job file" in line:
                         print(line.strip())
                         break
         else:
