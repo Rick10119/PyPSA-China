@@ -360,7 +360,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 设置绘图样式
+    # Set drawing style
     set_plot_style()
     
     # Load config files

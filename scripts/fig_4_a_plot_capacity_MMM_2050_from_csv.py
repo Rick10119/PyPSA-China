@@ -92,8 +92,8 @@ def plot_mmm_2050_from_csv(csv_path, output_dir=None):
     bars1 = ax.bar(x_power, power_savings, bar_width*0.8, color='#1f77b4', alpha=0.8, 
                    label='Power system cost savings')
     
-    # 电解铝成本：从 power_savings 位置“向下”扣减（画负方向），
-    # 这样堆叠后的终点会对齐净节省 net_savings（黑线数值正确时）。
+    # electrolytic aluminum cost：from power_savings Location“down”deduction（draw negative direction），
+    # This way the end points after stacking will align with the net savings net_savings（When the black line value is correct）。
     breakdown_cols = [
         # warm monochrome palette (colorbrewer-like), distinct from power-system blue
         ('Aluminum_Maintenance_Billion_CNY', '#b35806', 'Aluminum smelter: maintenance cost increase'),

@@ -107,7 +107,7 @@ def create_cost_comparison_plot(df, output_dir):
                 continue
             
             # Prepare stacked bar data in L/M/H order
-            demand_names = [d for d in demand_levels if d in demand_data]  # 保持L, M, H的顺序
+            demand_names = [d for d in demand_levels if d in demand_data]  # Keep L, M, Horder
             x_pos = np.arange(len(demand_names))
             width = 0.6
 

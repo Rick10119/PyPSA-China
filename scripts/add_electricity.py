@@ -140,7 +140,7 @@ def load_costs(tech_costs, config, elec_config,cost_year, Nyears):
         costs_for_storage(costs.loc["hydrogen storage tank type 1"], costs.loc["fuel cell"],
                           costs.loc["electrolysis"], max_hours=max_hours['H2'])
 
-    # 根据市场情景调整成本
+    # Adjust costs according to market scenarios
     costs = apply_market_scenario_costs(costs, config)
 
     for attr in ('marginal_cost', 'capital_cost'):

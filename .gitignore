@@ -10,9 +10,7 @@ __pycache__
 /logs
 /benchmarks
 ./vscode
-PyPSA-China.code-workspace
 /gurobi.log
-/results
 /.vscode
 /.cursor
 /grbnodes0

@@ -107,7 +107,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     for i, year in enumerate(years, 1):
         if year in demand_by_year:
             demand = demand_by_year[year]
-            # 使用与箱子相同的颜色
+            # Use the same color as the box
             ax1.axhline(y=demand, xmin=(i-1)/len(years), xmax=i/len(years), 
                        color=year_colors[year], linestyle='--', linewidth=3, alpha=0.8)
     
@@ -129,7 +129,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     demand_years = [year for year in years if year in demand_by_year]
     if len(demand_years) > 1:
         demand_values = [demand_by_year[year] for year in demand_years]
-        # 将年份转换为x轴位置（1, 2, 3...）
+        # Convert year to x-axis position（1, 2, 3...）
         demand_x_positions = [years.index(year) + 1 for year in demand_years]
         ax1.plot(demand_x_positions, demand_values, 'k--', linewidth=2, alpha=0.6, 
                 label='Demand trend')
@@ -138,7 +138,7 @@ def plot_combined_boxplot(df, output_dir='results/optimal_points_analysis'):
     if len(year_capacity_means) > 1:
         capacity_years = sorted(year_capacity_means.keys())
         capacity_values = [year_capacity_means[year] for year in capacity_years]
-        # 将年份转换为x轴位置（1, 2, 3...）
+        # Convert year to x-axis position（1, 2, 3...）
         capacity_x_positions = [years.index(year) + 1 for year in capacity_years]
         ax1.plot(capacity_x_positions, capacity_values, 'b--', linewidth=2, alpha=0.6, 
                 label='Average capacity trend')
